@@ -7,7 +7,7 @@ using static ServerUltilities.Identity.OidcConstants;
 
 namespace IssuerOfClaims.Controllers.Ultility
 {
-    public class RegisterParameters
+    public class RegisterParameters: RequestParamters
     {
         #region requested parameters
         /// <summary>
@@ -47,7 +47,7 @@ namespace IssuerOfClaims.Controllers.Ultility
         public Parameter Gender { get; private set; } = new Parameter(RegisterRequest.Gender);
         #endregion
 
-        public RegisterParameters(string[] requestQuery, IHeaderDictionary headers)
+        public RegisterParameters(string? queryString, IHeaderDictionary headers) : base(queryString)
         {
             this.Nonce.SetValue(requestQuery.GetFromQueryString(AuthorizeRequest.Nonce));
             this.State.SetValue(requestQuery.GetFromQueryString(AuthorizeRequest.State));

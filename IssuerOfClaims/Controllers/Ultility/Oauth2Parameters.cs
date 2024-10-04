@@ -9,7 +9,7 @@ namespace IssuerOfClaims.Controllers.Ultility
     /// <summary>
     /// Implement specs from https://openid.net/specs/openid-connect-core-1_0.html
     /// </summary>
-    public class Oauth2Parameters
+    public class Oauth2Parameters: RequestParamters
     {
         #region requested parameters
         /// <summary>
@@ -81,10 +81,8 @@ namespace IssuerOfClaims.Controllers.Ultility
         // TODO: will add arc_value parameters
         #endregion
 
-        public Oauth2Parameters(string? queryString)
+        public Oauth2Parameters(string? queryString): base (queryString)
         {
-            var requestQuery = QueryStringToArray(queryString);
-
             this.Scope.SetValue(System.Uri.UnescapeDataString(requestQuery.GetFromQueryString(AuthorizeRequest.Scope)));
             this.Nonce.SetValue(requestQuery.GetFromQueryString(AuthorizeRequest.Nonce));
             this.Prompt.SetValue(requestQuery.GetFromQueryString(AuthorizeRequest.Prompt));
@@ -137,6 +135,29 @@ namespace IssuerOfClaims.Controllers.Ultility
 
 
             return responseMode;
+        }
+
+        private void ValidateRequestQuery(string? requestQuery)
+        {
+            if (string.IsNullOrEmpty(requestQuery))
+                throw new InvalidDataException(ExceptionMessage.QUERYSTRING_NOT_NULL_OR_EMPTY);
+        }
+
+        private string[] QueryStringToArray(string? queryString)
+        {
+            ValidateRequestQuery(queryString);
+
+            return queryString.Remove(0, 1).Split("&");
+        }
+    }
+
+    public abstract class RequestParamters
+    {
+        protected readonly string[] requestQuery;
+
+        public RequestParamters(string? queryString)
+        {
+            requestQuery = QueryStringToArray(queryString);
         }
 
         private void ValidateRequestQuery(string? requestQuery)

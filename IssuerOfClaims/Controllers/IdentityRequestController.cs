@@ -1,10 +1,9 @@
 ﻿using IssuerOfClaims.Controllers.Ultility;
 using ServerUltilities.Extensions;
-using MailKit.Net.Smtp;
+using MimeKit;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
-using MimeKit;
 using Newtonsoft.Json;
 using ServerDbModels;
 using ServerUltilities;
@@ -39,27 +38,26 @@ namespace IssuerOfClaims.Controllers
 
         private readonly IApplicationUserManager _applicationUserManager;
         private readonly IConfigurationManager _configuration;
-        private readonly IConfirmEmailDbServices _emailDbServices;
-        private readonly MailSettings _mailSettings;
         private readonly ITokenManager _tokenManager;
         private readonly IClientDbServices _clientDbServices;
+        private readonly IEmailServices _emailServices;
 
         public IdentityRequestController(ILogger<IdentityRequestController> logger, IConfigurationManager configuration
             , IApplicationUserManager userManager
-            , ITokenManager tokenManager
-            , IConfirmEmailDbServices emailDbServices, MailSettings mailSettings, IClientDbServices clientDbServices)
+            , ITokenManager tokenManager, IEmailServices emailServices
+            , IClientDbServices clientDbServices)
         {
             _logger = logger;
             _configuration = configuration;
 
             _applicationUserManager = userManager;
-            _emailDbServices = emailDbServices;
-            _mailSettings = mailSettings;
             _clientDbServices = clientDbServices;
+            _emailServices = emailServices;
 
             _tokenManager = tokenManager;
         }
 
+        #region catch authorize request
         /// <summary>
         /// authorization_endpoint
         /// https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest
@@ -81,13 +79,9 @@ namespace IssuerOfClaims.Controllers
                 Oauth2Parameters parameters = new Oauth2Parameters(HttpContext.Request.QueryString.Value);
 
                 var client = _clientDbServices.GetByClientId(parameters.ClientId.Value);
-                if (client == null
-                    || client.Id == 0)
-                    return StatusCode(400, "client id is wrong!");
-
-                string[] redirectUris = client.RedirectUris.Split(",");
-                if (!redirectUris.Contains(parameters.RedirectUri.Value))
-                    return StatusCode(400, "redirectUri is mismatch!");
+                
+                ACF_VerifyClient(client);
+                ACF_VerifyRedirectUris(parameters, client);
 
                 if (parameters.Scope.Value.Contains(IdentityServerConstants.StandardScopes.OpenId))
                     switch (parameters.ResponseType.Value)
@@ -116,6 +110,19 @@ namespace IssuerOfClaims.Controllers
             return StatusCode(500, "Not yet know why...");
         }
 
+        private void ACF_VerifyClient(Client client)
+        {
+            if (client == null || client.Id == 0)
+                throw new InvalidOperationException("client id is wrong!");
+        }
+
+        private void ACF_VerifyRedirectUris(Oauth2Parameters parameters, Client client)
+        {
+            string[] redirectUris = client.RedirectUris.Split(",");
+            if (!redirectUris.Contains(parameters.RedirectUri.Value))
+                throw new InvalidOperationException("redirectUri is mismatch!");
+        }
+        #endregion
 
         #region Issue authorization code
         /// <summary>
@@ -251,7 +258,7 @@ namespace IssuerOfClaims.Controllers
         {
             try
             {
-                RegisterParameters parameters = new RegisterParameters(RequestQueryToStringArray(), HttpContext.Request.Headers);
+                RegisterParameters parameters = new RegisterParameters(HttpContext.Request.QueryString.Value, HttpContext.Request.Headers);
 
                 ValidateRedirectUri(parameters);
 
@@ -283,14 +290,6 @@ namespace IssuerOfClaims.Controllers
                 throw new InvalidDataException("redirectUri is mismatch!");
         }
 
-        private string[] RequestQueryToStringArray()
-        {
-            if (string.IsNullOrEmpty(HttpContext.Request.QueryString.Value))
-                throw new InvalidDataException(ExceptionMessage.QUERYSTRING_NOT_NULL_OR_EMPTY);
-
-            return HttpContext.Request.QueryString.Value.Remove(0, 1).Split("&");
-        }
-
         public async Task<ActionResult> RegisterUserAsync(RegisterParameters parameters)
         {
             // TODO: will add role later
@@ -314,8 +313,9 @@ namespace IssuerOfClaims.Controllers
 
             if (result.Succeeded)
             {
-                var user = _applicationUserManager.Current.Users.ToList()
-                    .Find(u => u.UserName == parameters.UserName.Value);
+                var user = _applicationUserManager.Current.Users
+                    .First(u => u.UserName == parameters.UserName.Value);
+
                 // TODO: https://openid.net/specs/openid-connect-prompt-create-1_0.html#name-authorization-request
                 var client = _clientDbServices.GetByClientId(parameters.ClientId.Value);
 
@@ -329,7 +329,7 @@ namespace IssuerOfClaims.Controllers
                 result = _applicationUserManager.Current.UpdateAsync(user).Result;
 
                 if (parameters.Email.HasValue)
-                    await SendVerifyingEmailAsync(newUser, "ConfirmEmail", client);
+                    await _emailServices.SendVerifyingEmailAsync(newUser, "ConfirmEmail", client, Request.Scheme, Request.Host.ToString());
 
                 object responseBody = CreateRegisterUserResponseBody(id_token, parameters.State.Value, parameters.State.HasValue);
 
@@ -764,13 +764,14 @@ namespace IssuerOfClaims.Controllers
             return StatusCode(200);
         }
 
+        #region confirm email after creating user
         /// <summary>
         /// TODO: will verify this function later
         /// </summary>
         /// <returns></returns>
         [HttpGet("ConfirmEmail")]
         [AllowAnonymous]
-        public async Task<ActionResult> ConfirmEmailAsync()
+        public ActionResult CreatingUserConfirm()
         {
             try
             {
@@ -783,9 +784,8 @@ namespace IssuerOfClaims.Controllers
 
                 // TODO:
                 var user = _applicationUserManager.Current.Users.Include(u => u.ConfirmEmails).FirstOrDefault(u => u.Id == userId);
-                var createUserConfirmEmail = user.ConfirmEmails.FirstOrDefault(e => e.Purpose == (int)ConfirmEmailPurpose.CreateIdentity);
+                var createUserConfirmEmail = user.ConfirmEmails.First(e => e.Purpose == (int)ConfirmEmailPurpose.CreateIdentity);
 
-                //var user = _userDbServices.GetUserIncludeConfirmEmail(userId);
                 if (!createUserConfirmEmail.ConfirmCode.Equals(code))
                     return StatusCode(404, "Confirm code is not match!");
                 if (!(createUserConfirmEmail.ExpiryTime > DateTime.Now))
@@ -806,6 +806,7 @@ namespace IssuerOfClaims.Controllers
             }
             return StatusCode(200, "Email is confirmed!");
         }
+        #endregion
 
         #region Google authentication
         //[HttpPost("v{version:apiVersion}/authorize/google")]
@@ -1020,16 +1021,9 @@ namespace IssuerOfClaims.Controllers
         #region forget password
         [HttpPost("user/forgotPassword")]
         [AllowAnonymous]
-        public async Task<ActionResult> ForgotPasswordPost()
+        public async Task<ActionResult> ChangePasswordAfterEmailConfirm()
         {
-
-            Dictionary<string, string> requestBody = new Dictionary<string, string>();
-
-            using (StreamReader reader = new StreamReader(HttpContext.Request.Body))
-            {
-                var temp = await reader.ReadToEndAsync();
-                requestBody = JsonConvert.DeserializeObject<Dictionary<string, string>>(temp);
-            }
+            Dictionary<string, string> requestBody = await TokenResponse_GetRequestBodyAsync();
 
             // TODO: get from query string, code, new password, 
             var queryString = HttpContext.Request.QueryString.Value;
@@ -1037,31 +1031,27 @@ namespace IssuerOfClaims.Controllers
                 return StatusCode(400, "query is missing!");
             var queryBody = queryString.Remove(0, 1).Split("&");
 
-            //queryBody.GetFromQueryString("code", out string code);
             var code = requestBody["code"];
             if (string.IsNullOrEmpty(code))
                 return StatusCode(400, "forgot password verifying code is missing!");
-            //queryBody.GetFromQueryString("password", out string password);
-            var password = requestBody["password"];
-            if (string.IsNullOrEmpty(password))
+
+            var newPassword = requestBody["password"];
+            if (string.IsNullOrEmpty(newPassword))
                 return StatusCode(400, "new password is missing!");
             string clientId = queryBody.GetFromQueryString(JwtClaimTypes.ClientId);
             if (string.IsNullOrEmpty(clientId))
                 return StatusCode(400, "client id is missing!");
 
-            var emailForChangingPassword = _emailDbServices.GetByCode(code);
-            if (!emailForChangingPassword.Purpose.Equals((int)ConfirmEmailPurpose.ChangePassword))
-                return StatusCode(500, "something inside this process is wrong!");
-            if (!emailForChangingPassword.ExpiryTime.HasValue || emailForChangingPassword.ExpiryTime < DateTime.Now)
-                return StatusCode(500, "error with email's expired time!");
+            var emailForChangingPassword = _emailServices.GetChangePasswordEmailByCode(code);
 
             var user = emailForChangingPassword.User;
             try
             {
                 _applicationUserManager.Current.RemovePasswordAsync(user);
-                _applicationUserManager.Current.AddPasswordAsync(user, password);
+                _applicationUserManager.Current.AddPasswordAsync(user, newPassword);
                 emailForChangingPassword.IsConfirmed = true;
-                _emailDbServices.Update(emailForChangingPassword);
+
+                _emailServices.UpdateConfirmEmail(emailForChangingPassword);
             }
             catch (Exception ex)
             {
@@ -1095,7 +1085,7 @@ namespace IssuerOfClaims.Controllers
 
                 // TODO: get user by email, by logic, username + email is unique for an user that is stored in db, but fow now, email may be duplicated for test
                 var user = _applicationUserManager.Current.Users.FirstOrDefault(u => u.Email.Equals(email));
-                await SendForgotPasswordCodeToEmail(user, client);
+                await _emailServices.SendForgotPasswordCodeToEmailAsync(user, client);
             }
             catch (Exception ex)
             {
@@ -1103,102 +1093,8 @@ namespace IssuerOfClaims.Controllers
             }
             return Ok();
         }
-
-        private async Task<ActionResult> SendForgotPasswordCodeToEmail(UserIdentity user, Client client)
-        {
-            var code = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(8);
-            //var sr = _userManager.get
-            code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-
-            int expiredTimeInMinutes = 1;
-            await CreateConfirmEmailAsync(user, code, client, ConfirmEmailPurpose.ChangePassword, expiredTimeInMinutes);
-
-            string emailBody = $"Your password reset's security code is <span style=\"font-weight:bold; font-size:25px\">{code}</span>.";
-            SendEmail(user, emailBody);
-
-            return Ok();
-        }
         #endregion
 
-        private async Task SendVerifyingEmailAsync(UserIdentity user, string callbackEndpoint, Client client)
-        {
-            var code = await _applicationUserManager.Current.GenerateEmailConfirmationTokenAsync(user);
-            //var sr = _userManager.get
-            code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-
-            int expiredTimeInMinutes = 60;
-            await CreateConfirmEmailAsync(user, code, client, ConfirmEmailPurpose.CreateIdentity, expiredTimeInMinutes);
-
-            string callbackUrl = string.Format("{0}?area=Identity&userId={1}&code={2}",
-                   $"{Request.Scheme}://{Request.Host}/oauth2/{callbackEndpoint}",
-                   user.Id,
-                   code);
-            string emailBody = $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.";
-            SendEmail(user, emailBody);
-        }
-
-        private bool SendEmail(UserIdentity user, string emailBody)
-        {
-            bool result = true;
-            try
-            {
-                var email = new MimeMessage();
-                email.From.Add(new MailboxAddress(_mailSettings.Name, _mailSettings.EmailId));
-                // TODO: test email for now
-                email.To.Add(new MailboxAddress(user.UserName, user.Email));
-
-                email.Subject = "Testing out email sending";
-                // $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
-                email.Body = new TextPart(MimeKit.Text.TextFormat.Html)
-                {
-                    //Text = $"<b>Hello all the way from the land of C# {callbackUrl}</b>"
-                    Text = emailBody
-                };
-
-                using (var smtp = new SmtpClient())
-                {
-                    smtp.Connect(_mailSettings.Host, 587, false);
-
-                    // Note: only needed if the SMTP server requires authentication
-                    smtp.Authenticate(_mailSettings.EmailId, _mailSettings.Password);
-
-                    smtp.Send(email);
-                    smtp.Disconnect(true);
-                }
-            }
-            catch (Exception)
-            {
-                result = false;
-            }
-
-            return result;
-        }
-
-        private async Task CreateConfirmEmailAsync(UserIdentity user, string code, Client client, ConfirmEmailPurpose purpose, int expiredTimeInMinutes)
-        {
-            try
-            {
-                var nw = _emailDbServices.GetDraft();
-                nw.ConfirmCode = code;
-                nw.Purpose = (int)purpose;
-                nw.IsConfirmed = false;
-                nw.ExpiryTime = DateTime.Now.AddMinutes(expiredTimeInMinutes);
-                nw.CreatedTime = DateTime.Now;
-
-                if (_emailDbServices.Create(nw))
-                {
-                    nw.User = user;
-                    nw.Client = client;
-
-                    _emailDbServices.Update(nw);
-                }
-
-            }
-            catch (Exception)
-            {
-                throw;
-            }
-        }
 
         /// <summary>
         /// TODO: try to implement from https://datatracker.ietf.org/doc/html/rfc9068

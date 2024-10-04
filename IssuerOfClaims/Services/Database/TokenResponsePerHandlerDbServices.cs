@@ -72,10 +72,10 @@ namespace IssuerOfClaims.Services.Database
                     .Include(t => t.TokenResponse)
                     .Include(t => t.TokenRequestHandler).ThenInclude(h => h.TokenRequestSession)
                     .Where(filter)
-                    .Last(t => t.TokenRequestHandler.UserId == userId && t.TokenRequestHandler.TokenRequestSession.ClientId == clientId);
+                    .LastOrDefault(t => t.TokenRequestHandler.UserId == userId && t.TokenRequestHandler.TokenRequestSession.ClientId == clientId);
             }
 
-            ValidateEntity(obj, $"{this.GetType().Name}: Something is wrong!");
+            //ValidateEntity(obj, $"{this.GetType().Name}: Something is wrong!");
 
             return obj;
         }

@@ -2,11 +2,9 @@ IssuerOfClaims/obj/
 IssuerOfClaims/bin/
 IssuerOfClaims/.vs/
 IssuerOfClaims/Migrations/
-PrMModelsDbServer/obj/
-PrMModelsServer/bin/
-PrMModelsServer/obj/
-PrMModelsDbServer/bin/
 IssuerOfClaims/client_secret_558160357396-q5qp0ppf4r5svc0g0smshfs8cdcffkm3.apps.googleusercontent.com.json
-PrMServerUltilities/obj/
-PrMServerUltilities/bin/
 .rar
+ModelsDbServer/obj/
+ServerUltilities/bin/
+ServerUltilities/obj/
+ModelsDbServer/bin/

@@ -45,12 +45,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\PrMModelsDbServer\ModelsDbServer.csproj" />
-    <ProjectReference Include="..\PrMServerUltilities\ServerUltilities.csproj" />
+    <Folder Include="Migrations\" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Migrations\" />
+    <ProjectReference Include="..\ModelsDbServer\ModelsDbServer.csproj" />
+    <ProjectReference Include="..\ServerUltilities\ServerUltilities.csproj" />
   </ItemGroup>
 
 </Project>

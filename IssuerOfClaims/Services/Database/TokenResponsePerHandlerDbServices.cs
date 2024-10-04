@@ -55,7 +55,7 @@ namespace IssuerOfClaims.Services.Database
             return obj;
         }
 
-        public TokenResponsePerIdentityRequest FindLast(int userId, int clientId, bool needAccessToken = true)
+        public TokenResponsePerIdentityRequest FindLast(int userId, int clientId, bool needAccessToken = true, bool issuedByLocal = true)
         {
             var filter = needAccessToken switch
             {
@@ -75,6 +75,7 @@ namespace IssuerOfClaims.Services.Database
                     .LastOrDefault(t => t.TokenRequestHandler.UserId == userId && t.TokenRequestHandler.TokenRequestSession.ClientId == clientId);
             }
 
+            // TODO:
             //ValidateEntity(obj, $"{this.GetType().Name}: Something is wrong!");
 
             return obj;
@@ -86,6 +87,6 @@ namespace IssuerOfClaims.Services.Database
         TokenResponsePerIdentityRequest GetDraftObject();
         TokenResponsePerIdentityRequest FindByAccessToken(string accessToken);
         TokenResponsePerIdentityRequest CreatNew();
-        TokenResponsePerIdentityRequest FindLast(int userId, int clientId, bool needAccessToken = true);
+        TokenResponsePerIdentityRequest FindLast(int userId, int clientId, bool needAccessToken = true, bool issuedByLocal = true);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using IssuerOfClaims.Extensions;
+using static ServerUltilities.Identity.Constants;
 using static ServerUltilities.Identity.OidcConstants;
 
 namespace IssuerOfClaims.Controllers.Ultility
@@ -77,7 +78,7 @@ namespace IssuerOfClaims.Controllers.Ultility
             { RegisterRequest.Email, ParameterPriority.OPTIONAL },
             { RegisterRequest.Gender, ParameterPriority.OPTIONAL },
             { RegisterRequest.Phone, ParameterPriority.OPTIONAL},
-            {RegisterRequest.Roles, ParameterPriority.OPTIONAL }
+            { RegisterRequest.Roles, ParameterPriority.OPTIONAL }
         };
     }
     public enum ParameterPriority

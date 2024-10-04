@@ -26,20 +26,6 @@
             public const string DPoPKeyThumbprint = "dpop_jkt";
         }
 
-        public static class RegisterRequest
-        {
-            public const string UserName = "UserName";
-            public const string Password = "Password";
-
-            public static string Email = "email";
-            public static string FirstName = "first_name";
-            public static string LastName = "last_name";
-            public static string Roles = "roles";
-
-            public static string Gender = "gender";
-            public static string Phone = "phone";
-        }
-
         public static class AuthorizeErrors
         {
             // OAuth2 errors

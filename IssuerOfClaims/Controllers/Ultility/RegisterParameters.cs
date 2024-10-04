@@ -1,8 +1,8 @@
 ﻿using IssuerOfClaims.Extensions;
-using Microsoft.AspNetCore.Http;
 using ServerUltilities.Extensions;
 using ServerUltilities.Identity;
 using System.Web;
+using static ServerUltilities.Identity.Constants;
 using static ServerUltilities.Identity.OidcConstants;
 
 namespace IssuerOfClaims.Controllers.Ultility

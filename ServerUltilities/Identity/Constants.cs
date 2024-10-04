@@ -348,5 +348,18 @@
             public const string P384 = "1.3.132.0.34";
             public const string P521 = "1.3.132.0.35";
         }
+        public static class RegisterRequest
+        {
+            public const string UserName = "UserName";
+            public const string Password = "Password";
+
+            public static string Email = "email";
+            public static string FirstName = "first_name";
+            public static string LastName = "last_name";
+            public static string Roles = "roles";
+
+            public static string Gender = "gender";
+            public static string Phone = "phone";
+        }
     }
 }

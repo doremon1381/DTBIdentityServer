@@ -909,21 +909,7 @@ namespace IssuerOfClaims.Controllers
             }
             catch (WebException ex)
             {
-                //if (ex.Status == WebExceptionStatus.ProtocolError)
-                //{
-                //    var response = ex.Response as HttpWebResponse;
-                //    if (response != null)
-                //    {
-                //        //output("HTTP: " + response.StatusCode);
-                //        using (StreamReader reader = new StreamReader(response.GetResponseStream()))
-                //        {
-                //            // reads response body
-                //            string responseText = await reader.ReadToEndAsync();
-                //            //output(responseText);
-                //        }
-                //    }
-
-                //}
+                throw;
             }
 
             return Ok(user_info);

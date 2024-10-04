@@ -7,7 +7,7 @@ using static ServerUltilities.Identity.OidcConstants;
 
 namespace IssuerOfClaims.Controllers.Ultility
 {
-    public class RegisterParameters: RequestParamters
+    public class RegisterParameters: AbtractRequestParamters
     {
         #region requested parameters
         /// <summary>

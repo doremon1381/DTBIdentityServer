@@ -57,19 +57,19 @@ namespace IssuerOfClaims.Database
 
         // Using Type: 5.0.16.0  EntityFrameworkCore.DbContext (confirm if working with any core library upgrades)
 
-        public bool IsDisposed()
-        {
-            bool result = true;
-            var typeDbContext = typeof(DbContext);
-            var isDisposedTypeField = typeDbContext.GetField("_disposed", BindingFlags.NonPublic | BindingFlags.Instance);
+        //public bool IsDisposed()
+        //{
+        //    bool result = true;
+        //    var typeDbContext = typeof(DbContext);
+        //    var isDisposedTypeField = typeDbContext.GetField("_disposed", BindingFlags.NonPublic | BindingFlags.Instance);
 
-            if (isDisposedTypeField != null)
-            {
-                result = (bool)isDisposedTypeField.GetValue(this);
-            }
+        //    if (isDisposedTypeField != null)
+        //    {
+        //        result = (bool)isDisposedTypeField.GetValue(this);
+        //    }
 
-            return result;
-        }
+        //    return result;
+        //}
 
 #if (DEBUG || RELEASE)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -118,7 +118,7 @@ namespace IssuerOfClaims.Database
     public interface IDbContextManager
     {
         void DbSaveChanges();
-        bool IsDisposed();
+        //bool IsDisposed();
         DbSet<TEntity> GetDbSet<TEntity>() where TEntity : class;
     }
 

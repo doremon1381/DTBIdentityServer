@@ -79,7 +79,7 @@ namespace IssuerOfClaims.Controllers
                 Oauth2Parameters parameters = new Oauth2Parameters(HttpContext.Request.QueryString.Value);
 
                 var client = _clientDbServices.GetByClientId(parameters.ClientId.Value);
-                
+
                 ACF_VerifyClient(client);
                 ACF_VerifyRedirectUris(parameters, client);
 
@@ -151,10 +151,11 @@ namespace IssuerOfClaims.Controllers
             ACF_I_UpdateRequestSessionDetails(parameters, acfProcessSession, client, out string authorizationCode);
             ACF_I_CreateTokenRequestHandler(user, acfProcessSession);
 
-            // TODO: using this function because has an error with tracking object, for now i dont know why 
+            #region TODO: using these statements because has an error with tracking object, for now i dont know why 
             var requestSession = _tokenManager.FindRequestSessionById(acfProcessSession.Id);
             requestSession.Client = client;
             _tokenManager.UpdateTokenRequestSession(requestSession);
+            #endregion
 
             // Create a custom response object
             object responseBody = new
@@ -163,7 +164,8 @@ namespace IssuerOfClaims.Controllers
                 code = authorizationCode
             };
 
-            ACF_I_AddResponseStatus(200);
+            // TODO: comment for now
+            //ACF_I_AddResponseStatus(200);
 
             return StatusCode(200, System.Text.Json.JsonSerializer.Serialize(responseBody));
         }
@@ -226,9 +228,9 @@ namespace IssuerOfClaims.Controllers
         private void ACF_I_UpdateRequestSessionDetails(Oauth2Parameters parameters, TokenRequestSession ACFProcessSession, Client client, out string authorizationCode)
         {
             ACF_I_ImportPKCERequestedParams(parameters.CodeChallenge.Value, parameters.CodeChallengeMethod.Value, parameters.CodeChallenge.HasValue, ACFProcessSession);
-            ACF_I_ImportRequestSessionData(parameters.Scope.Value, parameters.Nonce.Value, client, ACFProcessSession, out authorizationCode);
+            ACF_I_ImportRequestSessionData(parameters.Scope.Value, parameters.Nonce.Value, ACFProcessSession, out authorizationCode);
         }
-        private void ACF_I_ImportRequestSessionData(string scope, string nonce, Client client, TokenRequestSession tokenRequestSession, out string authorizationCode)
+        private void ACF_I_ImportRequestSessionData(string scope, string nonce, TokenRequestSession tokenRequestSession, out string authorizationCode)
         {
             // TODO: create authorization code
             authorizationCode = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(32);
@@ -293,6 +295,8 @@ namespace IssuerOfClaims.Controllers
         public async Task<ActionResult> RegisterUserAsync(RegisterParameters parameters)
         {
             // TODO: will add role later
+            // TODO: for now, I allow one email can be used by more than one UserIdentity
+            //     : but will change to "one email belong to one useridentity" later
 
             var currentUser = _applicationUserManager.Current.Users.ToList().Find(u => u.UserName == parameters.UserName.Value);
             if (currentUser != null)
@@ -313,8 +317,7 @@ namespace IssuerOfClaims.Controllers
 
             if (result.Succeeded)
             {
-                var user = _applicationUserManager.Current.Users
-                    .First(u => u.UserName == parameters.UserName.Value);
+                var user = _applicationUserManager.Current.Users.First(u => u.UserName == parameters.UserName.Value);
 
                 // TODO: https://openid.net/specs/openid-connect-prompt-create-1_0.html#name-authorization-request
                 var client = _clientDbServices.GetByClientId(parameters.ClientId.Value);

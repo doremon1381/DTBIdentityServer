@@ -566,7 +566,7 @@ namespace IssuerOfClaims.Controllers
                             return await IssueTokenForRefreshToken(requestBody);
                         }
                     case OidcConstants.GrantTypes.AuthorizationCode:
-                        return await IssueAccessTokenForAuthorizationCodeAsync(requestBody);
+                        return await IssueTokenForAuthorizationCodeAsync(requestBody);
                     default:
                         return StatusCode(500, "Unknown error!");
                 }
@@ -616,6 +616,7 @@ namespace IssuerOfClaims.Controllers
             // Token from external source
             if (string.IsNullOrEmpty(refreshToken.ExternalSource))
             {
+                // TODO: will update this part later
                 //var token = refreshToken.ExternalSource switch
                 //{
                 //    ExternalSources.Google => 
@@ -636,7 +637,7 @@ namespace IssuerOfClaims.Controllers
                 throw new CustomException(400, ExceptionMessage.REFRESH_TOKEN_NULL);
         }
 
-        private async Task<ActionResult> IssueAccessTokenForAuthorizationCodeAsync(Dictionary<string, string> requestBody)
+        private async Task<ActionResult> IssueTokenForAuthorizationCodeAsync(Dictionary<string, string> requestBody)
         {
             // TODO: get from queryString, authorization code
             //     : get user along with authorization code inside latest login session (of that user)

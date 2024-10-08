@@ -17,6 +17,7 @@ namespace ServerDbModels
         /// TODO: set by seconds
         /// </summary>
         public DateTime? TokenExpiried { get; set; }
+        public DateTime? IssueAt { get; set; }
 
         public List<TokenResponsePerIdentityRequest> TokenResponsePerHandler { get; set; } = new List<TokenResponsePerIdentityRequest>();
     }

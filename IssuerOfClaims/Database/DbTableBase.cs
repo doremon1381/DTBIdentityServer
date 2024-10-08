@@ -132,13 +132,10 @@ namespace IssuerOfClaims.Database
         {
             try
             {
-                using (var dbContext = CreateDbContext())
+                UsingDbSetWithSaveChanges((dbSet) =>
                 {
-                    var dbSet = dbContext.GetDbSet<TEntity>();
                     dbSet.Remove(model);
-
-                    dbContext.SaveChanges();
-                }
+                });
             }
             catch (Exception)
             {

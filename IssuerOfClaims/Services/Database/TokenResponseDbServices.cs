@@ -19,13 +19,10 @@ namespace IssuerOfClaims.Services.Database
                 TokenType = TokenType.AccessToken
             };
 
-            using (var dbContext = CreateDbContext())
+            UsingDbSetWithSaveChanges((tokenResponses) =>
             {
-                _TokenResponses = dbContext.GetDbSet<TokenResponse>();
-                _TokenResponses.Add(obj);
-
-                dbContext.SaveChanges();
-            }
+                tokenResponses.Add(obj);
+            });
 
             return obj;
         }
@@ -52,13 +49,10 @@ namespace IssuerOfClaims.Services.Database
                 TokenType = TokenType.RefreshToken
             };
 
-            using (var dbContext = CreateDbContext())
+            UsingDbSetWithSaveChanges((tokenResponses) =>
             {
-                _TokenResponses = dbContext.GetDbSet<TokenResponse>();
-                _TokenResponses.Add(obj);
-
-                dbContext.SaveChanges();
-            }
+                tokenResponses.Add(obj);
+            });
 
             return obj;
         }

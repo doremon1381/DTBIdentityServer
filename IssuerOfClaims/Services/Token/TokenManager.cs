@@ -34,13 +34,59 @@ namespace IssuerOfClaims.Services.Token
             _tokenRequestHandlerDbServices = tokenRequestHandlerDbServices;
         }
 
-        public object IssueTokenForRefreshToken(TokenResponse tokenResponse)
+        // TODO: will check again
+        public object IssueTokenForRefreshToken(TokenResponse previousRefreshResponse)
         {
-            var lastestRefreshTokenBeUsed = tokenResponse.TokenResponsePerHandler.Last();
+            var lastestRefreshTokenBeUsed = previousRefreshResponse.TokenResponsePerHandler.Last();
             var tokenRequestHandler = _tokenRequestHandlerDbServices.FindById(lastestRefreshTokenBeUsed.TokenRequestHandlerId);
 
+            // create new id token, remove the old, add the new into previous authenticate session
+            // create new access token if it's expired, if access token is created new, remove the old, add the new one into previous authenticate session
+            // create new refresh token if it's expired, if refresh token is created new, remove the old, add the new one into previous authenticate session
 
-            throw new NotImplementedException();
+            var accessToken = UsingRefreshToken_IssuseToken(tokenRequestHandler, tokenRequestHandler.TokenResponsePerHandlers.First(t => t.TokenResponse.TokenType.Equals(TokenType.AccessToken)), TokenType.AccessToken);
+            var refreshToken = UsingRefreshToken_IssuseToken(tokenRequestHandler, lastestRefreshTokenBeUsed, TokenType.RefreshToken);
+            var idToken = UsingRefreshToken_IssuseIdToken(tokenRequestHandler, tokenRequestHandler.TokenResponsePerHandlers.First(t => t.TokenResponse.TokenType.Equals(TokenType.IdToken)));
+
+            var responseBody = CreateTokenResponseBody(accessToken.Token, idToken.Token, (accessToken.TokenExpiried - DateTime.Now).Value.TotalSeconds, refreshToken.Token);
+
+            return responseBody;
+        }
+
+        /// <summary>
+        /// TODO: for now
+        /// </summary>
+        /// <param name="currentRequestHandler"></param>
+        /// <returns></returns>
+        private TokenResponse UsingRefreshToken_IssuseIdToken(TokenRequestHandler currentRequestHandler, TokenResponsePerIdentityRequest tokenResponsePerIdentityRequest)
+        {
+            TokenResponse idToken = CreateToken(TokenType.IdToken);
+            idToken.Token = GenerateIdToken(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, ""
+                , currentRequestHandler.TokenRequestSession.Client.ClientId, tokenResponsePerIdentityRequest.TokenResponse.IssueAt.Value.ToString());
+
+            _tokenResponseDbServices.Update(idToken);
+            _tokenResponseDbServices.Delete(tokenResponsePerIdentityRequest.TokenResponse);
+
+            CreateTokenResponsePerIdentityRequest(currentRequestHandler, idToken);
+
+            return idToken;
+        }
+
+        private TokenResponse UsingRefreshToken_IssuseToken(TokenRequestHandler tokenRequestHandler, TokenResponsePerIdentityRequest tokenResponsePerIdentityRequest, string tokenType)
+        {
+            TokenResponse token = tokenResponsePerIdentityRequest.TokenResponse;
+
+            if (token.TokenExpiried < DateTime.Now)
+            {
+                token = CreateToken(tokenType);
+
+                _tokenResponseDbServices.Delete(tokenResponsePerIdentityRequest.TokenResponse);
+                _tokensPerIdentityRequestDbServices.Delete(tokenResponsePerIdentityRequest);
+
+                CreateTokenResponsePerIdentityRequest(tokenRequestHandler, token);
+            }
+
+            return token;
         }
 
         public object ACF_IssueToken(UserIdentity user, Client client, int currentRequestHandlerId)
@@ -48,7 +94,7 @@ namespace IssuerOfClaims.Services.Token
             var currentRequestHandler = _tokenRequestHandlerDbServices.FindById(currentRequestHandlerId);
 
             // TODO: use this temporary
-            TokenResponse idToken = GetOrCreateIdToken(currentRequestHandler, client.ClientId);
+            TokenResponse idToken = ACF_CreateIdToken(currentRequestHandler, client.ClientId);
 
             bool isOfflineAccess = currentRequestHandler.TokenRequestSession.IsOfflineAccess;
 
@@ -71,7 +117,7 @@ namespace IssuerOfClaims.Services.Token
                 if (latestRefreshToken == null
                     || latestRefreshToken.TokenResponse == null)
                 {
-                    refreshToken = CreateTokenForCurrentResponse(TokenType.RefreshToken);
+                    refreshToken = CreateToken(TokenType.RefreshToken);
 
                     // latest access token can be used
                     // , by logic of creation token response, those two (access-refresh token) will go along as a pair
@@ -84,7 +130,7 @@ namespace IssuerOfClaims.Services.Token
                     else
                     {
                         // if expired, create new
-                        accessToken = CreateTokenForCurrentResponse(TokenType.AccessToken);
+                        accessToken = CreateToken(TokenType.AccessToken);
                     }
                 }
                 // latest token response has refresh token
@@ -108,15 +154,15 @@ namespace IssuerOfClaims.Services.Token
                         var expiredTime = diff.TotalSeconds < 3600 ? DateTime.Now.AddSeconds(diff.TotalSeconds)
                             : DateTime.Now.AddHours(1);
 
-                        accessToken = CreateTokenForCurrentResponse(TokenType.AccessToken, expiredTime);
+                        accessToken = CreateToken(TokenType.AccessToken, expiredTime);
                         refreshToken = latestRefreshToken.TokenResponse;
                     }
                     // neither access token and refresh token cant be re-used
                     else if (latestAccessToken.TokenResponse.TokenExpiried < DateTime.Now
                         && latestRefreshToken.TokenResponse.TokenExpiried < DateTime.Now)
                     {
-                        accessToken = CreateTokenForCurrentResponse(TokenType.AccessToken);
-                        refreshToken = CreateTokenForCurrentResponse(TokenType.RefreshToken);
+                        accessToken = CreateToken(TokenType.AccessToken);
+                        refreshToken = CreateToken(TokenType.RefreshToken);
                     }
                     #region for test
                     //else if (latestAccessToken.TokenResponse.TokenExpiried > DateTime.Now
@@ -151,7 +197,7 @@ namespace IssuerOfClaims.Services.Token
                 else
                 {
                     // create new 
-                    accessToken = CreateTokenForCurrentResponse(TokenType.AccessToken);
+                    accessToken = CreateToken(TokenType.AccessToken);
                 }
 
                 responseBody = CreateTokenResponseBody(accessToken.Token, idToken.Token, accessTokenExpiredTime);
@@ -170,9 +216,9 @@ namespace IssuerOfClaims.Services.Token
         // TODO: https://openid.net/specs/openid-connect-core-1_0.html#TokenResponse
         //     : following 3.1.3.3.  Successful Token Response
         //     : ID Token value associated with the authenticated session.
-        private TokenResponse GetOrCreateIdToken(TokenRequestHandler currentRequestHandler, string clientId)
+        private TokenResponse ACF_CreateIdToken(TokenRequestHandler currentRequestHandler, string clientId)
         {
-            TokenResponse idToken = _tokenResponseDbServices.CreateIdToken();
+            TokenResponse idToken = CreateToken(TokenType.IdToken);
             idToken.Token = GenerateIdToken(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, currentRequestHandler.TokenRequestSession.Nonce, clientId);
 
             _tokenResponseDbServices.Update(idToken);
@@ -188,7 +234,7 @@ namespace IssuerOfClaims.Services.Token
         /// <param name="manualDateTime">Only use for access token or refresh token</param>
         /// <returns></returns>
         /// <exception cref="InvalidOperationException"></exception>
-        private TokenResponse CreateTokenForCurrentResponse(string tokenType, DateTime? manualDateTime = null)
+        private TokenResponse CreateToken(string tokenType, DateTime? manualDateTime = null)
         {
             string token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
 
@@ -200,7 +246,7 @@ namespace IssuerOfClaims.Services.Token
                 _ => throw new InvalidOperationException($"{this.GetType().Name}: Something is wrong!")
             };
 
-            tokenResponse.Token = tokenType switch 
+            tokenResponse.Token = tokenType switch
             {
                 TokenType.AccessToken => token,
                 TokenType.RefreshToken => token,
@@ -208,13 +254,15 @@ namespace IssuerOfClaims.Services.Token
                 _ => throw new InvalidOperationException($"{this.GetType().Name}: Something is wrong!")
             };
 
-            tokenResponse.TokenExpiried = tokenType switch 
+            tokenResponse.TokenExpiried = tokenType switch
             {
                 TokenType.AccessToken => manualDateTime == null ? DateTime.Now.AddHours(1) : manualDateTime,
                 TokenType.RefreshToken => manualDateTime == null ? DateTime.Now.AddHours(4) : manualDateTime,
                 TokenType.IdToken => null,
                 _ => throw new InvalidOperationException($"{this.GetType().Name}: Something is wrong!")
             };
+
+            tokenResponse.IssueAt = DateTime.Now;
             _tokenResponseDbServices.Update(tokenResponse);
 
             return tokenResponse;
@@ -239,9 +287,10 @@ namespace IssuerOfClaims.Services.Token
         /// <param name="user"></param>
         /// <param name="scopeStr"></param>
         /// <param name="nonce"></param>
-        /// <param name="client"></param>
+        /// <param name="clientid"></param>
+        /// <param name="authTime">for issue access token using offline-access with refresh token</param>
         /// <returns></returns>
-        public string GenerateIdToken(UserIdentity user, string scopeStr, string nonce, string clientid)
+        public string GenerateIdToken(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "")
         {
             try
             {
@@ -271,6 +320,8 @@ namespace IssuerOfClaims.Services.Token
                     claims.Add(new Claim(JwtClaimTypes.IssuedAt, DateTime.Now.ToString()));
                     // TODO: hard code for now
                     claims.Add(new Claim(JwtClaimTypes.Issuer, System.Uri.EscapeDataString("https://localhost:7180")));
+                    if (!string.IsNullOrEmpty(authTime))
+                        claims.Add(new Claim(JwtClaimTypes.AuthenticationTime, authTime));
                 }
                 if (scopes.Contains(IdentityServerConstants.StandardScopes.Profile))
                 {
@@ -385,8 +436,8 @@ namespace IssuerOfClaims.Services.Token
     public interface ITokenManager
     {
         object ACF_IssueToken(UserIdentity user, Client client, int currentRequestHandlerId);
-        object IssueTokenForRefreshToken(TokenResponse tokenResponse);
-        string GenerateIdToken(UserIdentity user, string scopeStr, string nonce, string clientid);
+        object IssueTokenForRefreshToken(TokenResponse previousRefreshResponse);
+        string GenerateIdToken(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "");
         TokenRequestSession CreateTokenRequestSession();
         TokenRequestHandler GetDraftTokenRequestHandler();
         bool UpdateTokenRequestHandler(TokenRequestHandler tokenRequestHandler);

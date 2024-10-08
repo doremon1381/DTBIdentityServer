@@ -41,8 +41,8 @@ namespace IssuerOfClaims.Services.Database
             {
                 obj = _tokenRequestHandlers
                 .Include(t => t.User)
-                .Include(t => t.TokenRequestSession)
-                .Include(t => t.TokenResponsePerHandlers)
+                .Include(t => t.TokenRequestSession).ThenInclude(t => t.Client)
+                .Include(t => t.TokenResponsePerHandlers).ThenInclude(t => t.TokenResponse)
                 .First(t => t.Id.Equals(currentRequestHandlerId));
             });
 

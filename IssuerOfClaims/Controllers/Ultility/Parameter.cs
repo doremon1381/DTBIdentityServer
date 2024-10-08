@@ -38,21 +38,24 @@ namespace IssuerOfClaims.Controllers.Ultility
 
         private void SetParameterPriority()
         {
-            if (DefaultParameterPriority.ContainsKey(this.Name))
+            if (ParameterExtensions.DefaultParameterPriority.ContainsKey(this.Name))
             {
-                this.Priority = DefaultParameterPriority[this.Name];
+                this.Priority = ParameterExtensions.DefaultParameterPriority[this.Name];
             }
-            else if (RegisterParamterPriority.ContainsKey(this.Name))
+            else if (ParameterExtensions.RegisterParamterPriority.ContainsKey(this.Name))
             {
-                this.Priority = RegisterParamterPriority[this.Name];
+                this.Priority = ParameterExtensions.RegisterParamterPriority[this.Name];
             }
             else
             {
                 throw new InvalidDataException($"{this.Name} : Parameter priority is not set!");
             }
         }
+    }
 
-        private static Dictionary<string, ParameterPriority> DefaultParameterPriority = new Dictionary<string, ParameterPriority>()
+    internal static class ParameterExtensions
+    {
+        internal static Dictionary<string, ParameterPriority> DefaultParameterPriority = new Dictionary<string, ParameterPriority>()
         {
             { AuthorizeRequest.Scope, ParameterPriority.REQRUIRED },
             { AuthorizeRequest.ResponseType, ParameterPriority.REQRUIRED },
@@ -69,22 +72,43 @@ namespace IssuerOfClaims.Controllers.Ultility
             { AuthorizeRequest.IdTokenHint, ParameterPriority.OPTIONAL }
         };
 
-        private Dictionary<string, ParameterPriority> RegisterParamterPriority = new Dictionary<string, ParameterPriority>()
+        internal static Dictionary<string, ParameterPriority> RegisterParamterPriority = new Dictionary<string, ParameterPriority>()
         {
             { RegisterRequest.UserName, ParameterPriority.REQRUIRED },
             { RegisterRequest.Password, ParameterPriority.REQRUIRED },
             { RegisterRequest.FirstName, ParameterPriority.OPTIONAL },
             { RegisterRequest.LastName, ParameterPriority.OPTIONAL },
+            // TODO: for now, email is optional, but I will change it to "REQRUIRED"
+            //     , when adding condition to register useridentity to make one email is used only for one useridentity
             { RegisterRequest.Email, ParameterPriority.OPTIONAL },
             { RegisterRequest.Gender, ParameterPriority.OPTIONAL },
             { RegisterRequest.Phone, ParameterPriority.OPTIONAL},
             { RegisterRequest.Roles, ParameterPriority.OPTIONAL }
         };
     }
+
     public enum ParameterPriority
     {
         OPTIONAL,
         REQRUIRED,
         RECOMMENDED
+    }
+
+    public class CustomException : Exception
+    {
+        public ExceptionIssueToward ExceptionIssueToward { get; private set; }
+        public int StatusCode { get; private set; }
+        public CustomException(int statusCode, string message, ExceptionIssueToward exceptionIssueToward = ExceptionIssueToward.UserAgent)
+            : base(message)
+        {
+            ExceptionIssueToward = exceptionIssueToward;
+            StatusCode = statusCode;
+        }
+    }
+
+    public enum ExceptionIssueToward
+    {
+        Local,
+        UserAgent
     }
 }

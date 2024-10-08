@@ -19,7 +19,7 @@ namespace IssuerOfClaims.Services.Database
                 TokenType = TokenType.AccessToken
             };
 
-            using (var dbContext = CreateDbContext(configuration))
+            using (var dbContext = CreateDbContext())
             {
                 _TokenResponses = dbContext.GetDbSet<TokenResponse>();
                 _TokenResponses.Add(obj);
@@ -32,7 +32,17 @@ namespace IssuerOfClaims.Services.Database
 
         public TokenResponse CreateIdToken()
         {
-            throw new NotImplementedException();
+            var obj = new TokenResponse()
+            {
+                TokenType = TokenType.IdToken
+            };
+
+            UsingDbSetWithSaveChanges((tokenResponses) =>
+            {
+                tokenResponses.Add(obj);
+            });
+
+            return obj;
         }
 
         public TokenResponse CreateRefreshToken()
@@ -42,7 +52,7 @@ namespace IssuerOfClaims.Services.Database
                 TokenType = TokenType.RefreshToken
             };
 
-            using (var dbContext = CreateDbContext(configuration))
+            using (var dbContext = CreateDbContext())
             {
                 _TokenResponses = dbContext.GetDbSet<TokenResponse>();
                 _TokenResponses.Add(obj);
@@ -53,21 +63,21 @@ namespace IssuerOfClaims.Services.Database
             return obj;
         }
 
-        public TokenResponse Find(string accessToken)
+        public TokenResponse Find(string accessToken, string tokenType)
         {
             TokenResponse obj;
 
-            using (var dbContext = CreateDbContext(configuration))
+            using (var dbContext = CreateDbContext())
             {
                 _TokenResponses = dbContext.GetDbSet<TokenResponse>();
-                obj = _TokenResponses
-                    .Where(t => t.TokenType.Equals(TokenType.AccessToken))
+                obj = _TokenResponses.Include(t => t.TokenResponsePerHandler)
+                    .Where(t => t.TokenType.Equals(tokenType))
                     .First(t => t.Token.Equals(accessToken)) ?? new TokenResponse();
 
                 dbContext.SaveChanges();
             }
 
-            ValidateEntity(obj);
+            ValidateEntity(obj, $"{this.GetType().Name}: token is null!");
 
             return obj;
         }
@@ -79,7 +89,7 @@ namespace IssuerOfClaims.Services.Database
         TokenResponse CreateAccessToken();
         TokenResponse CreateIdToken();
         TokenResponse CreateRefreshToken();
-        TokenResponse Find(string accessToken);
+        TokenResponse Find(string accessToken, string tokenType);
         //TokenResponse CreateTokenResponse(TokenRequestHandler session);
     }
 }

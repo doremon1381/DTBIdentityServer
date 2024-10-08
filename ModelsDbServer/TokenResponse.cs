@@ -18,7 +18,7 @@ namespace ServerDbModels
         /// </summary>
         public DateTime? TokenExpiried { get; set; }
 
-        List<TokenResponsePerIdentityRequest> TokenResponsePerHandler { get; set; } = new List<TokenResponsePerIdentityRequest>();
+        public List<TokenResponsePerIdentityRequest> TokenResponsePerHandler { get; set; } = new List<TokenResponsePerIdentityRequest>();
     }
 
     public static class TokenType
@@ -28,11 +28,11 @@ namespace ServerDbModels
         public const string RefreshToken = "refresh_token";
     }
 
-    public enum ExternalSources
+    public static class ExternalSources
     {
-        Google,
-        FaceBook,
-        Twitter
+        public const string Google = "Google";
+        public const string FaceBook = "Facebook";
+        public const string Twitter = "Twitter";
         //...
     }
 }

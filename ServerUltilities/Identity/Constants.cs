@@ -350,6 +350,11 @@
         }
         public static class RegisterRequest
         {
+            public const string ClientId = "client_id";
+            public const string RedirectUri = "redirect_uri";
+            public const string State = "state";
+            public const string Nonce = "nonce";
+
             public const string UserName = "UserName";
             public const string Password = "Password";
 

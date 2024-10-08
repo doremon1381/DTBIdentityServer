@@ -19,32 +19,40 @@ namespace IssuerOfClaims.Services.Token
         private readonly ITokenResponsePerHandlerDbServices _tokensPerIdentityRequestDbServices;
         private readonly ITokenRequestSessionDbServices _tokenRequestSessionDbServices;
         private readonly ITokenRequestHandlerDbServices _tokenRequestHandlerDbServices;
-        private readonly IIdTokenDbServices _idTokenDbServices;
+        //private readonly IIdTokenDbServices _idTokenDbServices;
 
         public TokenManager(IConfigurationManager configuration, ITokenResponseDbServices tokenResponseDbServices
             , ITokenResponsePerHandlerDbServices tokenResponsePerHandlerDbServices, ITokenRequestSessionDbServices tokenRequestSessionDbServices
-            , ITokenRequestHandlerDbServices tokenRequestHandlerDbServices
-            , IIdTokenDbServices idTokenDbServices)
+            , ITokenRequestHandlerDbServices tokenRequestHandlerDbServices)
         {
             _configuration = configuration;
             _tokenResponseDbServices = tokenResponseDbServices;
             _tokensPerIdentityRequestDbServices = tokenResponsePerHandlerDbServices;
             _tokenRequestSessionDbServices = tokenRequestSessionDbServices;
-            _idTokenDbServices = idTokenDbServices;
+            //_idTokenDbServices = idTokenDbServices;
 
             _tokenRequestHandlerDbServices = tokenRequestHandlerDbServices;
         }
 
-        public object IssueToken(UserIdentity user, Client client, int currentRequestHandlerId)
+        public object IssueTokenForRefreshToken(TokenResponse tokenResponse)
+        {
+            var lastestRefreshTokenBeUsed = tokenResponse.TokenResponsePerHandler.Last();
+            var tokenRequestHandler = _tokenRequestHandlerDbServices.FindById(lastestRefreshTokenBeUsed.TokenRequestHandlerId);
+
+
+            throw new NotImplementedException();
+        }
+
+        public object ACF_IssueToken(UserIdentity user, Client client, int currentRequestHandlerId)
         {
             var currentRequestHandler = _tokenRequestHandlerDbServices.FindById(currentRequestHandlerId);
 
             // TODO: use this temporary
-            IdToken idToken = GetOrCreateIdToken(currentRequestHandler, client.ClientId);
+            TokenResponse idToken = GetOrCreateIdToken(currentRequestHandler, client.ClientId);
 
             bool isOfflineAccess = currentRequestHandler.TokenRequestSession.IsOfflineAccess;
 
-            // TODO: I want to reuse token response if it is not expired
+            // I want to reuse token response if it is not expired
             var latestRefreshToken = _tokensPerIdentityRequestDbServices.FindLast(user.Id, client.Id, needAccessToken: false);
 
             var latestAccessToken = _tokensPerIdentityRequestDbServices.FindLast(user.Id, client.Id, needAccessToken: true);
@@ -59,30 +67,30 @@ namespace IssuerOfClaims.Services.Token
             //     : if true, then add refresh token along with response
             if (isOfflineAccess)
             {
-                // TODO: latest token response does not have refresh token
+                // latest token response does not have refresh token
                 if (latestRefreshToken == null
                     || latestRefreshToken.TokenResponse == null)
                 {
                     refreshToken = CreateTokenForCurrentResponse(TokenType.RefreshToken);
 
-                    // TODO: latest access token can be used
-                    //     : by logic of creation token response, those two (access-refresh token) will go along as a pair
+                    // latest access token can be used
+                    // , by logic of creation token response, those two (access-refresh token) will go along as a pair
                     if (latestAccessToken != null && latestAccessToken.TokenResponse.TokenExpiried >= DateTime.Now)
                     {
                         accessToken = latestAccessToken.TokenResponse;
                         accessTokenExpiredTime = (latestAccessToken.TokenResponse.TokenExpiried - DateTime.Now).Value.TotalSeconds;
                     }
-                    // TODO: latest access token can not be re-used, expired
+                    // latest access token can not be re-used, expired
                     else
                     {
-                        // TODO; if expired, create new
+                        // if expired, create new
                         accessToken = CreateTokenForCurrentResponse(TokenType.AccessToken);
                     }
                 }
-                // TODO: latest token response has refresh token
+                // latest token response has refresh token
                 else if (latestRefreshToken != null && latestRefreshToken.TokenResponse != null)
                 {
-                    // TODO: access token and refresh token can be re-used 
+                    // access token and refresh token can be re-used 
                     if (latestAccessToken.TokenResponse.TokenExpiried >= DateTime.Now
                         && latestRefreshToken.TokenResponse.TokenExpiried >= DateTime.Now)
                     {
@@ -91,11 +99,11 @@ namespace IssuerOfClaims.Services.Token
 
                         accessTokenExpiredTime = (accessToken.TokenExpiried - DateTime.Now).Value.TotalSeconds;
                     }
-                    // TODO: refresh token can be re-used, but not access token
+                    // refresh token can be re-used, but not access token
                     else if (latestAccessToken.TokenResponse.TokenExpiried < DateTime.Now
                             && latestRefreshToken.TokenResponse.TokenExpiried >= DateTime.Now)
                     {
-                        // TODO: access token expired time may over the refresh token expired time
+                        // access token expired time may over the refresh token expired time
                         TimeSpan diff = (TimeSpan)(latestRefreshToken.TokenResponse.TokenExpiried - DateTime.Now);
                         var expiredTime = diff.TotalSeconds < 3600 ? DateTime.Now.AddSeconds(diff.TotalSeconds)
                             : DateTime.Now.AddHours(1);
@@ -103,7 +111,7 @@ namespace IssuerOfClaims.Services.Token
                         accessToken = CreateTokenForCurrentResponse(TokenType.AccessToken, expiredTime);
                         refreshToken = latestRefreshToken.TokenResponse;
                     }
-                    // TODO: neither access token and refresh token cant be re-used
+                    // neither access token and refresh token cant be re-used
                     else if (latestAccessToken.TokenResponse.TokenExpiried < DateTime.Now
                         && latestRefreshToken.TokenResponse.TokenExpiried < DateTime.Now)
                     {
@@ -135,14 +143,14 @@ namespace IssuerOfClaims.Services.Token
             }
             else if (!isOfflineAccess)
             {
-                // TODO: latest access token can be used
+                // latest access token can be used
                 if (latestAccessToken != null && latestAccessToken.TokenResponse.TokenExpiried >= DateTime.Now)
                 {
                     accessToken = latestAccessToken.TokenResponse;
                 }
                 else
                 {
-                    // TODO: re-authenticate
+                    // create new 
                     accessToken = CreateTokenForCurrentResponse(TokenType.AccessToken);
                 }
 
@@ -151,6 +159,7 @@ namespace IssuerOfClaims.Services.Token
 
             CreateTokenResponsePerIdentityRequest(currentRequestHandler, accessToken);
             CreateTokenResponsePerIdentityRequest(currentRequestHandler, refreshToken);
+            CreateTokenResponsePerIdentityRequest(currentRequestHandler, idToken);
 
             currentRequestHandler.TokenRequestSession.IsInLoginSession = false;
             _tokenRequestSessionDbServices.Update(currentRequestHandler.TokenRequestSession);
@@ -158,20 +167,15 @@ namespace IssuerOfClaims.Services.Token
             return responseBody;
         }
 
-        private IdToken GetOrCreateIdToken(TokenRequestHandler currentRequestHandler, string clientId)
+        // TODO: https://openid.net/specs/openid-connect-core-1_0.html#TokenResponse
+        //     : following 3.1.3.3.  Successful Token Response
+        //     : ID Token value associated with the authenticated session.
+        private TokenResponse GetOrCreateIdToken(TokenRequestHandler currentRequestHandler, string clientId)
         {
-            IdToken idToken;
-            if (currentRequestHandler.User.IdToken == null)
-            {
-                idToken = _idTokenDbServices.GetDraft();
-                idToken.CreateTime = currentRequestHandler.User.UpdateTime;
-                idToken.User = currentRequestHandler.User;
-                idToken.Token = GenerateIdToken(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, currentRequestHandler.TokenRequestSession.Nonce, clientId);
+            TokenResponse idToken = _tokenResponseDbServices.CreateIdToken();
+            idToken.Token = GenerateIdToken(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, currentRequestHandler.TokenRequestSession.Nonce, clientId);
 
-                _idTokenDbServices.Update(idToken);
-            }
-            else
-                idToken = currentRequestHandler.User.IdToken;
+            _tokenResponseDbServices.Update(idToken);
 
             return idToken;
         }
@@ -264,6 +268,7 @@ namespace IssuerOfClaims.Services.Token
                 {
                     claims.Add(new Claim(JwtClaimTypes.Subject, user.UserName));
                     claims.Add(new Claim(JwtClaimTypes.Audience, clientid));
+                    claims.Add(new Claim(JwtClaimTypes.IssuedAt, DateTime.Now.ToString()));
                     // TODO: hard code for now
                     claims.Add(new Claim(JwtClaimTypes.Issuer, System.Uri.EscapeDataString("https://localhost:7180")));
                 }
@@ -370,11 +375,17 @@ namespace IssuerOfClaims.Services.Token
         {
             return _tokenRequestSessionDbServices.FindById(id);
         }
+
+        public TokenResponse FindRefreshToken(string refreshToken)
+        {
+            return _tokenResponseDbServices.Find(refreshToken, TokenType.RefreshToken);
+        }
     }
 
     public interface ITokenManager
     {
-        object IssueToken(UserIdentity user, Client client, int currentRequestHandlerId);
+        object ACF_IssueToken(UserIdentity user, Client client, int currentRequestHandlerId);
+        object IssueTokenForRefreshToken(TokenResponse tokenResponse);
         string GenerateIdToken(UserIdentity user, string scopeStr, string nonce, string clientid);
         TokenRequestSession CreateTokenRequestSession();
         TokenRequestHandler GetDraftTokenRequestHandler();
@@ -382,5 +393,6 @@ namespace IssuerOfClaims.Services.Token
         bool UpdateTokenRequestSession(TokenRequestSession aCFProcessSession);
         TokenRequestHandler FindTokenRequestHandlerByAuthorizationCode(string authCode);
         TokenRequestSession FindRequestSessionById(int id);
+        TokenResponse FindRefreshToken(string refreshToken);
     }
 }

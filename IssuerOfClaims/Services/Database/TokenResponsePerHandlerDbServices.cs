@@ -18,7 +18,7 @@ namespace IssuerOfClaims.Services.Database
         {
             var obj = new TokenResponsePerIdentityRequest();
 
-            using (var dbContext = CreateDbContext(configuration))
+            using (var dbContext = CreateDbContext())
             {
                 _tokenResponses = dbContext.GetDbSet<TokenResponsePerIdentityRequest>();
 
@@ -39,7 +39,7 @@ namespace IssuerOfClaims.Services.Database
         {
             TokenResponsePerIdentityRequest obj;
 
-            using (var dbContext = CreateDbContext(configuration))
+            using (var dbContext = CreateDbContext())
             {
                 _tokenResponses = dbContext.GetDbSet<TokenResponsePerIdentityRequest>();
 
@@ -64,7 +64,7 @@ namespace IssuerOfClaims.Services.Database
             };
 
             TokenResponsePerIdentityRequest obj;
-            using (var dbContext = CreateDbContext(configuration))
+            using (var dbContext = CreateDbContext())
             {
                 _tokenResponses = dbContext.GetDbSet<TokenResponsePerIdentityRequest>();
 

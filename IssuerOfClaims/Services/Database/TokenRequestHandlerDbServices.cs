@@ -16,43 +16,17 @@ namespace IssuerOfClaims.Services.Database
             //_logger = logger.CreateLogger("TokenRequestHandlerServices");
         }
 
-        //public TokenRequestHandler FindByAccessToken(string accessToken)
-        //{
-        //    var obj = _tokenRequestHandlers
-        //        .Include(l => l.User)
-        //        .Include(l => l.TokenResponsePerHandlers).ThenInclude(t => t.TokenResponse)
-        //        .Include(l => l.TokenRequestSession)
-        //        //.Include(l => l.TokenExternal)
-        //        .FirstOrDefault(l => l.TokenResponse.AccessToken.Equals(accessToken));
-        //    _logger.LogInformation($"current thread id is {Thread.CurrentThread.ManagedThreadId}");
-        //    return obj;
-        //}
-
-        //public TokenRequestHandler FindByRefreshToken(string refreshToken)
-        //{
-        //    var obj = _tokenRequestHandlers
-        //        .Include(l => l.User)
-        //        .Include(l => l.TokenResponse)
-        //        .Include(l => l.TokenRequestSession)
-        //        .Include(l => l.TokenExternal)
-        //        .FirstOrDefault(l => l.TokenResponse.RefreshToken.Equals(refreshToken));
-        //    _logger.LogInformation($"current thread id is {Thread.CurrentThread.ManagedThreadId}");
-
-        //    return obj;
-        //}
-
         public TokenRequestHandler FindByAuthorizationCode(string authorizationCode)
         {
-            TokenRequestHandler obj;
-            using (var dbContext = CreateDbContext(configuration))
+            TokenRequestHandler obj = null;
+            UsingDbSet((_tokenRequestHandlers) =>
             {
-                _tokenRequestHandlers = dbContext.GetDbSet<TokenRequestHandler>();
                 var obj1 = _tokenRequestHandlers
-                    .Include(l => l.User).ThenInclude(u => u.IdToken)
+                    .Include(l => l.User)
                     .Include(l => l.TokenResponsePerHandlers).ThenInclude(t => t.TokenResponse)
                     .Include(l => l.TokenRequestSession).ThenInclude(t => t.Client).ToList();
                 obj = obj1.First(l => l.TokenRequestSession != null && l.TokenRequestSession.AuthorizationCode != null && l.TokenRequestSession.AuthorizationCode.Equals(authorizationCode));
-            }
+            });
 
             ValidateEntity(obj);
             //_logger.LogInformation($"current thread id is {Thread.CurrentThread.ManagedThreadId}");
@@ -62,15 +36,15 @@ namespace IssuerOfClaims.Services.Database
 
         public TokenRequestHandler FindById(int currentRequestHandlerId)
         {
-            TokenRequestHandler obj;
-            using (var dbContext = CreateDbContext(configuration))
+            TokenRequestHandler obj = null;
+            UsingDbSet((_tokenRequestHandlers) =>
             {
-                _tokenRequestHandlers = dbContext.GetDbSet<TokenRequestHandler>();
                 obj = _tokenRequestHandlers
-                .Include(t => t.User).ThenInclude(t => t.IdToken)
+                .Include(t => t.User)
                 .Include(t => t.TokenRequestSession)
+                .Include(t => t.TokenResponsePerHandlers)
                 .First(t => t.Id.Equals(currentRequestHandlerId));
-            }
+            });
 
             ValidateEntity(obj);
 

@@ -84,6 +84,8 @@ namespace IssuerOfClaims.Controllers.Ultility
         public Oauth2Parameters(string? queryString): base (queryString)
         {
             this.Scope.SetValue(System.Uri.UnescapeDataString(requestQuery.GetFromQueryString(AuthorizeRequest.Scope)));
+            ValidateScope();
+
             this.Nonce.SetValue(requestQuery.GetFromQueryString(AuthorizeRequest.Nonce));
             this.Prompt.SetValue(requestQuery.GetFromQueryString(AuthorizeRequest.Prompt));
             this.State.SetValue(requestQuery.GetFromQueryString(AuthorizeRequest.State));
@@ -92,7 +94,7 @@ namespace IssuerOfClaims.Controllers.Ultility
 
             this.CodeChallenge.SetValue(requestQuery.GetFromQueryString(AuthorizeRequest.CodeChallenge));
             this.CodeChallengeMethod.SetValue(requestQuery.GetFromQueryString(AuthorizeRequest.CodeChallengeMethod));
-            CheckPKCEImplementation();
+            ValidatePKCEParameters();
 
             this.ResponseType.SetValue(requestQuery.GetFromQueryString(AuthorizeRequest.ResponseType));
             ValidateResponseType();
@@ -101,11 +103,17 @@ namespace IssuerOfClaims.Controllers.Ultility
             this.ResponseMode.SetValue(string.IsNullOrEmpty(responseMode) ? GetDefaultResponseModeByResponseType(this.ResponseType.Value) : responseMode);
         }
 
-        private void CheckPKCEImplementation()
+        private void ValidateScope()
+        {
+            if (!this.Scope.Value.Contains(StandardScopes.OpenId))
+                throw new CustomException(501, ExceptionMessage.AUTHORIZE_SCOPES_MUST_HAVE_OPENID);
+        }
+
+        private void ValidatePKCEParameters()
         {
             if ((this.CodeChallengeMethod.HasValue && !this.CodeChallenge.HasValue)
                 || (this.CodeChallenge.HasValue && !this.CodeChallengeMethod.HasValue))
-                throw new InvalidDataException(ExceptionMessage.CODECHALLENGE_CODECHALLENGEMETHODE_NOT_HAVE_VALUE_SIMUTANEOUSLY);
+                throw new CustomException(400, ExceptionMessage.CODECHALLENGE_CODECHALLENGEMETHODE_NOT_HAVE_VALUE_SIMUTANEOUSLY);
         }
 
         /// <summary>
@@ -115,7 +123,7 @@ namespace IssuerOfClaims.Controllers.Ultility
         private void ValidateResponseType()
         {
             if (!Constants.SupportedResponseTypes.Contains(this.ResponseType.Value))
-                throw new InvalidDataException(ExceptionMessage.RESPONSE_TYPE_NOT_SUPPORTED);
+                throw new CustomException(400, ExceptionMessage.RESPONSE_TYPE_NOT_SUPPORTED);
         }
 
         private string GetDefaultResponseModeByResponseType(string responseType)

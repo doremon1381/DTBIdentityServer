@@ -19,7 +19,6 @@ namespace IssuerOfClaims.Services
                 , keyNormalizer, errors, services, logger);
 
             this.UserIdentities.AddRange(Current.Users
-                .Include(u => u.IdToken)
                 .Include(u => u.ConfirmEmails)
                 .Include(u => u.IdentityUserRoles)
                 .Include(u => u.TokenRequestHandlers)
@@ -30,6 +29,6 @@ namespace IssuerOfClaims.Services
     public interface IApplicationUserManager
     {
         UserManager<UserIdentity> Current { get; }
-        public List<UserIdentity> UserIdentities { get; }
+        List<UserIdentity> UserIdentities { get; }
     }
 }

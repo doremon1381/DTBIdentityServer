@@ -25,7 +25,7 @@ namespace IssuerOfClaims.Services.Database
         {
             Client client;
 
-            using (var dbContext = CreateDbContext(configuration))
+            using (var dbContext = CreateDbContext())
             {
                 _Clients = dbContext.GetDbSet<Client>();
                 client = _Clients.First(c => c.ClientId.Equals(id) && c.ClientSecrets.Contains(clientSecret));
@@ -39,7 +39,7 @@ namespace IssuerOfClaims.Services.Database
         public Client GetByClientId(string id)
         {
             Client client;
-            using (var dbContext = CreateDbContext(configuration))
+            using (var dbContext = CreateDbContext())
             {
                 _Clients = dbContext.GetDbSet<Client>();
                 client = _Clients.Include(c => c.TokenRequestSession).First(c => c.ClientId.Equals(id));

@@ -4,10 +4,12 @@
     {
         public const string USER_NULL = "User at this step cannot be null!";
         public const string SCOPES_NOT_ALLOWED = "Scopes is not allowed!";
+        public const string AUTHORIZE_SCOPES_MUST_HAVE_OPENID = "Authorize request scopes must have openid!";
         public const string INVALID_CLIENTID = "Invalid client id!";
         public const string REQUEST_BODY_NOT_NULL_OR_EMPTY = "Request body cannot be empty!";
         public const string QUERYSTRING_NOT_NULL_OR_EMPTY = "Query string cannot be empty!";
 
+        public const string REFRESH_TOKEN_NULL = "Refresh token can not be empty!";
         public const string REQUIRED_PARAMETER_NOT_NULL = "Required parameter cannot be null!";
 
         public const string CLIENTID_IS_REQUIRED = "ClientId is required!";

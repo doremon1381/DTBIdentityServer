@@ -22,7 +22,7 @@ namespace IssuerOfClaims.Services.Database
         {
             ConfirmEmail obj;
 
-            using (var dbContext = CreateDbContext(configuration))
+            using (var dbContext = CreateDbContext())
             {
                 obj = _ConfirmEmails
                 .Include(c => c.User)

@@ -39,10 +39,10 @@ namespace ServerDbModels
         /// TODO: Will learn how to use it later
         /// </summary>
         public override string? SecurityStamp { get; set; } = null;
-        /// <summary>
-        /// Created along with user, only change when update user's data
-        /// </summary>
-        public IdToken? IdToken { get; set; }
+        ///// <summary>
+        ///// Created along with user, only change when update user's data
+        ///// </summary>
+        //public IdToken? IdToken { get; set; }
         public List<ConfirmEmail>? ConfirmEmails { get; set; } = new List<ConfirmEmail>();
         public List<IdentityUserRole> IdentityUserRoles { get; set; } = new List<IdentityUserRole>();
         public List<TokenRequestHandler> TokenRequestHandlers { get; set; } = new List<TokenRequestHandler>();

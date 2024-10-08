@@ -23,7 +23,7 @@ namespace IssuerOfClaims.Services.Database
         {
             TokenRequestSession obj = new TokenRequestSession();
 
-            using (var dbContext = CreateDbContext(configuration))
+            using (var dbContext = CreateDbContext())
             {
                 _loginSession = dbContext.GetDbSet<TokenRequestSession>();
                 _loginSession.Add(obj);
@@ -38,7 +38,7 @@ namespace IssuerOfClaims.Services.Database
         {
             TokenRequestSession obj;
 
-            using (var dbContext = CreateDbContext(configuration))
+            using (var dbContext = CreateDbContext())
             {
                 _loginSession = dbContext.GetDbSet<TokenRequestSession>();
                 obj = _loginSession.First(t => t.Id.Equals(id));

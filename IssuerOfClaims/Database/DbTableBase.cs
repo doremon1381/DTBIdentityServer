@@ -8,30 +8,63 @@ namespace IssuerOfClaims.Database
     {
         protected IConfigurationManager configuration { get; set; }
 
+        //private delegate void Callback
+
         protected DbTableBase(IConfigurationManager configuration)
         {
             this.configuration = configuration;
         }
 
-        public DbContextManager CreateDbContext(IConfigurationManager configuration)
+        public DbContextManager CreateDbContext()
         {
             var contextOptions = new DbContextOptionsBuilder<DbContextManager>()
-                 .UseSqlServer(configuration.GetConnectionString(DbUltilities.DatabaseName))
+                 .UseSqlServer(this.configuration.GetConnectionString(DbUltilities.DatabaseName))
                  .Options;
 
             var dbContext = new DbContextManager(contextOptions, null);
             return dbContext;
         }
 
+        /// <summary>
+        /// TODO: for now, Savechanges() is automatically used after callback, will check it late
+        /// </summary>
+        /// <param name="callback"></param>
+        public void UsingDbSetWithSaveChanges(Action<DbSet<TEntity>> callback)
+        {
+            using (var dbContext = CreateDbContext())
+            {
+                var dbSet = dbContext.GetDbSet<TEntity>();
+                callback(dbSet);
+
+                dbContext.SaveChanges();
+            }
+        }
+
+        public void UsingDbSet(Action<DbSet<TEntity>> callback)
+        {
+            using (var dbContext = CreateDbContext())
+            {
+                var dbSet = dbContext.GetDbSet<TEntity>();
+                callback(dbSet);
+            }
+        }
+
+        public void UsingDbContext(Action<DbContextManager> callback)
+        {
+            using (var dbContext = CreateDbContext())
+            {
+                callback(dbContext);
+            }
+        }
+
         public List<TEntity> GetAll()
         {
             List<TEntity> temp = new List<TEntity>();
 
-            using (var dbContext = CreateDbContext(configuration))
+            UsingDbSetWithSaveChanges((dbSet) =>
             {
-                var dbSet = dbContext.GetDbSet<TEntity>();
                 temp.AddRange(dbSet.ToList());
-            }
+            });
 
             return temp;
         }
@@ -40,13 +73,13 @@ namespace IssuerOfClaims.Database
         {
             try
             {
-                using (var dbContext = CreateDbContext(configuration))
+                UsingDbContext((dbContext) =>
                 {
                     var dbSet = dbContext.GetDbSet<TEntity>();
                     dbSet.Add(model);
 
                     dbContext.SaveChanges();
-                }
+                });
             }
             catch (Exception)
             {
@@ -77,7 +110,7 @@ namespace IssuerOfClaims.Database
         {
             try
             {
-                using (var dbContext = this.CreateDbContext(configuration))
+                using (var dbContext = this.CreateDbContext())
                 {
                     var dbModels = dbContext.GetDbSet<TEntity>();
 
@@ -99,7 +132,7 @@ namespace IssuerOfClaims.Database
         {
             try
             {
-                using (var dbContext = CreateDbContext(configuration))
+                using (var dbContext = CreateDbContext())
                 {
                     var dbSet = dbContext.GetDbSet<TEntity>();
                     dbSet.Remove(model);
@@ -119,7 +152,7 @@ namespace IssuerOfClaims.Database
         {
             bool isEmpty = true;
 
-            using (var dbContext = CreateDbContext(configuration))
+            using (var dbContext = CreateDbContext())
             {
                 var dbSet = dbContext.GetDbSet<TEntity>();
                 isEmpty = !(dbSet.Count() > 0);
@@ -133,7 +166,7 @@ namespace IssuerOfClaims.Database
             bool hasError = false;
             try
             {
-                using (var dbContext = CreateDbContext(configuration))
+                using (var dbContext = CreateDbContext())
                 {
                     var dbSet = dbContext.GetDbSet<TEntity>();
                     dbSet.AddRange(models);

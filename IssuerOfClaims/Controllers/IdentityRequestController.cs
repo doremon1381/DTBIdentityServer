@@ -83,31 +83,26 @@ namespace IssuerOfClaims.Controllers
                 ACF_VerifyClient(client);
                 ACF_VerifyRedirectUris(parameters, client);
 
-                if (parameters.Scope.Value.Contains(IdentityServerConstants.StandardScopes.OpenId))
-                    switch (parameters.ResponseType.Value)
-                    {
-                        case ResponseTypes.Code:
-                            return await IssueAuthorizationCodeAsync(parameters);
-                        //break;
-                        case ResponseTypes.IdToken:
-                            return await ImplicitGrantWithFormPostAsync(parameters);
-                        //break;
-                        // TODO: will implement another flow if I have time
-                        default:
-                            break;
-                    }
-                else
+                switch (parameters.ResponseType.Value)
                 {
-                    // TODO: if in scope doesnot have openid, it still valid in some case but it's not an Authentication Request that use Oauth2 as standard
-                    return StatusCode(500, "Not yet know why...");
+                    case ResponseTypes.Code:
+                        return await IssueAuthorizationCodeAsync(parameters);
+                    case ResponseTypes.IdToken:
+                        return await ImplicitGrantWithFormPostAsync(parameters);
+                    // TODO: will implement another flow if I have time
+                    default:
+                        return StatusCode(501, "Not yet implement!");
                 }
+            }
+            catch (CustomException ex)
+            {
+                // TODO: will check again
+                return StatusCode(ex.ExceptionIssueToward.Equals(ExceptionIssueToward.UserAgent) ? ex.StatusCode : 500, ex.Message);
             }
             catch (Exception ex)
             {
                 throw;
             }
-
-            return StatusCode(500, "Not yet know why...");
         }
 
         private void ACF_VerifyClient(Client client)
@@ -266,6 +261,11 @@ namespace IssuerOfClaims.Controllers
 
                 return await RegisterUserAsync(parameters);
             }
+            catch (CustomException ex)
+            {
+                // TODO: will check again
+                return StatusCode(ex.ExceptionIssueToward.Equals(ExceptionIssueToward.UserAgent) ? ex.StatusCode : 500, ex.Message);
+            }
             catch (Exception ex)
             {
                 // TODO: will check again
@@ -323,13 +323,6 @@ namespace IssuerOfClaims.Controllers
                 var client = _clientDbServices.GetByClientId(parameters.ClientId.Value);
 
                 string id_token = _tokenManager.GenerateIdToken(newUser, string.Empty, parameters.Nonce.Value, client.ClientId);
-                user.IdToken = new IdToken()
-                {
-                    Token = id_token,
-                    CreateTime = user.UpdateTime
-                };
-
-                result = _applicationUserManager.Current.UpdateAsync(user).Result;
 
                 if (parameters.Email.HasValue)
                     await _emailServices.SendVerifyingEmailAsync(newUser, "ConfirmEmail", client, Request.Scheme, Request.Host.ToString());
@@ -569,16 +562,19 @@ namespace IssuerOfClaims.Controllers
                             // 2. check request for that response, which it has offline access or not
                             // 3. check expired time of refresh token and access token
                             // 4. issue new access token if there is no problem
-                            // TODO: return new accesstoken using refresh token if it's not expired
-                            //var loginSessionWithToken = _tokenRequestManager.FindByRefreshToken(grantType);
 
-                            return StatusCode(500, "not implement exception!");
+                            return await IssueTokenForRefreshToken(requestBody);
                         }
                     case OidcConstants.GrantTypes.AuthorizationCode:
                         return await IssueAccessTokenForAuthorizationCodeAsync(requestBody);
                     default:
                         return StatusCode(500, "Unknown error!");
                 }
+            }
+            catch (CustomException ex)
+            {
+                // TODO: will check again
+                return StatusCode(ex.ExceptionIssueToward.Equals(ExceptionIssueToward.UserAgent) ? ex.StatusCode : 500, ex.Message);
             }
             catch (Exception ex)
             {
@@ -605,6 +601,41 @@ namespace IssuerOfClaims.Controllers
             return requestBody;
         }
 
+        private async Task<ActionResult> IssueTokenForRefreshToken(Dictionary<string, string> requestBody)
+        {
+            // 1. check refresh token type, external or local
+            // 2. if local, check expired time, issue token
+            // 3. if external, send request to external source to get response
+
+            var refreshTokenStr = requestBody[OidcConstants.TokenResponse.RefreshToken];
+            ValidateRefreshToken(refreshTokenStr);
+
+            var refreshToken = _tokenManager.FindRefreshToken(refreshTokenStr);
+
+            object tokenResponses = new object();
+            // Token from external source
+            if (string.IsNullOrEmpty(refreshToken.ExternalSource))
+            {
+                //var token = refreshToken.ExternalSource switch
+                //{
+                //    ExternalSources.Google => 
+                //    _ => throw new NullReferenceException()
+                //};
+            }
+            else
+            {
+                tokenResponses = _tokenManager.IssueTokenForRefreshToken(refreshToken);
+            }
+
+            return StatusCode(200, System.Text.Json.JsonSerializer.Serialize(tokenResponses));
+        }
+
+        private void ValidateRefreshToken(string refreshToken)
+        {
+            if (string.IsNullOrEmpty(refreshToken))
+                throw new CustomException(400, ExceptionMessage.REFRESH_TOKEN_NULL);
+        }
+
         private async Task<ActionResult> IssueAccessTokenForAuthorizationCodeAsync(Dictionary<string, string> requestBody)
         {
             // TODO: get from queryString, authorization code
@@ -619,16 +650,14 @@ namespace IssuerOfClaims.Controllers
             // TODO: for now, every request, by default in scop will have openid, so ignore this part of checking now
             //     : Verify that the Authorization Code used was issued in response to an OpenID Connect Authentication Request(so that an ID Token will be returned from the Token Endpoint).
             var tokenRequestHandler = _tokenManager.FindTokenRequestHandlerByAuthorizationCode(authCode);
-
+            // TODO: will change to use email when allow using identity from another source
+            UserIdentity user = ACF_II_GetResourceOwnerIdentity(tokenRequestHandler.User.UserName);
             var client = ACF_II_VerifyAndGetClient(requestBody, tokenRequestHandler);
 
             ACF_II_VerifyRequestParameters(requestBody, tokenRequestHandler, client);
 
-            // TODO: will change to use email when allow using identity from another source
-            UserIdentity user = ACF_II_GetResourceOwnerIdentity(tokenRequestHandler.User.UserName);
-
             // TODO: issue token from TokenManager
-            var tokenResponses = _tokenManager.IssueToken(user, client, tokenRequestHandler.Id);
+            var tokenResponses = _tokenManager.ACF_IssueToken(user, client, tokenRequestHandler.Id);
 
             return StatusCode(200, System.Text.Json.JsonSerializer.Serialize(tokenResponses));
         }

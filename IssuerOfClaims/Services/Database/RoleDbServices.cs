@@ -17,7 +17,7 @@ namespace IssuerOfClaims.Services.Database
         {
             int count = 0;
 
-            using (var dbContext = CreateDbContext(configuration))
+            using (var dbContext = CreateDbContext())
             {
                 _Roles = dbContext.GetDbSet<Role>();
                 count = _Roles.Count();
@@ -29,7 +29,7 @@ namespace IssuerOfClaims.Services.Database
         public Role GetRoleByName(string roleName)
         {
             Role role;
-            using (var dbContext = CreateDbContext(configuration))
+            using (var dbContext = CreateDbContext())
             {
                 _Roles = dbContext.GetDbSet<Role>();
                 role = _Roles.First(r => r.RoleName.Equals(roleName));

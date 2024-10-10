@@ -13,13 +13,17 @@ namespace ServerDbModels
     /// </summary>
     [Table("TokenRequestHandlers")]
     [PrimaryKey(nameof(Id))]
-    public class TokenRequestHandler : DbModelBase
+    public class TokenRequestHandler : DbTableBase
     {
         public TokenRequestSession TokenRequestSession { get; set; }
 
         [ForeignKey(nameof(UserId))]
         public int UserId { get; set; }
         public UserIdentity User { get; set; }
+        /// <summary>
+        /// Update when everything is done
+        /// </summary>
+        public DateTime? SuccessAt { get; set; } = null;
 
         public List<TokenResponsePerIdentityRequest> TokenResponsePerHandlers { get; set; } = new List<TokenResponsePerIdentityRequest>();
     }

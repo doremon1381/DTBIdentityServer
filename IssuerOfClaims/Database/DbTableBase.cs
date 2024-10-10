@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using ServerDbModels;
 
 namespace IssuerOfClaims.Database
@@ -48,6 +47,17 @@ namespace IssuerOfClaims.Database
                 callback(dbSet);
             }
         }
+
+        // TODO: will add dynamic building include query, 
+        //     : will add dynamic building query for get object or get range of objects
+        //public TEntity GetObject(bool isValidate)
+        //{
+        //    using (var dbContext = CreateDbContext())
+        //    {
+        //        var dbSet = dbContext.GetDbSet<TEntity>();
+        //        callback(dbSet);
+        //    }
+        //}
 
         public void UsingDbContext(Action<DbContextManager> callback)
         {

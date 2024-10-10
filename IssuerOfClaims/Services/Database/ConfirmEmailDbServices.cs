@@ -6,7 +6,7 @@ namespace IssuerOfClaims.Services.Database
 {
     public class ConfirmEmailDbServices : DbTableBase<ConfirmEmail>, IConfirmEmailDbServices
     {
-        private DbSet<ConfirmEmail> _ConfirmEmails { get; set; }
+        //private DbSet<ConfirmEmail> _ConfirmEmails { get; set; }
 
         public ConfirmEmailDbServices(IConfigurationManager configuration) : base(configuration)
         {
@@ -20,14 +20,14 @@ namespace IssuerOfClaims.Services.Database
 
         public ConfirmEmail GetByCode(string code)
         {
-            ConfirmEmail obj;
+            ConfirmEmail obj = default;
 
-            using (var dbContext = CreateDbContext())
+            UsingDbSet((confirmEmails) =>
             {
-                obj = _ConfirmEmails
+                obj = confirmEmails
                 .Include(c => c.User)
                 .First(c => c.ConfirmCode == code);
-            }
+            });
 
             ValidateEntity(obj, $"{this.GetType().Name}: ConfirmEmail is null!");
 

@@ -2,7 +2,7 @@
 
 namespace ServerDbModels
 {
-    public class DbModelBase: IDbTable
+    public class DbTableBase: IDbTable
     {
 #if IdentityServer
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]

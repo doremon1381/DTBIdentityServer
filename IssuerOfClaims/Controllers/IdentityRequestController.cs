@@ -322,7 +322,8 @@ namespace IssuerOfClaims.Controllers
                 // TODO: https://openid.net/specs/openid-connect-prompt-create-1_0.html#name-authorization-request
                 var client = _clientDbServices.GetByClientId(parameters.ClientId.Value);
 
-                string id_token = _tokenManager.GenerateIdToken(newUser, string.Empty, parameters.Nonce.Value, client.ClientId);
+                // TODO: will check again
+                string id_token = _tokenManager.GenerateIdTokenAndRsaSha256PublicKey(newUser, string.Empty, parameters.Nonce.Value, client.ClientId).Key;
 
                 if (parameters.Email.HasValue)
                     await _emailServices.SendVerifyingEmailAsync(newUser, "ConfirmEmail", client, Request.Scheme, Request.Host.ToString());
@@ -387,7 +388,7 @@ namespace IssuerOfClaims.Controllers
 
                 // TODO: scope is used for getting claims to send to client,
                 //     : for example, if scope is missing email, then in id_token which will be sent to client will not contain email's information 
-                var idToken = _tokenManager.GenerateIdToken(user, parameters.Scope.Value, parameters.Nonce.Value, client.ClientId);
+                var idToken = _tokenManager.GenerateIdTokenAndRsaSha256PublicKey(user, parameters.Scope.Value, parameters.Nonce.Value, client.ClientId).Key;
 
                 //var tokenResponse = _tokenManager.GenerateIdToken();
 
@@ -659,6 +660,10 @@ namespace IssuerOfClaims.Controllers
 
             // TODO: issue token from TokenManager
             var tokenResponses = _tokenManager.ACF_IssueToken(user, client, tokenRequestHandler.Id);
+
+            // TODO: will test again
+            tokenRequestHandler.SuccessAt = DateTime.Now;
+            _tokenManager.UpdateTokenRequestHandler(tokenRequestHandler);
 
             return StatusCode(200, System.Text.Json.JsonSerializer.Serialize(tokenResponses));
         }

@@ -6,7 +6,7 @@ namespace ServerDbModels
 {
     [Table("ConfirmEmails")]
     [PrimaryKey(nameof(Id))]
-    public class ConfirmEmail : DbModelBase
+    public class ConfirmEmail : DbTableBase
     {
 #if IdentityServer
         [Required]

@@ -14,7 +14,7 @@ namespace ServerDbModels
     [Table("TokenRequestSessions")]
     [PrimaryKey(nameof(Id))]
 #endif
-    public class TokenRequestSession: DbModelBase
+    public class TokenRequestSession: DbTableBase
     {
         /// <summary>
         /// One time use only, for "Authorization code flow" or "hybrid flow"

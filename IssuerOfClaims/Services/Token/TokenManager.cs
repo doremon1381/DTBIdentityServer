@@ -1,5 +1,6 @@
 ﻿using Azure.Core;
 using IssuerOfClaims.Services.Database;
+using JsonWebToken;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
@@ -8,7 +9,10 @@ using ServerUltilities;
 using ServerUltilities.Identity;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace IssuerOfClaims.Services.Token
 {
@@ -46,9 +50,9 @@ namespace IssuerOfClaims.Services.Token
 
             var accessToken = UsingRefreshToken_IssuseToken(tokenRequestHandler, tokenRequestHandler.TokenResponsePerHandlers.First(t => t.TokenResponse.TokenType.Equals(TokenType.AccessToken)), TokenType.AccessToken);
             var refreshToken = UsingRefreshToken_IssuseToken(tokenRequestHandler, lastestRefreshTokenBeUsed, TokenType.RefreshToken);
-            var idToken = UsingRefreshToken_IssuseIdToken(tokenRequestHandler, tokenRequestHandler.TokenResponsePerHandlers.First(t => t.TokenResponse.TokenType.Equals(TokenType.IdToken)));
+            var idToken = UsingRefreshToken_IssuseIdToken(tokenRequestHandler, tokenRequestHandler.TokenResponsePerHandlers.First(t => t.TokenResponse.TokenType.Equals(TokenType.IdToken)), out object publicKey);
 
-            var responseBody = CreateTokenResponseBody(accessToken.Token, idToken.Token, (accessToken.TokenExpiried - DateTime.Now).Value.TotalSeconds, refreshToken.Token);
+            var responseBody = CreateTokenResponseBody(accessToken.Token, idToken.Token, (accessToken.TokenExpiried - DateTime.Now).Value.TotalSeconds, publicKey, refreshToken.Token);
 
             return responseBody;
         }
@@ -58,11 +62,14 @@ namespace IssuerOfClaims.Services.Token
         /// </summary>
         /// <param name="currentRequestHandler"></param>
         /// <returns></returns>
-        private TokenResponse UsingRefreshToken_IssuseIdToken(TokenRequestHandler currentRequestHandler, TokenResponsePerIdentityRequest tokenResponsePerIdentityRequest)
+        private TokenResponse UsingRefreshToken_IssuseIdToken(TokenRequestHandler currentRequestHandler, TokenResponsePerIdentityRequest tokenResponsePerIdentityRequest, out object publicKey)
         {
             TokenResponse idToken = CreateToken(TokenType.IdToken);
-            idToken.Token = GenerateIdToken(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, ""
-                , currentRequestHandler.TokenRequestSession.Client.ClientId, tokenResponsePerIdentityRequest.TokenResponse.IssueAt.Value.ToString());
+            var idTokenWithPublicKey = GenerateIdTokenAndRsaSha256PublicKey(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, ""
+                , currentRequestHandler.TokenRequestSession.Client.ClientId, currentRequestHandler.SuccessAt.Value.ToString());
+
+            idToken.Token = idTokenWithPublicKey.Key;
+            publicKey = idTokenWithPublicKey.Value;
 
             _tokenResponseDbServices.Update(idToken);
             _tokenResponseDbServices.Delete(tokenResponsePerIdentityRequest.TokenResponse);
@@ -94,7 +101,7 @@ namespace IssuerOfClaims.Services.Token
             var currentRequestHandler = _tokenRequestHandlerDbServices.FindById(currentRequestHandlerId);
 
             // TODO: use this temporary
-            TokenResponse idToken = ACF_CreateIdToken(currentRequestHandler, client.ClientId);
+            TokenResponse idToken = ACF_CreateIdToken(currentRequestHandler, client.ClientId, out object publicKey);
 
             bool isOfflineAccess = currentRequestHandler.TokenRequestSession.IsOfflineAccess;
 
@@ -185,7 +192,7 @@ namespace IssuerOfClaims.Services.Token
                     #endregion
                 }
 
-                responseBody = CreateTokenResponseBody(accessToken.Token, idToken.Token, accessTokenExpiredTime, refreshToken.Token);
+                responseBody = CreateTokenResponseBody(accessToken.Token, idToken.Token, accessTokenExpiredTime, publicKey, refreshToken.Token);
             }
             else if (!isOfflineAccess)
             {
@@ -200,7 +207,7 @@ namespace IssuerOfClaims.Services.Token
                     accessToken = CreateToken(TokenType.AccessToken);
                 }
 
-                responseBody = CreateTokenResponseBody(accessToken.Token, idToken.Token, accessTokenExpiredTime);
+                responseBody = CreateTokenResponseBody(accessToken.Token, idToken.Token, accessTokenExpiredTime, publicKey);
             }
 
             CreateTokenResponsePerIdentityRequest(currentRequestHandler, accessToken);
@@ -216,10 +223,13 @@ namespace IssuerOfClaims.Services.Token
         // TODO: https://openid.net/specs/openid-connect-core-1_0.html#TokenResponse
         //     : following 3.1.3.3.  Successful Token Response
         //     : ID Token value associated with the authenticated session.
-        private TokenResponse ACF_CreateIdToken(TokenRequestHandler currentRequestHandler, string clientId)
+        private TokenResponse ACF_CreateIdToken(TokenRequestHandler currentRequestHandler, string clientId, out object publicKey)
         {
             TokenResponse idToken = CreateToken(TokenType.IdToken);
-            idToken.Token = GenerateIdToken(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, currentRequestHandler.TokenRequestSession.Nonce, clientId);
+            var idTokenAndPublicKey = GenerateIdTokenAndRsaSha256PublicKey(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, currentRequestHandler.TokenRequestSession.Nonce, clientId);
+            idToken.Token = idTokenAndPublicKey.Key;
+            
+            publicKey = idTokenAndPublicKey.Value;
 
             _tokenResponseDbServices.Update(idToken);
 
@@ -273,11 +283,8 @@ namespace IssuerOfClaims.Services.Token
             TokenResponsePerIdentityRequest tokensPerIdentityRequest = _tokensPerIdentityRequestDbServices.GetDraftObject();
             tokensPerIdentityRequest.TokenResponse = tokenResponse;
             tokensPerIdentityRequest.TokenRequestHandler = currentRequestHandler;
-            //_token
-            //_tokensPerIdentityRequestDbServices.ClearTrack();
-            _tokensPerIdentityRequestDbServices.Update(tokensPerIdentityRequest);
 
-            //return tokensPerIdentityRequest;
+            _tokensPerIdentityRequestDbServices.Update(tokensPerIdentityRequest);
         }
 
         /// <summary>
@@ -285,83 +292,43 @@ namespace IssuerOfClaims.Services.Token
         /// 3.1.3.7.  ID Token Validation
         /// </summary>
         /// <param name="user"></param>
-        /// <param name="scopeStr"></param>
+        /// <param name="scope"></param>
         /// <param name="nonce"></param>
-        /// <param name="clientid"></param>
+        /// <param name="clientId"></param>
         /// <param name="authTime">for issue access token using offline-access with refresh token</param>
-        /// <returns></returns>
-        public string GenerateIdToken(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "")
+        /// <returns>key is token, value is public key</returns>
+        public KeyValuePair<string, object> GenerateIdTokenAndRsaSha256PublicKey(UserIdentity user, string scope, string nonce, string clientId, string authTime = "")
         {
             try
             {
                 // TODO: use rsa256 instead of hs256 for now
-                var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
-                var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-                //var rsa = RSA.Create(2048);
-                //var keygen = new SshKeyGenerator.SshKeyGenerator(2048);
-                //var privateKey = keygen.ToPrivateKey();
-                //Console.WriteLine(privateKey);
 
-                //var publicSshKey = keygen.ToRfcPublicKey();
-                //Console.WriteLine(publicSshKey);
+                var claims = ClaimsForIdToken(user, nonce, authTime, scope, clientId);
 
-                //rsa.ImportRSAPrivateKey(Convert.FromBase64String(_configuration["Jwt:Key"]), out _);
-                //RsaSecurityKey key = new RsaSecurityKey(rsa);
-                //var credentials = new SigningCredentials(key, SecurityAlgorithms.RsaSha256);
-                //var publicKey = Convert.ToBase64String(rsa.ExportRSAPublicKey());
-                var scopes = scopeStr.Split(" ");
+                var publicPrivateKeys = GetRsaPublicKeyAndPrivateKey();
+                
+                // TODO: will add rsa key to database
 
-                var claims = new List<Claim>();
-
-                if (scopes.Contains(IdentityServerConstants.StandardScopes.OpenId))
+                // TODO: replace ClaimIDentity by JwtClaim
+                var tokenDescriptor = new SecurityTokenDescriptor
                 {
-                    claims.Add(new Claim(JwtClaimTypes.Subject, user.UserName));
-                    claims.Add(new Claim(JwtClaimTypes.Audience, clientid));
-                    claims.Add(new Claim(JwtClaimTypes.IssuedAt, DateTime.Now.ToString()));
-                    // TODO: hard code for now
-                    claims.Add(new Claim(JwtClaimTypes.Issuer, System.Uri.EscapeDataString("https://localhost:7180")));
-                    if (!string.IsNullOrEmpty(authTime))
-                        claims.Add(new Claim(JwtClaimTypes.AuthenticationTime, authTime));
-                }
-                if (scopes.Contains(IdentityServerConstants.StandardScopes.Profile))
-                {
-                    // TODO: will add more
-                    claims.Add(new Claim(JwtClaimTypes.Name, user.FullName));
-                    //claims.Add(new Claim("username", user.UserName));
-                    claims.Add(new Claim(JwtClaimTypes.Gender, user.Gender));
-                    claims.Add(new Claim(JwtClaimTypes.UpdatedAt, user.UpdateTime.ToString()));
-                    claims.Add(new Claim(JwtClaimTypes.Picture, user.Avatar));
-                    claims.Add(new Claim(JwtClaimTypes.BirthDate, user.DateOfBirth.ToString()));
-                    //claims.Add(new Claim(JwtClaimTypes.Locale, user.lo))
-                }
-                if (scopes.Contains(IdentityServerConstants.StandardScopes.Email))
-                {
-                    claims.Add(new Claim(JwtClaimTypes.Email, user.Email));
-                    claims.Add(new Claim(JwtClaimTypes.EmailVerified, user.IsEmailConfirmed.ToString()));
-                }
-                if (scopes.Contains(IdentityServerConstants.StandardScopes.Phone))
-                {
-                    claims.Add(new Claim(JwtClaimTypes.PhoneNumber, user.PhoneNumber));
-                }
-                // TOOD: will add later
-                if (scopes.Contains(Constants.CustomScope.Role))
-                {
-                    user.IdentityUserRoles.ToList().ForEach(p =>
-                    {
-                        claims.Add(new Claim(JwtClaimTypes.Role, p.Role.RoleName));
-                    });
-                }
+                    IssuedAt = DateTime.UtcNow,
+                    // TODO: idtoken will be used in short time
+                    Expires = DateTime.UtcNow.AddMinutes(15),
+                    SigningCredentials = new SigningCredentials(new RsaSecurityKey(publicPrivateKeys.Key), SecurityAlgorithms.RsaSha256),
+                    Claims = claims,
+                };
 
-                if (!string.IsNullOrEmpty(nonce))
-                    claims.Add(new Claim(JwtRegisteredClaimNames.Nonce, nonce));
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var token = tokenHandler.CreateToken(tokenDescriptor);
+                var jwt = tokenHandler.WriteToken(token);
+                
+                // TODO
+                //VeriryJwtSignature(publicPrivateKeys.Value, jwt);
 
-                var token = new JwtSecurityToken(_configuration["Jwt:Issuer"],
-                    _configuration["Jwt:Audience"],
-                    claims,
-                    expires: null,
-                    signingCredentials: credentials);
+                var jsonObjectKey = GetJsonPublicKey(publicPrivateKeys.Value);
 
-                return new JwtSecurityTokenHandler().WriteToken(token);
+                return new KeyValuePair<string, object>(jwt, jsonObjectKey);
             }
             catch (Exception ex)
             {
@@ -369,7 +336,150 @@ namespace IssuerOfClaims.Services.Token
             }
         }
 
-        private object CreateTokenResponseBody(string access_token, string id_token, double expired_in, string refresh_token = "")
+        private static IDictionary<string, object> ClaimsForIdToken(UserIdentity user, string nonce, string authTime, string scope, string clientId)
+        {
+            var claims = new List<Claim>();
+            var scopeVariables = scope.Split(" ");
+
+            if (scopeVariables.Contains(IdentityServerConstants.StandardScopes.OpenId))
+            {
+                claims.Add(new Claim(JwtClaimTypes.Subject, user.UserName));
+                claims.Add(new Claim(JwtClaimTypes.Audience, clientId));
+                //claims.Add(new Claim(JwtClaimTypes.IssuedAt, DateTime.Now.ToString()));
+                // TODO: hard code for now
+                claims.Add(new Claim(JwtClaimTypes.Issuer, System.Uri.EscapeDataString("https://localhost:7180")));
+            }
+            if (!string.IsNullOrEmpty(authTime))
+                claims.Add(new Claim(JwtClaimTypes.AuthenticationTime, authTime));
+            if (scopeVariables.Contains(IdentityServerConstants.StandardScopes.Profile))
+            {
+                // TODO: will add more
+                claims.Add(new Claim(JwtClaimTypes.Name, user.FullName));
+                //claims.Add(new Claim("username", user.UserName));
+                claims.Add(new Claim(JwtClaimTypes.Gender, user.Gender));
+                claims.Add(new Claim(JwtClaimTypes.UpdatedAt, user.UpdateTime.ToString()));
+                claims.Add(new Claim(JwtClaimTypes.Picture, user.Avatar));
+                claims.Add(new Claim(JwtClaimTypes.BirthDate, user.DateOfBirth.ToString()));
+                //claims.Add(new Claim(JwtClaimTypes.Locale, user.lo))
+            }
+            if (scopeVariables.Contains(IdentityServerConstants.StandardScopes.Email))
+            {
+                claims.Add(new Claim(JwtClaimTypes.Email, user.Email));
+                claims.Add(new Claim(JwtClaimTypes.EmailVerified, user.IsEmailConfirmed.ToString()));
+            }
+            if (scopeVariables.Contains(IdentityServerConstants.StandardScopes.Phone))
+            {
+                claims.Add(new Claim(JwtClaimTypes.PhoneNumber, user.PhoneNumber));
+            }
+            // TOOD: will add later
+            if (scopeVariables.Contains(Constants.CustomScope.Role))
+            {
+                user.IdentityUserRoles.ToList().ForEach(p =>
+                {
+                    claims.Add(new Claim(JwtClaimTypes.Role, p.Role.RoleName));
+                });
+            }
+            if (!string.IsNullOrEmpty(nonce))
+                claims.Add(new Claim(JwtRegisteredClaimNames.Nonce, nonce));
+
+            return claims.Select(c => new KeyValuePair<string, object>(c.Type, c.Value)).ToDictionary();
+        }
+
+        #region Implement RsaSha256, powered by copilot
+        /// <summary>
+        /// for this pair, key is rsa private key, value is rsa public key
+        /// </summary>
+        /// <returns></returns>
+        private static KeyValuePair<RSAParameters, RSAParameters> GetRsaPublicKeyAndPrivateKey()
+        {
+            RSAParameters publicKey;
+            RSAParameters privateKey;
+
+            using (RSACryptoServiceProvider rsa = new RSACryptoServiceProvider())
+            {
+                // Get the public and private key
+                publicKey = rsa.ExportParameters(false); // Public key
+                privateKey = rsa.ExportParameters(true); // Private key
+
+                // Store or distribute these keys securely
+            }
+
+            return new KeyValuePair<RSAParameters, RSAParameters>(privateKey, publicKey);
+        }
+
+        private object GetJsonPublicKey(RSAParameters publicKey)
+        {
+            var jsonObj =  JsonConvert.SerializeObject(publicKey);
+            return jsonObj;
+        }
+
+        // Encrypt using recipient's public key
+        private static byte[] Encrypt(byte[] data, RSAParameters publicKey)
+        {
+            using (RSACryptoServiceProvider rsa = new RSACryptoServiceProvider())
+            {
+                rsa.ImportParameters(publicKey);
+                return rsa.Encrypt(data, true); // Use OAEP padding for security
+            }
+        }
+
+        // Decrypt using recipient's private key
+        private static byte[] Decrypt(byte[] encryptedData, RSAParameters privateKey)
+        {
+            using (RSACryptoServiceProvider rsa = new RSACryptoServiceProvider())
+            {
+                rsa.ImportParameters(privateKey);
+                return rsa.Decrypt(encryptedData, true);
+            }
+        }
+
+        // Sign data using SHA-256 and RSA
+        private static byte[] SignData(byte[] data, RSAParameters privateKey)
+        {
+            using (RSACryptoServiceProvider rsa = new RSACryptoServiceProvider())
+            {
+                rsa.ImportParameters(privateKey);
+                using (SHA256 sha256 = SHA256.Create())
+                {
+                    byte[] hash = sha256.ComputeHash(data);
+                    return rsa.SignHash(hash, CryptoConfig.MapNameToOID(SecurityAlgorithms.Sha256));
+                }
+            }
+        }
+
+        // Verify signature
+        private static bool VerifySignature(byte[] data, byte[] signature, RSAParameters publicKey)
+        {
+            using (RSACryptoServiceProvider rsa = new RSACryptoServiceProvider())
+            {
+                rsa.ImportParameters(publicKey);
+                using (SHA256 sha256 = SHA256.Create())
+                {
+                    byte[] hash = sha256.ComputeHash(data);
+                    return rsa.VerifyHash(hash, CryptoConfig.MapNameToOID(SecurityAlgorithms.Sha256), signature);
+                }
+            }
+        }
+
+        public static void VeriryJwtSignature(RSAParameters publicKey, string token)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+
+            // Verify JWT signature
+            var validationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new RsaSecurityKey(publicKey),
+                ValidateIssuer = false, // Customize as needed
+                ValidateAudience = false, // Customize as needed
+            };
+
+            var claimsPrincipal = tokenHandler.ValidateToken(token, validationParameters, out _);
+            // 'claimsPrincipal' contains the validated claims
+        }
+        #endregion
+
+        private static object CreateTokenResponseBody(string access_token, string id_token, double expired_in, object publicKey, string refresh_token = "")
         {
             object responseBody;
             if (string.IsNullOrEmpty(refresh_token))
@@ -379,6 +489,7 @@ namespace IssuerOfClaims.Services.Token
                     access_token = access_token,
                     id_token = id_token,
                     token_type = "Bearer",
+                    public_key = publicKey,
                     // TODO: set by seconds
                     expires_in = expired_in
                 };
@@ -390,6 +501,7 @@ namespace IssuerOfClaims.Services.Token
                     id_token = id_token,
                     refresh_token = refresh_token,
                     token_type = "Bearer",
+                    public_key = publicKey,
                     // TODO: set by seconds
                     expires_in = expired_in
                 };
@@ -437,7 +549,7 @@ namespace IssuerOfClaims.Services.Token
     {
         object ACF_IssueToken(UserIdentity user, Client client, int currentRequestHandlerId);
         object IssueTokenForRefreshToken(TokenResponse previousRefreshResponse);
-        string GenerateIdToken(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "");
+        KeyValuePair<string, object> GenerateIdTokenAndRsaSha256PublicKey(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "");
         TokenRequestSession CreateTokenRequestSession();
         TokenRequestHandler GetDraftTokenRequestHandler();
         bool UpdateTokenRequestHandler(TokenRequestHandler tokenRequestHandler);

@@ -5,7 +5,7 @@ namespace ServerDbModels
 {
     [Table("TokenResponses")]
     [PrimaryKey(nameof(Id))]
-    public class TokenResponse : DbModelBase
+    public class TokenResponse : DbTableBase
     {
         public string Token { get; set; } = string.Empty;
 

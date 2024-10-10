@@ -10,7 +10,7 @@ namespace ServerDbModels
     [Table("Clients")]
     [PrimaryKey(nameof(Id))]
 #endif
-    public class Client : DbModelBase
+    public class Client : DbTableBase
     {
 #if IdentityServer
         [Required]

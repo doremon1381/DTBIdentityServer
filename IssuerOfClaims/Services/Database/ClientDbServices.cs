@@ -8,7 +8,7 @@ namespace IssuerOfClaims.Services.Database
 {
     public class ClientDbServices : DbTableBase<Client>, IClientDbServices
     {
-        private DbSet<Client> _Clients { get; set; }
+        //private DbSet<Client> _Clients { get; set; }
 
         public ClientDbServices(IConfigurationManager configuration) : base(configuration)
         {
@@ -23,13 +23,13 @@ namespace IssuerOfClaims.Services.Database
 
         public Client GetByIdAndSecret(string id, string clientSecret)
         {
-            Client client;
+            Client client = null;
 
-            using (var dbContext = CreateDbContext())
+            UsingDbSet(_Clients =>
             {
-                _Clients = dbContext.GetDbSet<Client>();
                 client = _Clients.First(c => c.ClientId.Equals(id) && c.ClientSecrets.Contains(clientSecret));
-            }
+            });
+
 
             ValidateEntity(client, $"{this.GetType().Name}: client is null!");
 
@@ -38,12 +38,12 @@ namespace IssuerOfClaims.Services.Database
 
         public Client GetByClientId(string id)
         {
-            Client client;
-            using (var dbContext = CreateDbContext())
+            Client client = null;
+
+            UsingDbSet(_Clients =>
             {
-                _Clients = dbContext.GetDbSet<Client>();
                 client = _Clients.Include(c => c.TokenRequestSession).First(c => c.ClientId.Equals(id));
-            }
+            });
 
             ValidateEntity(client, $"{this.GetType().Name}: client is null!");
 

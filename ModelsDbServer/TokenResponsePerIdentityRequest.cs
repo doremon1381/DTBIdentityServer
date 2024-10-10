@@ -13,7 +13,7 @@ namespace ServerDbModels
     /// </summary>
     [Table($"{nameof(TokenResponsePerIdentityRequest)}s")]
     [PrimaryKey(nameof(Id))]
-    public class TokenResponsePerIdentityRequest: DbModelBase
+    public class TokenResponsePerIdentityRequest: DbTableBase
     {
         [ForeignKey(nameof(TokenResponseId))]
         public int TokenResponseId { get; set; }

@@ -20,7 +20,7 @@ namespace IssuerOfClaims
             builder.Services.AddControllers();
             builder.Services.AddDbContext<IDbContextManager, DbContextManager>(optionsAction =>
             {
-                optionsAction.UseSqlServer(builder.Configuration.GetConnectionString(DbUltilities.DatabaseName));
+                optionsAction.UseSqlServer(builder.Configuration.GetConnectionString(DbUtilities.DatabaseName));
             }, ServiceLifetime.Transient);
 
             builder.Services.AddLogging(options =>
@@ -98,7 +98,7 @@ namespace IssuerOfClaims
             //        });
             //});
             var app = builder.Build();
-            // TODO: use for first time run db
+            // TODO: use for initiate clients in database
             AuthorizationResources.CreateClient(builder.Configuration);
             SetupPipline(app);
             // I intentionally separate app.run with setupPipline

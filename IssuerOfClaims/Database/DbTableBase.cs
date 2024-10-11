@@ -5,20 +5,20 @@ namespace IssuerOfClaims.Database
 {
     public abstract class DbTableBase<TEntity> : IDbContextBase<TEntity> where TEntity : class, IDbTable
     {
-        private static IConfiguration _configuration;
+        private static string? _ConnectionString;
 
         static DbTableBase()
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(Environment.CurrentDirectory)
                 .AddJsonFile($"appsettings.json").Build();
-            _configuration = builder;
+            _ConnectionString = builder.GetConnectionString(DbUtilities.DatabaseName);
         }
 
         public static DbContextManager CreateDbContext()
         {
             var contextOptions = new DbContextOptionsBuilder<DbContextManager>()
-                 .UseSqlServer(_configuration.GetConnectionString(DbUltilities.DatabaseName))
+                 .UseSqlServer(_ConnectionString)
                  .Options;
 
             var dbContext = new DbContextManager(contextOptions, null);
@@ -84,12 +84,9 @@ namespace IssuerOfClaims.Database
         {
             try
             {
-                UsingDbContext((dbContext) =>
+                UsingDbSetWithSaveChanges((dbSet) =>
                 {
-                    var dbSet = dbContext.GetDbSet<TEntity>();
                     dbSet.Add(model);
-
-                    dbContext.SaveChanges();
                 });
             }
             catch (Exception)
@@ -121,13 +118,10 @@ namespace IssuerOfClaims.Database
         {
             try
             {
-                using (var dbContext = CreateDbContext())
+                UsingDbSetWithSaveChanges(dbModels =>
                 {
-                    var dbModels = dbContext.GetDbSet<TEntity>();
-
                     dbModels.Update(model);
-                    dbContext.SaveChanges();
-                }
+                });
 
             }
             catch (Exception)
@@ -169,7 +163,7 @@ namespace IssuerOfClaims.Database
             return isEmpty;
         }
 
-        public virtual bool AddMany(List<TEntity> models)
+        public bool AddMany(List<TEntity> models)
         {
             bool hasError = false;
             try

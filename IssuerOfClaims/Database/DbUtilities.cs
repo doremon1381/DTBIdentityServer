@@ -3,7 +3,7 @@ using ServerUltilities.Identity;
 
 namespace IssuerOfClaims.Database
 {
-    public static class DbUltilities
+    public static class DbUtilities
     {
         public static string DatabaseName = "PrintingManagermentIdentity";
 

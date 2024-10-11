@@ -51,7 +51,7 @@ namespace IssuerOfClaims.Services.Database
             return obj;
         }
 
-        public TokenResponsePerIdentityRequest FindLast(int userId, int clientId, bool needAccessToken = true, bool issuedByLocal = true)
+        public TokenResponsePerIdentityRequest? FindLast(int userId, int clientId, bool needAccessToken = true, bool issuedByLocal = true)
         {
             var filter = needAccessToken switch
             {
@@ -59,7 +59,7 @@ namespace IssuerOfClaims.Services.Database
                 false => new Func<TokenResponsePerIdentityRequest, bool>((t) => t.TokenResponse.TokenType.Equals(TokenType.RefreshToken))
             };
 
-            TokenResponsePerIdentityRequest obj = null;
+            TokenResponsePerIdentityRequest? obj = null;
             UsingDbSet(_tokenResponses => 
             {
                 obj = _tokenResponses
@@ -81,6 +81,6 @@ namespace IssuerOfClaims.Services.Database
         TokenResponsePerIdentityRequest GetDraftObject();
         TokenResponsePerIdentityRequest FindByAccessToken(string accessToken);
         TokenResponsePerIdentityRequest CreatNew();
-        TokenResponsePerIdentityRequest FindLast(int userId, int clientId, bool needAccessToken = true, bool issuedByLocal = true);
+        TokenResponsePerIdentityRequest? FindLast(int userId, int clientId, bool needAccessToken = true, bool issuedByLocal = true);
     }
 }

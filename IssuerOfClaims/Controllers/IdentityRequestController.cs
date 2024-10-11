@@ -21,6 +21,7 @@ using IssuerOfClaims.Extensions;
 using IssuerOfClaims.Services.Token;
 using static ServerUltilities.Identity.OidcConstants;
 using IssuerOfClaims.Services;
+using Microsoft.IdentityModel.Tokens;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -323,7 +324,9 @@ namespace IssuerOfClaims.Controllers
                 var client = _clientDbServices.GetByClientId(parameters.ClientId.Value);
 
                 // TODO: will check again
-                string id_token = _tokenManager.GenerateIdTokenAndRsaSha256PublicKey(newUser, string.Empty, parameters.Nonce.Value, client.ClientId).Key;
+                string id_token = _tokenManager.GenerateIdTokenAndRsaSha256PublicKey(newUser, string.Empty, parameters.Nonce.Value, client.ClientId)
+                    .Cast(new { IdToken = string.Empty, PublicKey = new object() })
+                    .IdToken;
 
                 if (parameters.Email.HasValue)
                     await _emailServices.SendVerifyingEmailAsync(newUser, "ConfirmEmail", client, Request.Scheme, Request.Host.ToString());
@@ -388,7 +391,9 @@ namespace IssuerOfClaims.Controllers
 
                 // TODO: scope is used for getting claims to send to client,
                 //     : for example, if scope is missing email, then in id_token which will be sent to client will not contain email's information 
-                var idToken = _tokenManager.GenerateIdTokenAndRsaSha256PublicKey(user, parameters.Scope.Value, parameters.Nonce.Value, client.ClientId).Key;
+                var idToken = _tokenManager.GenerateIdTokenAndRsaSha256PublicKey(user, parameters.Scope.Value, parameters.Nonce.Value, client.ClientId)
+                    .Cast(new { IdToken = string.Empty, PublicKey = new object() })
+                    .IdToken;
 
                 //var tokenResponse = _tokenManager.GenerateIdToken();
 
@@ -967,7 +972,7 @@ namespace IssuerOfClaims.Controllers
 
             var alg = idTokenAsClaims.Header["alg"];
             var at_hash = idTokenAsClaims.Claims.FirstOrDefault(c => c.Type.Equals("at_hash"));
-            if (alg.Equals("RS256"))
+            if (alg.Equals(SecurityAlgorithms.RsaSha256))
             {
                 if (at_hash != null && at_hash.Value != null)
                 {

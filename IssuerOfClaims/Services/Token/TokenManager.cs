@@ -1,7 +1,4 @@
-﻿using Azure.Core;
-using IssuerOfClaims.Services.Database;
-using JsonWebToken;
-using Microsoft.AspNetCore.Identity;
+﻿using IssuerOfClaims.Services.Database;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using ServerDbModels;
@@ -10,26 +7,27 @@ using ServerUltilities.Identity;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using static System.Formats.Asn1.AsnWriter;
+using IssuerOfClaims.Extensions;
 
 namespace IssuerOfClaims.Services.Token
 {
+    /// <summary>
+    /// Issue id token, refresh token and access token
+    /// </summary>
     public class TokenManager : ITokenManager
     {
-        private readonly IConfigurationManager _configuration;
+        //private readonly IConfigurationManager _configuration;
         private readonly ITokenResponseDbServices _tokenResponseDbServices;
         private readonly ITokenResponsePerHandlerDbServices _tokensPerIdentityRequestDbServices;
         private readonly ITokenRequestSessionDbServices _tokenRequestSessionDbServices;
         private readonly ITokenRequestHandlerDbServices _tokenRequestHandlerDbServices;
         //private readonly IIdTokenDbServices _idTokenDbServices;
 
-        public TokenManager(IConfigurationManager configuration, ITokenResponseDbServices tokenResponseDbServices
+        public TokenManager(ITokenResponseDbServices tokenResponseDbServices
             , ITokenResponsePerHandlerDbServices tokenResponsePerHandlerDbServices, ITokenRequestSessionDbServices tokenRequestSessionDbServices
             , ITokenRequestHandlerDbServices tokenRequestHandlerDbServices)
         {
-            _configuration = configuration;
+            //_configuration = configuration;
             _tokenResponseDbServices = tokenResponseDbServices;
             _tokensPerIdentityRequestDbServices = tokenResponsePerHandlerDbServices;
             _tokenRequestSessionDbServices = tokenRequestSessionDbServices;
@@ -65,11 +63,12 @@ namespace IssuerOfClaims.Services.Token
         private TokenResponse UsingRefreshToken_IssuseIdToken(TokenRequestHandler currentRequestHandler, TokenResponsePerIdentityRequest tokenResponsePerIdentityRequest, out object publicKey)
         {
             TokenResponse idToken = CreateToken(TokenType.IdToken);
-            var idTokenWithPublicKey = GenerateIdTokenAndRsaSha256PublicKey(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, ""
-                , currentRequestHandler.TokenRequestSession.Client.ClientId, currentRequestHandler.SuccessAt.Value.ToString());
+            var composedObj = GenerateIdTokenAndRsaSha256PublicKey(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, ""
+                , currentRequestHandler.TokenRequestSession.Client.ClientId, currentRequestHandler.SuccessAt.Value.ToString())
+                .Cast(new { IdToken = string.Empty, PublicKey = new object() });
 
-            idToken.Token = idTokenWithPublicKey.Key;
-            publicKey = idTokenWithPublicKey.Value;
+            idToken.Token = composedObj.IdToken;
+            publicKey = composedObj.PublicKey;
 
             _tokenResponseDbServices.Update(idToken);
             _tokenResponseDbServices.Delete(tokenResponsePerIdentityRequest.TokenResponse);
@@ -107,7 +106,6 @@ namespace IssuerOfClaims.Services.Token
 
             // I want to reuse token response if it is not expired
             var latestRefreshToken = _tokensPerIdentityRequestDbServices.FindLast(user.Id, client.Id, needAccessToken: false);
-
             var latestAccessToken = _tokensPerIdentityRequestDbServices.FindLast(user.Id, client.Id, needAccessToken: true);
 
             TokenResponse refreshToken = new TokenResponse();
@@ -212,6 +210,7 @@ namespace IssuerOfClaims.Services.Token
 
             CreateTokenResponsePerIdentityRequest(currentRequestHandler, accessToken);
             CreateTokenResponsePerIdentityRequest(currentRequestHandler, refreshToken);
+            // TODO: will think about how to handle idtoken, create one for user, update when information of user is changed or sth else
             CreateTokenResponsePerIdentityRequest(currentRequestHandler, idToken);
 
             currentRequestHandler.TokenRequestSession.IsInLoginSession = false;
@@ -225,15 +224,16 @@ namespace IssuerOfClaims.Services.Token
         //     : ID Token value associated with the authenticated session.
         private TokenResponse ACF_CreateIdToken(TokenRequestHandler currentRequestHandler, string clientId, out object publicKey)
         {
-            TokenResponse idToken = CreateToken(TokenType.IdToken);
-            var idTokenAndPublicKey = GenerateIdTokenAndRsaSha256PublicKey(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, currentRequestHandler.TokenRequestSession.Nonce, clientId);
-            idToken.Token = idTokenAndPublicKey.Key;
-            
-            publicKey = idTokenAndPublicKey.Value;
+            TokenResponse tokenResponse = CreateToken(TokenType.IdToken);
+            var composedObj = GenerateIdTokenAndRsaSha256PublicKey(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, currentRequestHandler.TokenRequestSession.Nonce, clientId)
+                .Cast(new { IdToken = string.Empty, PublicKey = new object() });
 
-            _tokenResponseDbServices.Update(idToken);
+            tokenResponse.Token = composedObj.IdToken;
+            publicKey = composedObj.PublicKey;
 
-            return idToken;
+            _tokenResponseDbServices.Update(tokenResponse);
+
+            return tokenResponse;
         }
 
         /// <summary>
@@ -288,8 +288,10 @@ namespace IssuerOfClaims.Services.Token
         }
 
         /// <summary>
-        /// https://openid.net/specs/openid-connect-core-1_0.html
-        /// 3.1.3.7.  ID Token Validation
+        /// <para> TODO: Need to use Cast from CastObjectExtensions with 
+        /// new { IdToken = string.Empty, PublicKey = new object() } as parameter
+        /// to get explicit type of this function's result </para>
+        /// <para> more info: https://openid.net/specs/openid-connect-core-1_0.html 3.1.3.7.  ID Token Validation</para>
         /// </summary>
         /// <param name="user"></param>
         /// <param name="scope"></param>
@@ -297,7 +299,7 @@ namespace IssuerOfClaims.Services.Token
         /// <param name="clientId"></param>
         /// <param name="authTime">for issue access token using offline-access with refresh token</param>
         /// <returns>key is token, value is public key</returns>
-        public KeyValuePair<string, object> GenerateIdTokenAndRsaSha256PublicKey(UserIdentity user, string scope, string nonce, string clientId, string authTime = "")
+        public object GenerateIdTokenAndRsaSha256PublicKey(UserIdentity user, string scope, string nonce, string clientId, string authTime = "")
         {
             try
             {
@@ -306,7 +308,7 @@ namespace IssuerOfClaims.Services.Token
                 var claims = ClaimsForIdToken(user, nonce, authTime, scope, clientId);
 
                 var publicPrivateKeys = GetRsaPublicKeyAndPrivateKey();
-                
+
                 // TODO: will add rsa key to database
 
                 // TODO: replace ClaimIDentity by JwtClaim
@@ -322,13 +324,10 @@ namespace IssuerOfClaims.Services.Token
                 var tokenHandler = new JwtSecurityTokenHandler();
                 var token = tokenHandler.CreateToken(tokenDescriptor);
                 var jwt = tokenHandler.WriteToken(token);
-                
-                // TODO
-                //VeriryJwtSignature(publicPrivateKeys.Value, jwt);
 
-                var jsonObjectKey = GetJsonPublicKey(publicPrivateKeys.Value);
+                var jsonPublicKey = GetJsonPublicKey(publicPrivateKeys.Value);
 
-                return new KeyValuePair<string, object>(jwt, jsonObjectKey);
+                return new { IdToken = jwt, PublicKey = jsonPublicKey };
             }
             catch (Exception ex)
             {
@@ -409,7 +408,7 @@ namespace IssuerOfClaims.Services.Token
 
         private object GetJsonPublicKey(RSAParameters publicKey)
         {
-            var jsonObj =  JsonConvert.SerializeObject(publicKey);
+            var jsonObj = JsonConvert.SerializeObject(publicKey);
             return jsonObj;
         }
 
@@ -549,7 +548,7 @@ namespace IssuerOfClaims.Services.Token
     {
         object ACF_IssueToken(UserIdentity user, Client client, int currentRequestHandlerId);
         object IssueTokenForRefreshToken(TokenResponse previousRefreshResponse);
-        KeyValuePair<string, object> GenerateIdTokenAndRsaSha256PublicKey(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "");
+        object GenerateIdTokenAndRsaSha256PublicKey(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "");
         TokenRequestSession CreateTokenRequestSession();
         TokenRequestHandler GetDraftTokenRequestHandler();
         bool UpdateTokenRequestHandler(TokenRequestHandler tokenRequestHandler);

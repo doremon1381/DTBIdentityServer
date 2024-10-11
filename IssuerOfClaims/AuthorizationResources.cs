@@ -19,7 +19,7 @@ namespace IssuerOfClaims
         {
             //DbContextManager dbContext = CreateDbContext(configuration);
 
-            var clientDb = new ClientDbServices(configuration);
+            var clientDb = new ClientDbServices();
             var clients = clientDb.GetAll();
 
             if (clients.Count == 0)

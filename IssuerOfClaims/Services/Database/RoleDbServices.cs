@@ -6,9 +6,10 @@ namespace IssuerOfClaims.Services.Database
 {
     public class RoleDbServices : DbTableBase<Role>, IRoleDbServices
     {
-        private DbSet<Role> _Roles;
+        //private DbSet<Role> _Roles;
 
-        public RoleDbServices(IConfigurationManager configuration) : base(configuration)
+        public RoleDbServices() 
+            //: base(configuration)
         {
             //_PrMRoles = dbModels;
         }
@@ -17,23 +18,21 @@ namespace IssuerOfClaims.Services.Database
         {
             int count = 0;
 
-            using (var dbContext = CreateDbContext())
+            UsingDbSet(roles => 
             {
-                _Roles = dbContext.GetDbSet<Role>();
-                count = _Roles.Count();
-            }
+                count = roles.Count();
+            });
 
             return count;
         }
 
         public Role GetRoleByName(string roleName)
         {
-            Role role;
-            using (var dbContext = CreateDbContext())
-            {
-                _Roles = dbContext.GetDbSet<Role>();
-                role = _Roles.First(r => r.RoleName.Equals(roleName));
-            }
+            Role role = null;
+            UsingDbSet(roles =>
+            { 
+                role = roles.First(r => r.RoleName.Equals(roleName));
+            });
 
             ValidateEntity(role);
 

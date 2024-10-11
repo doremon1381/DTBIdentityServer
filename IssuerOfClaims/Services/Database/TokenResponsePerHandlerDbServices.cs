@@ -7,9 +7,10 @@ namespace IssuerOfClaims.Services.Database
 {
     public class TokenResponsePerHandlerDbServices : DbTableBase<TokenResponsePerIdentityRequest>, ITokenResponsePerHandlerDbServices
     {
-        private DbSet<TokenResponsePerIdentityRequest> _tokenResponses { get; set; }
+        //private DbSet<TokenResponsePerIdentityRequest> _tokenResponses { get; set; }
 
-        public TokenResponsePerHandlerDbServices(IConfigurationManager configuration) : base(configuration)
+        public TokenResponsePerHandlerDbServices() 
+            //: base(configuration)
         {
             //_tokenResponsePerHandlers = this.dbModels;
         }
@@ -18,13 +19,10 @@ namespace IssuerOfClaims.Services.Database
         {
             var obj = new TokenResponsePerIdentityRequest();
 
-            using (var dbContext = CreateDbContext())
+            UsingDbSetWithSaveChanges(_tokenResponses => 
             {
-                _tokenResponses = dbContext.GetDbSet<TokenResponsePerIdentityRequest>();
-
                 _tokenResponses.Add(obj);
-                dbContext.SaveChanges();
-            }
+            });
 
             return obj;
         }
@@ -37,18 +35,16 @@ namespace IssuerOfClaims.Services.Database
 
         public TokenResponsePerIdentityRequest FindByAccessToken(string accessToken)
         {
-            TokenResponsePerIdentityRequest obj;
+            TokenResponsePerIdentityRequest obj = null;
 
-            using (var dbContext = CreateDbContext())
+            UsingDbSet(_tokenResponses => 
             {
-                _tokenResponses = dbContext.GetDbSet<TokenResponsePerIdentityRequest>();
-
                 obj = _tokenResponses
                     .Include(t => t.TokenResponse)
                     .Include(t => t.TokenRequestHandler).ThenInclude(h => h.User)
                     .Where(t => t.TokenResponse.TokenType.Equals(TokenType.AccessToken))
                     .First(r => r.TokenResponse.Token.Equals(accessToken));
-            }
+            });
 
             ValidateEntity(obj, $"{this.GetType().Name}: Something is wrong!");
 
@@ -63,17 +59,15 @@ namespace IssuerOfClaims.Services.Database
                 false => new Func<TokenResponsePerIdentityRequest, bool>((t) => t.TokenResponse.TokenType.Equals(TokenType.RefreshToken))
             };
 
-            TokenResponsePerIdentityRequest obj;
-            using (var dbContext = CreateDbContext())
+            TokenResponsePerIdentityRequest obj = null;
+            UsingDbSet(_tokenResponses => 
             {
-                _tokenResponses = dbContext.GetDbSet<TokenResponsePerIdentityRequest>();
-
                 obj = _tokenResponses
-                    .Include(t => t.TokenResponse)
-                    .Include(t => t.TokenRequestHandler).ThenInclude(h => h.TokenRequestSession)
-                    .Where(filter)
-                    .LastOrDefault(t => t.TokenRequestHandler.UserId == userId && t.TokenRequestHandler.TokenRequestSession.ClientId == clientId);
-            }
+                        .Include(t => t.TokenResponse)
+                        .Include(t => t.TokenRequestHandler).ThenInclude(h => h.TokenRequestSession)
+                        .Where(filter)
+                        .LastOrDefault(t => t.TokenRequestHandler.UserId == userId && t.TokenRequestHandler.TokenRequestSession.ClientId == clientId);
+            });
 
             // TODO:
             //ValidateEntity(obj, $"{this.GetType().Name}: Something is wrong!");

@@ -8,7 +8,8 @@ namespace IssuerOfClaims.Services.Database
     {
         //private DbSet<ConfirmEmail> _ConfirmEmails { get; set; }
 
-        public ConfirmEmailDbServices(IConfigurationManager configuration) : base(configuration)
+        public ConfirmEmailDbServices() 
+            //: base(configuration)
         {
             //_ConfirmEmails = dbModels;
         }

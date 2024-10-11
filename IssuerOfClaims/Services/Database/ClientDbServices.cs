@@ -1,17 +1,25 @@
 ﻿using Google.Apis.Auth.OAuth2;
 using IssuerOfClaims.Database;
 using IssuerOfClaims.Database.Model;
+using IssuerOfClaims.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query.Internal;
+using Microsoft.EntityFrameworkCore.Query;
 using ServerDbModels;
+using System.Linq.Expressions;
+using System.Reflection;
 
 namespace IssuerOfClaims.Services.Database
 {
     public class ClientDbServices : DbTableBase<Client>, IClientDbServices
     {
+        // TODO: will remove
         //private DbSet<Client> _Clients { get; set; }
 
-        public ClientDbServices(IConfigurationManager configuration) : base(configuration)
+        public ClientDbServices() 
+            //: base(configuration)
         {
+            // TODO: will remove
             //_Clients = dbModels;
         }
 
@@ -36,6 +44,15 @@ namespace IssuerOfClaims.Services.Database
             return client;
         }
 
+        //internal static readonly MethodInfo IncludeMethodInfo = typeof(EntityFrameworkQueryableExtensions).GetTypeInfo()
+        //    .GetDeclaredMethods("Include")
+        //    .Single((MethodInfo mi) => mi.GetGenericArguments().Length == 2 && mi.GetParameters().Any((ParameterInfo pi) => pi.Name == "navigationPropertyPath" && pi.ParameterType != typeof(string)));
+
+        //private IncludableQueryable<TEntity, TProperty> IncludeQuery<TEntity, TProperty>() where TEntity : class, IDbTable
+        //{
+
+        //}
+
         public Client GetByClientId(string id)
         {
             Client client = null;
@@ -46,10 +63,13 @@ namespace IssuerOfClaims.Services.Database
             });
 
             ValidateEntity(client, $"{this.GetType().Name}: client is null!");
-
             return client;
         }
     }
+
+    //public interface IIncludableQueryable<out TEntity, out TProperty> : IQueryable<TEntity>, IEnumerable<TEntity>, IEnumerable, IQueryable
+    //{
+    //}
 
     public interface IClientDbServices : IDbContextBase<Client>
     {

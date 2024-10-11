@@ -5,19 +5,20 @@ namespace IssuerOfClaims.Database
 {
     public abstract class DbTableBase<TEntity> : IDbContextBase<TEntity> where TEntity : class, IDbTable
     {
-        protected IConfigurationManager configuration { get; set; }
+        private static IConfiguration _configuration;
 
-        //private delegate void Callback
-
-        protected DbTableBase(IConfigurationManager configuration)
+        static DbTableBase()
         {
-            this.configuration = configuration;
+            var builder = new ConfigurationBuilder()
+                .SetBasePath(Environment.CurrentDirectory)
+                .AddJsonFile($"appsettings.json").Build();
+            _configuration = builder;
         }
 
-        public DbContextManager CreateDbContext()
+        public static DbContextManager CreateDbContext()
         {
             var contextOptions = new DbContextOptionsBuilder<DbContextManager>()
-                 .UseSqlServer(this.configuration.GetConnectionString(DbUltilities.DatabaseName))
+                 .UseSqlServer(_configuration.GetConnectionString(DbUltilities.DatabaseName))
                  .Options;
 
             var dbContext = new DbContextManager(contextOptions, null);
@@ -28,7 +29,7 @@ namespace IssuerOfClaims.Database
         /// TODO: for now, Savechanges() is automatically used after callback, will check it late
         /// </summary>
         /// <param name="callback"></param>
-        public void UsingDbSetWithSaveChanges(Action<DbSet<TEntity>> callback)
+        public static void UsingDbSetWithSaveChanges(Action<DbSet<TEntity>> callback)
         {
             using (var dbContext = CreateDbContext())
             {
@@ -39,7 +40,7 @@ namespace IssuerOfClaims.Database
             }
         }
 
-        public void UsingDbSet(Action<DbSet<TEntity>> callback)
+        public static void UsingDbSet(Action<DbSet<TEntity>> callback)
         {
             using (var dbContext = CreateDbContext())
             {
@@ -59,7 +60,7 @@ namespace IssuerOfClaims.Database
         //    }
         //}
 
-        public void UsingDbContext(Action<DbContextManager> callback)
+        public static void UsingDbContext(Action<DbContextManager> callback)
         {
             using (var dbContext = CreateDbContext())
             {
@@ -120,7 +121,7 @@ namespace IssuerOfClaims.Database
         {
             try
             {
-                using (var dbContext = this.CreateDbContext())
+                using (var dbContext = CreateDbContext())
                 {
                     var dbModels = dbContext.GetDbSet<TEntity>();
 

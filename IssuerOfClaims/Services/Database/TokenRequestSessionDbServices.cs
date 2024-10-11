@@ -6,10 +6,11 @@ namespace IssuerOfClaims.Services.Database
 {
     public class TokenRequestSessionDbServices : DbTableBase<TokenRequestSession>, ITokenRequestSessionDbServices
     {
-        private DbSet<TokenRequestSession> _loginSession;
+        //private DbSet<TokenRequestSession> _loginSession;
         //private DbTableServices<TokenRequestSession> _issuseTokenSession;
 
-        public TokenRequestSessionDbServices(IConfigurationManager configuration) : base(configuration)
+        public TokenRequestSessionDbServices() 
+            //: base(configuration)
         {
             //_loginSession = this.dbModels;
         }
@@ -23,28 +24,22 @@ namespace IssuerOfClaims.Services.Database
         {
             TokenRequestSession obj = new TokenRequestSession();
 
-            using (var dbContext = CreateDbContext())
+            UsingDbSetWithSaveChanges(dbSet => 
             {
-                _loginSession = dbContext.GetDbSet<TokenRequestSession>();
-                _loginSession.Add(obj);
-
-                dbContext.SaveChanges();
-            }
+                dbSet.Add(obj);
+            });
 
             return obj;
         }
 
         public TokenRequestSession FindById(int id)
         {
-            TokenRequestSession obj;
+            TokenRequestSession obj = null;
 
-            using (var dbContext = CreateDbContext())
+            UsingDbSet(_loginSessions =>
             {
-                _loginSession = dbContext.GetDbSet<TokenRequestSession>();
-                obj = _loginSession.First(t => t.Id.Equals(id));
-
-                //dbContext.SaveChanges();
-            }
+                obj = _loginSessions.First(t => t.Id.Equals(id));
+            });
 
             ValidateEntity(obj);
 

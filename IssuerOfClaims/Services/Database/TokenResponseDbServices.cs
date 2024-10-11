@@ -6,8 +6,9 @@ namespace IssuerOfClaims.Services.Database
 {
     public class TokenResponseDbServices : DbTableBase<TokenResponse>, ITokenResponseDbServices
     {
-        private DbSet<TokenResponse> _TokenResponses;
-        public TokenResponseDbServices(IConfigurationManager configuration) : base(configuration)
+        //private DbSet<TokenResponse> _TokenResponses;
+        public TokenResponseDbServices() 
+            //: base(configuration)
         {
             //_TokenResponses = dbModels;
         }
@@ -59,17 +60,14 @@ namespace IssuerOfClaims.Services.Database
 
         public TokenResponse Find(string accessToken, string tokenType)
         {
-            TokenResponse obj;
+            TokenResponse obj = null;
 
-            using (var dbContext = CreateDbContext())
+            UsingDbSetWithSaveChanges((_TokenResponses) => 
             {
-                _TokenResponses = dbContext.GetDbSet<TokenResponse>();
                 obj = _TokenResponses.Include(t => t.TokenResponsePerHandler)
                     .Where(t => t.TokenType.Equals(tokenType))
                     .First(t => t.Token.Equals(accessToken)) ?? new TokenResponse();
-
-                dbContext.SaveChanges();
-            }
+            });
 
             ValidateEntity(obj, $"{this.GetType().Name}: token is null!");
 

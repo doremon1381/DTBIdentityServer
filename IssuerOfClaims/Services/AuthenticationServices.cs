@@ -37,36 +37,16 @@ namespace IssuerOfClaims.Services
             {
                 var endpoint = this.Context.GetEndpoint();
                 if (endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() is object)
-                {
                     return AuthenticateResult.NoResult();
-                }
 
-                // TODO: user login
+                // user login
                 var authenticateInfor = this.Request.Headers.Authorization.ToString();
                 ValidateAuthenticateInfo(authenticateInfor);
 
-                ClaimsPrincipal claimsPrincipal = null;
-                // TODO: authentication allow "Basic" access - username + password
-                if (authenticateInfor.StartsWith(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC))
-                {
-                    var userNamePassword = authenticateInfor.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim().ToBase64Decode();
-                    ValidateIdentityCredentials(userNamePassword);
-
-                    UserIdentity user = GetUser(userNamePassword);
-                    claimsPrincipal = CreateClaimPrincipal(user);
-                }
-                // TODO: and "Bearer" token - access token or id token, for now, I'm trying to implement
-                //     : https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
-                else if (authenticateInfor.StartsWith(AuthenticationSchemes.AuthorizationHeaderBearer))
-                {
-                    var accessToken = authenticateInfor.Replace(AuthenticationSchemes.AuthorizationHeaderBearer, "").Trim();
-
-                    var tokenResponse = _tokenResponsePerHandlerDbServices.FindByAccessToken(accessToken);
-                    claimsPrincipal = CreateClaimPrincipal(tokenResponse.TokenRequestHandler.User);
-                }
+                UserIdentity user = GetUser(authenticateInfor);
+                ClaimsPrincipal claimsPrincipal = CreateClaimPrincipal(user);
 
                 ValidateClaimsPrincipal(claimsPrincipal);
-
                 var ticket = IssueAuthenticationTicket(claimsPrincipal);
 
                 return AuthenticateResult.Success(ticket);
@@ -75,6 +55,35 @@ namespace IssuerOfClaims.Services
             {
                 return AuthenticateResult.Fail(ex.Message);
             }
+        }
+
+        private UserIdentity GetUser(string authenticateInfor)
+        {
+            // authentication with "Basic access" - username + password
+            if (authenticateInfor.StartsWith(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC))
+                return GetUserByUserNameAndPassword(authenticateInfor);
+            // authentication with Bearer" token - access token or id token, for now, I'm trying to implement
+            //     , https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
+            else if (authenticateInfor.StartsWith(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BEARER))
+                return GetUserByAccessToken(authenticateInfor);
+            else
+                throw new InvalidOperationException("Not implemented or does not have user with these informations!");
+        }
+
+        private UserIdentity GetUserByAccessToken(string authenticateInfor)
+        {
+            var accessToken = authenticateInfor.Replace(AuthenticationSchemes.AuthorizationHeaderBearer, "").Trim();
+            var tokenResponse = _tokenResponsePerHandlerDbServices.FindByAccessToken(accessToken);
+
+            return tokenResponse.TokenRequestHandler.User;
+        }
+
+        private UserIdentity GetUserByUserNameAndPassword(string authenticateInfor)
+        {
+            var userNamePassword = authenticateInfor.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim().ToBase64Decode();
+            ValidateIdentityCredentials(userNamePassword);
+
+            return FindUser(userNamePassword);
         }
 
         private static void ValidateClaimsPrincipal(ClaimsPrincipal claimsPrincipal)
@@ -127,7 +136,7 @@ namespace IssuerOfClaims.Services
             }
         }
 
-        private UserIdentity GetUser(string userNamePassword)
+        private UserIdentity FindUser(string userNamePassword)
         {
             string userName = userNamePassword.Split(":")[0];
             string password = userNamePassword.Split(":")[1];
@@ -197,7 +206,7 @@ namespace IssuerOfClaims.Services
         /// </summary>
         /// <param name="user"></param>
         /// <returns></returns>
-        private ClaimsPrincipal CreateClaimPrincipal(UserIdentity user)
+        private static ClaimsPrincipal CreateClaimPrincipal(UserIdentity user)
         {
             var claims = new List<Claim>
             {
@@ -219,7 +228,6 @@ namespace IssuerOfClaims.Services
 
             var principal = new ClaimsPrincipal(new[] { new ClaimsIdentity(claims, IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, user.UserName, ClaimTypes.Role) });
 
-            //_UserClaims.Add(user, principal);
             return principal;
         }
     }

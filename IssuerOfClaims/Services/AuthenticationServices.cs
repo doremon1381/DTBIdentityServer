@@ -1,4 +1,5 @@
-﻿using IssuerOfClaims.Services.Database;
+﻿using Google.Apis.Auth.OAuth2.Responses;
+using IssuerOfClaims.Services.Database;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -41,70 +42,34 @@ namespace IssuerOfClaims.Services
                 }
 
                 // TODO: user login
-                var headers = this.Request.Headers;
-                var authenticateInfor = headers.Authorization.ToString();
+                var authenticateInfor = this.Request.Headers.Authorization.ToString();
+                ValidateAuthenticateInfo(authenticateInfor);
 
-                if (string.IsNullOrEmpty(authenticateInfor))
-                    return AuthenticateResult.Fail("Authentication's identity inside request headers is missing!");
-
+                ClaimsPrincipal claimsPrincipal = null;
                 // TODO: authentication allow "Basic" access - username + password
                 if (authenticateInfor.StartsWith(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC))
                 {
                     var userNamePassword = authenticateInfor.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim().ToBase64Decode();
-                    if (string.IsNullOrEmpty(userNamePassword))
-                        return AuthenticateResult.Fail("username and password is empty!");
-
-                    string password = userNamePassword.Split(":")[1];
+                    ValidateIdentityCredentials(userNamePassword);
 
                     UserIdentity user = GetUser(userNamePassword);
-                    if (string.IsNullOrEmpty(user.PasswordHash))
-                        return AuthenticateResult.Fail("try another login method, because this user's password is not set!");
-
-                    var valid = _userManager.Current.PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
-
-                    if (valid == PasswordVerificationResult.Failed)
-                        return AuthenticateResult.Fail("wrong password!");
-
-                    #region authenticate reason
-                    var principal = GetClaimPrincipal(user);
-
-                    Thread.CurrentPrincipal = principal;
-                    if (this.Context != null)
-                    {
-                        Context.User = principal;
-                    }
-                    #endregion
-
-                    var ticket = new AuthenticationTicket(principal, this.Scheme.Name);
-
-                    return AuthenticateResult.Success(ticket);
-
+                    claimsPrincipal = CreateClaimPrincipal(user);
                 }
                 // TODO: and "Bearer" token - access token or id token, for now, I'm trying to implement
                 //     : https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
-                else if (headers.Authorization.ToString().StartsWith(AuthenticationSchemes.AuthorizationHeaderBearer))
+                else if (authenticateInfor.StartsWith(AuthenticationSchemes.AuthorizationHeaderBearer))
                 {
                     var accessToken = authenticateInfor.Replace(AuthenticationSchemes.AuthorizationHeaderBearer, "").Trim();
 
                     var tokenResponse = _tokenResponsePerHandlerDbServices.FindByAccessToken(accessToken);
-
-                    #region authenticate reason
-                    var principal = GetClaimPrincipal(tokenResponse.TokenRequestHandler.User);
-
-                    Thread.CurrentPrincipal = principal;
-                    if (this.Context != null)
-                    {
-                        Context.User = principal;
-                    }
-                    #endregion
-
-                    var ticket = new AuthenticationTicket(principal, this.Scheme.Name);
-
-                    return AuthenticateResult.Success(ticket);
+                    claimsPrincipal = CreateClaimPrincipal(tokenResponse.TokenRequestHandler.User);
                 }
 
-                // TODO: return none for now
-                return AuthenticateResult.Fail("nonce");
+                ValidateClaimsPrincipal(claimsPrincipal);
+
+                var ticket = IssueAuthenticationTicket(claimsPrincipal);
+
+                return AuthenticateResult.Success(ticket);
             }
             catch (Exception ex)
             {
@@ -112,16 +77,67 @@ namespace IssuerOfClaims.Services
             }
         }
 
+        private static void ValidateClaimsPrincipal(ClaimsPrincipal claimsPrincipal)
+        {
+            if (claimsPrincipal == null)
+                throw new Exception("something is wrong...");
+        }
+
+        private static void ValidateAuthenticateInfo(string authenticateInfor)
+        {
+            if (string.IsNullOrEmpty(authenticateInfor))
+                throw new Exception("Authentication's identity inside request headers is missing!");
+        }
+
+        private static void ValidateIdentityCredentials(string userNamePassword)
+        {
+            if (string.IsNullOrEmpty(userNamePassword))
+                throw new Exception("username and password is empty!");
+        }
+
+        private void ValidateUser(UserIdentity user, string password)
+        {
+            if (user == null)
+                throw new InvalidOperationException("user is null!");
+
+            if (string.IsNullOrEmpty(user.PasswordHash))
+                throw new InvalidOperationException("try another login method, because this user's password is not set!");
+
+            var valid = _userManager.Current.PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+
+            if (valid == PasswordVerificationResult.Failed)
+                throw new Exception("wrong password!");
+        }
+
+        private AuthenticationTicket IssueAuthenticationTicket(ClaimsPrincipal claimPrincipal)
+        {
+            #region authenticate reason
+            AddAuthenticateIdentityToContext(claimPrincipal);
+            #endregion
+
+            return new AuthenticationTicket(claimPrincipal, this.Scheme.Name);
+        }
+
+        private void AddAuthenticateIdentityToContext(ClaimsPrincipal principal)
+        {
+            Thread.CurrentPrincipal = principal;
+            if (this.Context != null)
+            {
+                Context.User = principal;
+            }
+        }
+
         private UserIdentity GetUser(string userNamePassword)
         {
             string userName = userNamePassword.Split(":")[0];
+            string password = userNamePassword.Split(":")[1];
 
             // TODO: Do authentication of userId and password against your credentials store here
             var user = _userManager.Current.Users
                 .Include(user => user.IdentityUserRoles).ThenInclude(p => p.Role)
                 .FirstOrDefault(u => u.UserName == userName);
-            if (user == null)
-                throw new InvalidOperationException();
+
+            ValidateUser(user, password);
 
             return user;
         }
@@ -181,7 +197,7 @@ namespace IssuerOfClaims.Services
         /// </summary>
         /// <param name="user"></param>
         /// <returns></returns>
-        private ClaimsPrincipal GetClaimPrincipal(UserIdentity user)
+        private ClaimsPrincipal CreateClaimPrincipal(UserIdentity user)
         {
             var claims = new List<Claim>
             {

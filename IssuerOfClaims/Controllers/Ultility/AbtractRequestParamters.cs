@@ -1,33 +1,131 @@
 ﻿using IssuerOfClaims.Extensions;
 using ServerUltilities.Extensions;
+using System.Linq.Expressions;
+using System.Reflection;
 using System.Web;
 using static ServerUltilities.Identity.Constants;
 using static ServerUltilities.Identity.OidcConstants;
 
 namespace IssuerOfClaims.Controllers.Ultility
 {
+    public abstract class AbtractRequestParamters<T>
+    {
+        protected readonly string[] requestQuery;
+
+        private static FieldInfo[] _parameterNames = typeof(AuthorizeRequest).GetFields(
+                // Gets all public and static fields
+                BindingFlags.Public | BindingFlags.Static |
+                // This tells it to get the fields from all base types as well
+                BindingFlags.FlattenHierarchy);
+
+        private static PropertyInfo[] _properties = typeof(T).GetProperties().Where(p => p.PropertyType.Equals(typeof(Parameter))).ToArray();
+        private static PropertyInfo _responseType = _properties.FirstOrDefault(t => t.Name.Equals("ResponseType"));
+
+        public AbtractRequestParamters(string? queryString)
+        {
+            requestQuery = QueryStringToArray(queryString);
+
+            InitiateProperties();
+        }
+
+        private void InitiateProperties()
+        {
+            Action<Parameter, string> setValueMethod = FunctionToInitiateValueOfProperty();
+
+            // TODO: for currently logic, to ensure response mode is set, I run this function first
+            if (_responseType != null)
+                Task.Run(async () => { await SetPropertyValue(setValueMethod, _responseType); }).Wait();
+
+            List<Task> tasks = new List<Task>();
+            foreach (var property in _properties)
+            {
+                if (property.Name.Equals("ResponseType"))
+                    continue;
+                else
+                    tasks.Add(Task.Run(() =>
+                    {
+                        SetPropertyValue(setValueMethod, property);
+                    }));
+            }
+            Task.WaitAll(tasks.ToArray());
+        }
+
+        /// <summary>
+        /// TODO: will have the situation when response type = null while setting value for response mode
+        /// </summary>
+        /// <param name="setValue"></param>
+        /// <param name="property"></param>
+        /// <returns></returns>
+        private async Task SetPropertyValue(Action<Parameter, string> setValue, PropertyInfo property)
+        {
+            string mappingName = GetMappingNameForRequestParameter(property.Name);
+            string parameterValue = requestQuery.GetFromQueryString(mappingName);
+
+            var propertyValue = new Parameter(mappingName);
+
+            if (ParameterExtensions.OAuth2ParameterWithSpecialInitiate.TryGetValue(mappingName, out Func<string, string, string> execute))
+            {
+                if (mappingName.Equals(AuthorizeRequest.ResponseMode))
+                {
+#pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
+                    var responseType = (Parameter)_properties
+                        .FirstOrDefault(p => p.Name.Equals("ResponseType"))
+                        .GetValue(this, null);
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
+#pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
+                    parameterValue = execute.Invoke(parameterValue, responseType.Value);
+                }
+                else
+                    parameterValue = execute.Invoke(parameterValue, string.Empty);
+            }
+
+            setValue(propertyValue, parameterValue);
+            property.SetValue(this, propertyValue);
+        }
+
+        private static string GetMappingNameForRequestParameter(string propertyName)
+        {
+            var name = _parameterNames.FirstOrDefault(p => p.Name.Equals(propertyName));
+            var n = (string)name.GetValue(null);
+            return n;
+        }
+
+        private static Action<Parameter, string> FunctionToInitiateValueOfProperty()
+        {
+            MethodInfo setValue = typeof(Parameter).GetMethod("SetValue", new[] { typeof(string) });
+            ParameterExpression instance = Expression.Parameter(typeof(Parameter), "x");
+            ParameterExpression param = Expression.Parameter(typeof(string), "y");
+
+            Expression call = Expression.Call(instance, setValue, param);
+
+            Expression<Action<Parameter, string>> methodHander = Expression.Lambda<Action<Parameter, string>>(call, instance, param);
+            var method = methodHander.Compile();
+
+            return method;
+        }
+
+        private static void ValidateRequestQuery(string? requestQuery)
+        {
+            if (string.IsNullOrEmpty(requestQuery))
+                throw new CustomException(400, ExceptionMessage.QUERYSTRING_NOT_NULL_OR_EMPTY);
+        }
+
+        private static string[] QueryStringToArray(string? queryString)
+        {
+            ValidateRequestQuery(queryString);
+
+            return queryString.Remove(0, 1).Split("&");
+        }
+    }
+
     public abstract class AbtractRequestParamters
     {
         protected readonly string[] requestQuery;
 
-        //public List<Parameter> Parameters { get; private set; } = new List<Parameter>();
-
         public AbtractRequestParamters(string? queryString)
-            //, RequestType requestType)
         {
             requestQuery = QueryStringToArray(queryString);
-
-            //Parameters.AddRange(RequestParametersExtensions.ParametersForRequestType[requestType].Select((name) =>
-            //{
-            //    var param = new Parameter(name);
-            //    string value = requestQuery.GetFromQueryString(name);
-            //    if (RequestParametersExtensions.InitiateForParameters.ContainsKey(name))
-            //        value = RequestParametersExtensions.InitiateForParameters[name](value);
-
-            //    param.SetValue(value);
-
-            //    return param;
-            //}));
         }
 
         private void ValidateRequestQuery(string? requestQuery)

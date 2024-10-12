@@ -1,4 +1,6 @@
 ﻿using IssuerOfClaims.Extensions;
+using ServerUltilities.Identity;
+using System.Web;
 using static ServerUltilities.Identity.Constants;
 using static ServerUltilities.Identity.OidcConstants;
 
@@ -72,6 +74,18 @@ namespace IssuerOfClaims.Controllers.Ultility
             { AuthorizeRequest.IdTokenHint, ParameterPriority.OPTIONAL }
         };
 
+        internal static Dictionary<string, Func<string, string, string>> OAuth2ParameterWithSpecialInitiate = new Dictionary<string, Func<string, string, string>>()
+        {
+            { AuthorizeRequest.Scope, (str, str1) => { return System.Uri.UnescapeDataString(str); } },
+            { AuthorizeRequest.RedirectUri, (str, str1) => { return System.Uri.UnescapeDataString(str); } },
+            { AuthorizeRequest.ResponseMode, (responseMode, responseType) => 
+            {
+                return string.IsNullOrEmpty(responseMode) ? GetDefaultResponseModeByResponseType(responseType) : responseMode;
+            }},
+            { RegisterRequest.FirstName, (str, str1) => { return HttpUtility.UrlDecode(str); } },
+            { RegisterRequest.LastName, (str, str1) => { return HttpUtility.UrlDecode(str); } }
+        };
+
         internal static Dictionary<string, ParameterPriority> RegisterParamterPriority = new Dictionary<string, ParameterPriority>()
         {
             { RegisterRequest.UserName, ParameterPriority.REQRUIRED },
@@ -85,6 +99,26 @@ namespace IssuerOfClaims.Controllers.Ultility
             { RegisterRequest.Phone, ParameterPriority.OPTIONAL},
             { RegisterRequest.Roles, ParameterPriority.OPTIONAL }
         };
+
+
+        private static string GetDefaultResponseModeByResponseType(string responseType)
+        {
+            string responseMode = "";
+
+            // get grant type for response type
+            string grantType = Constants.ResponseTypeToGrantTypeMapping[responseType];
+            // map grant type with allowed response mode
+            string[] responseModes = Constants.AllowedResponseModesForGrantType[grantType].ToArray();
+
+            // TODO: by default
+            if (responseType.Equals(ResponseTypes.Code))
+                responseMode = responseModes.First(m => m.Equals(ResponseModes.Query));
+            else if (responseType.Equals(ResponseTypes.Token))
+                responseMode = responseModes.First(m => m.Equals(ResponseModes.Fragment));
+
+
+            return responseMode;
+        }
     }
 
     public enum ParameterPriority

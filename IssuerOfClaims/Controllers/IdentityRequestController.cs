@@ -153,6 +153,7 @@ namespace IssuerOfClaims.Controllers
             _tokenManager.UpdateTokenRequestSession(requestSession);
             #endregion
 
+            // TODO: for now, explicit use response type will have no meaning, but I will think about how to handle response type later
             // Create a custom response object
             object responseBody = new
             {
@@ -163,7 +164,7 @@ namespace IssuerOfClaims.Controllers
             // TODO: comment for now
             //ACF_I_AddResponseStatus(200);
 
-            return StatusCode(200, System.Text.Json.JsonSerializer.Serialize(responseBody));
+            return StatusCode((int)HttpStatusCode.OK, System.Text.Json.JsonSerializer.Serialize(responseBody));
         }
 
         private async Task<UserIdentity> ACF_I_GetResourceOwnerIdentity()
@@ -791,22 +792,6 @@ namespace IssuerOfClaims.Controllers
         }
         #endregion
 
-        /// <summary>
-        /// authorization_endpoint
-        /// </summary>
-        /// <returns></returns>
-        [HttpPost("authorize")]
-        public async Task<ActionResult> AuthorizationPostAsync()
-        {
-            // 1. Get authorization request from server
-            // 2. Return an http 302 message to server, give it a nonce cookie (for now, ignore this part),
-            //    if asking for google, then send a redirect to google to get authorization code
-            //    if basic access, then return a redirect to another request to identity server - send request to "authentication/basicAccess" route
-            // 3.
-
-            return StatusCode(200);
-        }
-
         #region confirm email after creating user
         /// <summary>
         /// TODO: will verify this function later
@@ -1123,22 +1108,5 @@ namespace IssuerOfClaims.Controllers
             return Ok();
         }
         #endregion
-
-
-        /// <summary>
-        /// TODO: try to implement from https://datatracker.ietf.org/doc/html/rfc9068
-        ///     : and https://openid.net/specs/openid-connect-core-1_0.html
-        /// </summary>
-        /// <param name="user"></param>
-        /// <returns></returns>
-        private string GenerateAccessToken(UserIdentity user)
-        {
-            return string.Empty;
-        }
-
-        private T Cast<T>(object obj, T model)
-        {
-            return (T)obj;
-        }
     }
 }

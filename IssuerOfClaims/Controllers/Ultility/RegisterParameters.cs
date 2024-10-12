@@ -60,21 +60,21 @@ namespace IssuerOfClaims.Controllers.Ultility
             this.Gender.SetValue(requestQuery.GetFromQueryString(RegisterRequest.Gender));
             this.Roles.SetValue(requestQuery.GetFromQueryString(RegisterRequest.Roles));
 
-            SetUserNameAndPassword(headers);
+            string? userCredential = headers["Register"][0];
+            SetUserNameAndPassword(userCredential);
         }
 
-        private void ValidateHeader(IHeaderDictionary headers)
+        private void ValidateHeader(string? userCredential)
         {
-            if (headers["Register"][0] == null)
+            if (string.IsNullOrEmpty(userCredential))
                 throw new CustomException(400, ExceptionMessage.REGISTER_INFORMATION_NULL_OR_EMPTY);
         }
 
-        private void SetUserNameAndPassword(IHeaderDictionary headers)
+        private void SetUserNameAndPassword(string? userCredential)
         {
-            ValidateHeader(headers);
+            ValidateHeader(userCredential);
 
-            var userCredentials = headers["Register"][0];
-            var userNamePassword = (userCredentials.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim()).ToBase64Decode();
+            var userNamePassword = userCredential.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim().ToBase64Decode();
 
             // TODO: will need to validate username and password, from client and server
             string userName = userNamePassword.Split(":")[0];

@@ -6,12 +6,9 @@ namespace IssuerOfClaims.Services.Database
 {
     public class RoleDbServices : DbTableBase<Role>, IRoleDbServices
     {
-        //private DbSet<Role> _Roles;
 
         public RoleDbServices() 
-            //: base(configuration)
         {
-            //_PrMRoles = dbModels;
         }
 
         public int Count()

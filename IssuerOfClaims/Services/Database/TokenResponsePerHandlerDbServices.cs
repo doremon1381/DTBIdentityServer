@@ -7,12 +7,8 @@ namespace IssuerOfClaims.Services.Database
 {
     public class TokenResponsePerHandlerDbServices : DbTableBase<TokenResponsePerIdentityRequest>, ITokenResponsePerHandlerDbServices
     {
-        //private DbSet<TokenResponsePerIdentityRequest> _tokenResponses { get; set; }
-
         public TokenResponsePerHandlerDbServices() 
-            //: base(configuration)
         {
-            //_tokenResponsePerHandlers = this.dbModels;
         }
 
         public TokenResponsePerIdentityRequest CreatNew()

@@ -6,12 +6,8 @@ namespace IssuerOfClaims.Services.Database
 {
     public class ConfirmEmailDbServices : DbTableBase<ConfirmEmail>, IConfirmEmailDbServices
     {
-        //private DbSet<ConfirmEmail> _ConfirmEmails { get; set; }
-
         public ConfirmEmailDbServices() 
-            //: base(configuration)
         {
-            //_ConfirmEmails = dbModels;
         }
 
         public ConfirmEmail GetDraft()

@@ -6,11 +6,8 @@ namespace IssuerOfClaims.Services.Database
 {
     public class TokenResponseDbServices : DbTableBase<TokenResponse>, ITokenResponseDbServices
     {
-        //private DbSet<TokenResponse> _TokenResponses;
         public TokenResponseDbServices() 
-            //: base(configuration)
         {
-            //_TokenResponses = dbModels;
         }
 
         public TokenResponse CreateAccessToken()

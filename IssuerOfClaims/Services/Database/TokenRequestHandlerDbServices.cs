@@ -7,13 +7,10 @@ namespace IssuerOfClaims.Services.Database
 {
     public class TokenRequestHandlerDbServices : DbTableBase<TokenRequestHandler>, ITokenRequestHandlerDbServices
     {
-        //private DbSet<TokenRequestHandler> _tokenRequestHandlers;
         //private readonly ILogger _logger;
 
         public TokenRequestHandlerDbServices(ILoggerFactory logger)
-            //: base(configuration)
         {
-            //_logger = logger.CreateLogger("TokenRequestHandlerServices");
         }
 
         public TokenRequestHandler FindByAuthorizationCode(string authorizationCode)

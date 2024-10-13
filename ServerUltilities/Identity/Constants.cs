@@ -1,4 +1,6 @@
-﻿namespace ServerUltilities.Identity
+﻿using static ServerUltilities.Identity.OidcConstants;
+
+namespace ServerUltilities.Identity
 {
     /// <summary>
     /// from https://github.com/IdentityServer/IdentityServer4/blob/main/src/IdentityServer4/src/Constants.cs
@@ -83,7 +85,9 @@
 
         public static string[] SupportedSubjectTypes =
         {
-            "pairwise", "public"
+            // TODO 
+            //"pairwise",
+            "public"
         };
 
         public static class SigningAlgorithms
@@ -206,10 +210,33 @@
             }
         }
 
+        public static readonly Dictionary<string, string> DiscoveryToEndpointMapping = new Dictionary<string, string>()
+        {
+            { EndpointNames.Authorize, Discovery.AuthorizationEndpoint },
+            { EndpointNames.Token, Discovery.TokenEndpoint },
+            { EndpointNames.Register, Discovery.RegistrationEndpoint },
+            { EndpointNames.DeviceAuthorization, Discovery.DeviceAuthorizationEndpoint },
+            { EndpointNames.Discovery, Discovery.DiscoveryEndpoint },
+            { EndpointNames.Introspection, Discovery.IntrospectionEndpoint },
+            { EndpointNames.Revocation, Discovery.RevocationEndpoint },
+            { EndpointNames.EndSession, Discovery.EndSessionEndpoint },
+            { EndpointNames.CheckSession, Discovery.CheckSessionEndpoint },
+            { EndpointNames.UserInfo, Discovery.UserInfoEndpoint },
+            { EndpointNames.Jwks, Discovery.JwksEndpoint },
+        };
+
+        //public static readonly Dictionary<string, string> DiscoveryToCapabilitiesMapping = new Dictionary<string, string>()
+        //{
+        //    {  }
+        //};
+
         public static class EndpointNames
         {
             public const string Authorize = "Authorize";
             public const string Token = "Token";
+            // TODO: Not in specs, but I currently use
+            public const string Register = "Register";
+            // TODO: Not in specs, but I currently use
             public const string DeviceAuthorization = "DeviceAuthorization";
             public const string Discovery = "Discovery";
             public const string Introspection = "Introspection";
@@ -217,16 +244,19 @@
             public const string EndSession = "Endsession";
             public const string CheckSession = "Checksession";
             public const string UserInfo = "Userinfo";
+            public const string Jwks = "JwksUri";
         }
 
         public static class ProtocolRoutePaths
         {
-            public const string ConnectPathPrefix = "connect";
+            //public const string ConnectPathPrefix = "connect";
+            public const string ConnectPathPrefix = "oauth2";
 
             public const string Authorize = ConnectPathPrefix + "/authorize";
             public const string AuthorizeCallback = Authorize + "/callback";
-            public const string DiscoveryConfiguration = ".well-known/openid-configuration";
-            public const string DiscoveryWebKeys = DiscoveryConfiguration + "/jwks";
+            public const string Discovery = ".well-known/openid-configuration";
+            //public const string DiscoveryWebKeys = Discovery + "/jwks";
+            public const string Jwks = ConnectPathPrefix + "/jwks";
             public const string Token = ConnectPathPrefix + "/token";
             public const string Revocation = ConnectPathPrefix + "/revocation";
             public const string UserInfo = ConnectPathPrefix + "/userinfo";
@@ -235,6 +265,7 @@
             public const string EndSessionCallback = EndSession + "/callback";
             public const string CheckSession = ConnectPathPrefix + "/checksession";
             public const string DeviceAuthorization = ConnectPathPrefix + "/deviceauthorization";
+            public const string Register = ConnectPathPrefix + "/register";
 
             public const string MtlsPathPrefix = ConnectPathPrefix + "/mtls";
             public const string MtlsToken = MtlsPathPrefix + "/token";
@@ -244,8 +275,9 @@
 
             public static readonly string[] CorsPaths =
             {
-                DiscoveryConfiguration,
-                DiscoveryWebKeys,
+                Discovery,
+                //DiscoveryWebKeys,
+                Jwks,
                 Token,
                 UserInfo,
                 Revocation

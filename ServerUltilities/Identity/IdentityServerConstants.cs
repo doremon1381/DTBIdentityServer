@@ -201,6 +201,7 @@ namespace ServerUltilities.Identity
             public const string Terminated = "terminated";
         }
 
+        // TODO
         //public static class Tracing
         //{
         //    public static readonly string Basic = IssuerOfClaims.Tracing.TraceNames.Basic;
@@ -212,77 +213,22 @@ namespace ServerUltilities.Identity
         //    public static readonly string ServiceVersion = IssuerOfClaims.Tracing.ServiceVersion;
         //}
 
-        public static class EndpointNames
+        public static class ContentSecurityPolicyHashes
         {
-            public const string Authorize = "Authorize";
-            // TODO: Not in specs, but I currently use
-            public const string Register = "Register";
-            // TODO: Not in specs, but I currently use
-            public const string BackchannelAuthentication = "BackchannelAuthentication";
-            public const string Token = "Token";
-            public const string DeviceAuthorization = "DeviceAuthorization";
-            public const string Discovery = "Discovery";
-            public const string Jwks = "Jwks";
-            public const string Introspection = "Introspection";
-            public const string Revocation = "Revocation";
-            public const string EndSession = "Endsession";
-            public const string CheckSession = "Checksession";
-            public const string UserInfo = "Userinfo";
-            public const string PushedAuthorization = "PushedAuthorization";
-        }
+            /// <summary>
+            /// The hash of the inline style used on the end session endpoint. 
+            /// </summary>
+            public const string EndSessionStyle = "sha256-e6FQZewefmod2S/5T11pTXjzE2vn3/8GRwWOs917YE4=";
 
-        //public static class ContentSecurityPolicyHashes
-        //{
-        //    /// <summary>
-        //    /// The hash of the inline style used on the end session endpoint. 
-        //    /// </summary>
-        //    public const string EndSessionStyle = "sha256-e6FQZewefmod2S/5T11pTXjzE2vn3/8GRwWOs917YE4=";
+            /// <summary>
+            /// The hash of the inline script used on the authorize endpoint. 
+            /// </summary>
+            public const string AuthorizeScript = "sha256-orD0/VhH8hLqrLxKHD/HUEMdwqX6/0ve7c5hspX5VJ8=";
 
-        //    /// <summary>
-        //    /// The hash of the inline script used on the authorize endpoint. 
-        //    /// </summary>
-        //    public const string AuthorizeScript = "sha256-orD0/VhH8hLqrLxKHD/HUEMdwqX6/0ve7c5hspX5VJ8=";
-
-        //    /// <summary>
-        //    /// The hash of the inline script used on the check session endpoint. 
-        //    /// </summary>
-        //    public const string CheckSessionScript = "sha256-fa5rxHhZ799izGRP38+h4ud5QXNT0SFaFlh4eqDumBI=";
-        //}
-
-        public static class ProtocolRoutePaths
-        {
-            public const string ConnectPathPrefix = "connect";
-
-            public const string Authorize = ConnectPathPrefix + "/authorize";
-            public const string AuthorizeCallback = Authorize + "/callback";
-            public const string DiscoveryConfiguration = ".well-known/openid-configuration";
-            public const string DiscoveryWebKeys = DiscoveryConfiguration + "/jwks";
-            public const string BackchannelAuthentication = ConnectPathPrefix + "/ciba";
-            public const string Token = ConnectPathPrefix + "/token";
-            public const string Revocation = ConnectPathPrefix + "/revocation";
-            public const string UserInfo = ConnectPathPrefix + "/userinfo";
-            public const string Introspection = ConnectPathPrefix + "/introspect";
-            public const string EndSession = ConnectPathPrefix + "/endsession";
-            public const string EndSessionCallback = EndSession + "/callback";
-            public const string CheckSession = ConnectPathPrefix + "/checksession";
-            public const string DeviceAuthorization = ConnectPathPrefix + "/deviceauthorization";
-            public const string PushedAuthorization = ConnectPathPrefix + "/par";
-
-
-            public const string MtlsPathPrefix = ConnectPathPrefix + "/mtls";
-            public const string MtlsToken = MtlsPathPrefix + "/token";
-            public const string MtlsRevocation = MtlsPathPrefix + "/revocation";
-            public const string MtlsIntrospection = MtlsPathPrefix + "/introspect";
-            public const string MtlsDeviceAuthorization = MtlsPathPrefix + "/deviceauthorization";
-
-            public static readonly string[] CorsPaths =
-            {
-            DiscoveryConfiguration,
-            DiscoveryWebKeys,
-            Token,
-            UserInfo,
-            Revocation
-        };
+            /// <summary>
+            /// The hash of the inline script used on the check session endpoint. 
+            /// </summary>
+            public const string CheckSessionScript = "sha256-fa5rxHhZ799izGRP38+h4ud5QXNT0SFaFlh4eqDumBI=";
         }
     }
 }

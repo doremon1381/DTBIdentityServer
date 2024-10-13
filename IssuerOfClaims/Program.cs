@@ -42,7 +42,8 @@ namespace IssuerOfClaims
             builder.Services.AddTransient<ITokenManager, TokenManager>();
 
             builder.Services.AddSingleton(builder.Configuration.GetSection("MailSettings").Get<MailSettings>());
-            builder.Services.AddSingleton(builder.Configuration.GetSection("Jwt").Get<JwtOptions>());
+            // TODO: will change later
+            //builder.Services.AddSingleton(builder.Configuration.GetSection("Jwt").Get<JwtOptions>());
             // TODO: will add later
             builder.Services.AddIdentityCore<UserIdentity>()
                 .AddEntityFrameworkStores<DbContextManager>()

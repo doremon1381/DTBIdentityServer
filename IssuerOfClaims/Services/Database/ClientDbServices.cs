@@ -1,13 +1,6 @@
-﻿using Google.Apis.Auth.OAuth2;
-using IssuerOfClaims.Database;
-using IssuerOfClaims.Database.Model;
-using IssuerOfClaims.Models;
+﻿using IssuerOfClaims.Database;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query.Internal;
-using Microsoft.EntityFrameworkCore.Query;
 using ServerDbModels;
-using System.Linq.Expressions;
-using System.Reflection;
 
 namespace IssuerOfClaims.Services.Database
 {

@@ -435,9 +435,11 @@
             public const string UserInfoEndpoint = "userinfo_endpoint";
             public const string IntrospectionEndpoint = "introspection_endpoint";
             public const string RevocationEndpoint = "revocation_endpoint";
-            public const string DiscoveryEndpoint = ".well-known/openid-configuration";
-            public const string JwksUri = "jwks_uri";
+            //public const string DiscoveryEndpoint = ".well-known/openid-configuration";
+            public const string DiscoveryEndpoint = "discovery_endpoint";
+            public const string JwksEndpoint = "jwks_uri";
             public const string EndSessionEndpoint = "end_session_endpoint";
+            public const string CheckSessionEndpoint = "check_session_endpoint";
             public const string CheckSessionIframe = "check_session_iframe";
             public const string RegistrationEndpoint = "registration_endpoint";
             public const string MtlsEndpointAliases = "mtls_endpoint_aliases";

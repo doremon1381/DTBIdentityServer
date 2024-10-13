@@ -67,7 +67,7 @@ namespace IssuerOfClaims.Controllers.Ultility
         {
             Action<Parameter, string> setValueMethod = FunctionToInitiateValueOfProperty();
 
-            // TODO: for currently logic, to ensure response mode is set, I run this function first
+            // TODO: for currently logic, to ensure response mode is set before another properties, I run this function first
             if (_responseType != null)
                 Task.Run(async () => { await SetPropertyValueAsync(setValueMethod, _responseType); }).Wait();
 

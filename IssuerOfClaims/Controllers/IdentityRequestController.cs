@@ -22,6 +22,8 @@ using IssuerOfClaims.Services.Token;
 using static ServerUltilities.Identity.OidcConstants;
 using IssuerOfClaims.Services;
 using Microsoft.IdentityModel.Tokens;
+using static ServerUltilities.Identity.Constants;
+using System.Reflection;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -90,9 +92,11 @@ namespace IssuerOfClaims.Controllers
                         return await IssueAuthorizationCodeAsync(parameters);
                     case ResponseTypes.IdToken:
                         return await ImplicitGrantWithFormPostAsync(parameters);
+                    case ResponseTypes.IdTokenToken:
+                        throw new CustomException((int)HttpStatusCode.NotImplemented, "Not yet implement!");
                     // TODO: will implement another flow if I have time
                     default:
-                        return StatusCode((int)HttpStatusCode.NotImplemented, "Not yet implement!");
+                        throw new CustomException((int)HttpStatusCode.NotImplemented, "Not yet implement!");
                 }
             }
             catch (CustomException ex)
@@ -1098,16 +1102,10 @@ namespace IssuerOfClaims.Controllers
         }
         #endregion
 
-        #region endpoint discovery
-        /// <summary>
-        /// https://openid.net/specs/openid-connect-discovery-1_0.html
-        /// </summary>
-        /// <returns></returns>
-        [HttpGet(".well-known/openid-configuration")]
-        public ActionResult EndpointDiscovery()
+        #region DiscoveryWebKeys
+        [HttpGet("jwks")]
+        public ActionResult GetPublicKeyForVerifyingIdToken()
         {
-
-
             return StatusCode((int)HttpStatusCode.OK);
         }
         #endregion

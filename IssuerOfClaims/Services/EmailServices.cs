@@ -1,5 +1,4 @@
 ﻿using IssuerOfClaims.Services.Database;
-using Microsoft.AspNetCore.Mvc;
 using MailKit.Net.Smtp;
 using Microsoft.AspNetCore.WebUtilities;
 using MimeKit;
@@ -7,6 +6,8 @@ using ServerDbModels;
 using ServerUltilities;
 using System.Text.Encodings.Web;
 using System.Text;
+using IssuerOfClaims.Models;
+using ServerUltilities.Identity;
 
 namespace IssuerOfClaims.Services
 {
@@ -14,12 +15,12 @@ namespace IssuerOfClaims.Services
     {
         private readonly IConfirmEmailDbServices _emailDbServices;
         private readonly IApplicationUserManager _applicationUserManager;
-        private readonly MailSettings _mailSettings;
+        private readonly MailSettings _mailSettings = null;
 
-        public EmailServices(IConfirmEmailDbServices emailDbServices, IApplicationUserManager userManager, MailSettings mailSettings) 
+        public EmailServices(IConfirmEmailDbServices emailDbServices, IApplicationUserManager userManager, IConfigurationManager configuration) 
         {
             _emailDbServices = emailDbServices;
-            _mailSettings = mailSettings;
+            _mailSettings = configuration.GetSection(IdentityServerConfiguration.MAILSETTINGS).Get<MailSettings>();
             _applicationUserManager = userManager;
         }
 

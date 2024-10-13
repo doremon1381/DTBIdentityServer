@@ -95,7 +95,7 @@ namespace IssuerOfClaims.Services
         private static void ValidateAuthenticateInfo(string authenticateInfor)
         {
             if (string.IsNullOrEmpty(authenticateInfor))
-                throw new Exception("Authentication's identity inside request headers is missing!");
+                throw new InvalidOperationException("Authentication's identity inside request headers is missing!");
         }
 
         private static void ValidateIdentityCredentials(string userNamePassword)

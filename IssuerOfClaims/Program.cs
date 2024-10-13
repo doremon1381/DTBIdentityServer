@@ -41,9 +41,6 @@ namespace IssuerOfClaims
             builder.Services.AddTransient<IRsaSh256KeyPairDbServices, RsaSh256KeyPairDbServices>();
             builder.Services.AddTransient<ITokenManager, TokenManager>();
 
-            builder.Services.AddSingleton(builder.Configuration.GetSection("MailSettings").Get<MailSettings>());
-            // TODO: will change later
-            //builder.Services.AddSingleton(builder.Configuration.GetSection("Jwt").Get<JwtOptions>());
             // TODO: will add later
             builder.Services.AddIdentityCore<UserIdentity>()
                 .AddEntityFrameworkStores<DbContextManager>()
@@ -80,10 +77,6 @@ namespace IssuerOfClaims
                     //    ValidateLifetime = true
                     //};
                 });
-            //builder.Services.AddAuthorization(options => 
-            //{
-            //    options.AddPolicy("RequireClient", policy => policy.RequireRole("client"));
-            //});
             builder.Services.AddMvc(mvcOptions =>
             {
                 mvcOptions.Conventions.Add(new ControllerNameAttributeConvention());

@@ -9,7 +9,7 @@ namespace IssuerOfClaims.Controllers.Ultility
     /// <summary>
     /// Implement specs from https://openid.net/specs/openid-connect-core-1_0.html
     /// </summary>
-    public class Oauth2Parameters: AbtractRequestParamters<Oauth2Parameters>
+    public class AuthCodeParameters: AbtractRequestParamters<AuthCodeParameters>
     {
         #region requested parameters
         /// <summary>
@@ -83,7 +83,7 @@ namespace IssuerOfClaims.Controllers.Ultility
         #endregion
 
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-        public Oauth2Parameters(string? queryString): base (queryString)
+        public AuthCodeParameters(string? queryString): base (queryString)
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
         {
             ValidateScope();

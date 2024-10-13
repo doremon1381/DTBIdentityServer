@@ -389,6 +389,7 @@ namespace ServerUltilities.Identity
 
             public const string UserName = "UserName";
             public const string Password = "Password";
+            public const string Register = "Register";
 
             public static string Email = "email";
             public static string FirstName = "first_name";
@@ -397,6 +398,13 @@ namespace ServerUltilities.Identity
 
             public static string Gender = "gender";
             public static string Phone = "phone";
+        }
+
+        public static class SignInGoogleRequest
+        {
+            public const string AuthorizationCode = "code";
+            public const string RedirectUri = "redirect_uri";
+            public const string CodeVerifier = "code_verifier";
         }
     }
 }

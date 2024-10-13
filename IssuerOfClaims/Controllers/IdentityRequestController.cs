@@ -24,6 +24,8 @@ using IssuerOfClaims.Services;
 using Microsoft.IdentityModel.Tokens;
 using static ServerUltilities.Identity.Constants;
 using System.Reflection;
+using IssuerOfClaims.Models;
+using Azure.Core;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -79,7 +81,7 @@ namespace IssuerOfClaims.Controllers
                 //    if basic access (I mean implicit grant - form_post or not), then return a redirect to another request to identity server - send request to "authentication/basicAccess" route
                 // 3.
 
-                Oauth2Parameters parameters = new Oauth2Parameters(HttpContext.Request.QueryString.Value);
+                AuthCodeParameters parameters = new AuthCodeParameters(HttpContext.Request.QueryString.Value);
 
                 var client = _clientDbServices.Find(parameters.ClientId.Value);
 
@@ -116,7 +118,7 @@ namespace IssuerOfClaims.Controllers
                 throw new InvalidOperationException("client id is wrong!");
         }
 
-        private void ACF_VerifyRedirectUris(Oauth2Parameters parameters, Client client)
+        private void ACF_VerifyRedirectUris(AuthCodeParameters parameters, Client client)
         {
             string[] redirectUris = client.RedirectUris.Split(",");
             if (!redirectUris.Contains(parameters.RedirectUri.Value))
@@ -136,7 +138,7 @@ namespace IssuerOfClaims.Controllers
         /// <param name="nonce"></param>
         /// <param name="headers"></param>
         /// <returns></returns>
-        private async Task<ActionResult> IssueAuthorizationCodeAsync(Oauth2Parameters parameters)
+        private async Task<ActionResult> IssueAuthorizationCodeAsync(AuthCodeParameters parameters)
         {
             // TODO: comment for now
             //     : by using AuthenticateHanlder, in this step, authenticated is done
@@ -229,7 +231,7 @@ namespace IssuerOfClaims.Controllers
 
             return tokenRequestHandler;
         }
-        private void ACF_I_UpdateRequestSessionDetails(Oauth2Parameters parameters, TokenRequestSession ACFProcessSession, Client client, out string authorizationCode)
+        private void ACF_I_UpdateRequestSessionDetails(AuthCodeParameters parameters, TokenRequestSession ACFProcessSession, Client client, out string authorizationCode)
         {
             ACF_I_ImportPKCERequestedParams(parameters.CodeChallenge.Value, parameters.CodeChallengeMethod.Value, parameters.CodeChallenge.HasValue, ACFProcessSession);
             ACF_I_ImportRequestSessionData(parameters.Scope.Value, parameters.Nonce.Value, ACFProcessSession, out authorizationCode);
@@ -371,7 +373,7 @@ namespace IssuerOfClaims.Controllers
         /// <param name="clientId"></param>
         /// <param name="headers"></param>
         /// <returns></returns>
-        private async Task<ActionResult> ImplicitGrantWithFormPostAsync(Oauth2Parameters parameters)
+        private async Task<ActionResult> ImplicitGrantWithFormPostAsync(AuthCodeParameters parameters)
         {
             try
             {
@@ -524,7 +526,6 @@ namespace IssuerOfClaims.Controllers
 
         #region Issue token
         [HttpGet("token")]
-        // TODO: by oauth flow, only client can use this 
         [Authorize]
         // 5.3.2.  Successful UserInfo Response: https://openid.net/specs/openid-connect-core-1_0.html#UserInfoResponse
         public async Task<ActionResult> TokenEndpointAsync()
@@ -830,59 +831,53 @@ namespace IssuerOfClaims.Controllers
 
         #region Google authentication
         //[HttpPost("v{version:apiVersion}/authorize/google")]
-        [HttpGet("authorize/google")]
+        [HttpPost("authorize/google")]
+        [AllowAnonymous]
         // TODO: comment for now, but when everything is done, this policy must be used, 
         //     : only identityserver's clients can use this endpoint, not user-agent
         //[Authorize(Roles = "Client")]
         public async Task<ActionResult> GoogleAuthenticating()
         {
-            var googleClientConfig = _configuration.GetSection(IdentityServerConfiguration.GOOGLE_CLIENT);
+            try
+            {
+                var googleClientConfig = _configuration.GetSection(IdentityServerConfiguration.GOOGLE_CLIENT).Get<GoogleSettings>();
+                ValidateGoogleSettings(googleClientConfig);
 
-            string clientID = googleClientConfig[IdentityServerConfiguration.CLIENT_ID];
-            string clientSecret = googleClientConfig[IdentityServerConfiguration.CLIENT_SECRET];
-            string authorizationEndpoint = googleClientConfig[IdentityServerConfiguration.AUTHORIZATION_ENDPOINT];
-            string tokenEndpoint = googleClientConfig[IdentityServerConfiguration.TOKEN_ENDPOINT];
-            string[] redirectUris = googleClientConfig.GetSection(IdentityServerConfiguration.REDIRECT_URIS).Get<string[]>();
+                var signInGoogleParameters = new SignInGoogleParameters(HttpContext.Request.QueryString.Value);
 
-            if (googleClientConfig == null
-                || string.IsNullOrEmpty(clientID)
-                || string.IsNullOrEmpty(clientSecret)
-                || string.IsNullOrEmpty(authorizationEndpoint)
-                || string.IsNullOrEmpty(tokenEndpoint)
-                || redirectUris == null || redirectUris.Length == 0)
-                return StatusCode(500);
+                string access_token = await Test(signInGoogleParameters, googleClientConfig);
+                // TODO: will learn how to use it, comment for now
+                //GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(id_token);
+                string user_info = await userinfoCallAsync(access_token);
 
-            //string projectId = googleClientConfiguration[IdentityServerConfiguration.PROJECT_ID];
-            //string userInfoEndpoint = "https://www.googleapis.com/oauth2/userinfo";
+                // TODO: will need to create new user if current user with this email is not have
+                //     : after that, create login session object and save to db
+                //     : after create login session, authentication then will perform
+                return Ok(user_info);
+            }
+            catch (CustomException ex)
+            {
+                // TODO: will check again
+                return StatusCode(ex.ExceptionIssueToward.Equals(ExceptionIssueToward.UserAgent) ? ex.StatusCode : (int)HttpStatusCode.InternalServerError, ex.Message);
+            }
+            catch(Exception ex)
+            {
+                throw;
+            }
+        }
 
-            if (!HttpContext.Request.QueryString.HasValue)
-                return StatusCode(400, "Query string of google authenticate request must have value!");
-
-            var queryString = HttpContext.Request.QueryString.Value.Remove(0, 1).Split("&");
-            string authorizationCode = queryString.GetFromQueryString("code");
-            if (authorizationCode == null)
-                return StatusCode(400, "authorization code does not included!");
-
-            var requestHeaders = HttpContext.Request.Headers;
-
-            var redirectUri = requestHeaders["redirect_uri"];
-            var codeVerifier = requestHeaders["code_verifier"];
-            if (string.IsNullOrEmpty(redirectUris.FirstOrDefault(r => r.Equals(HttpUtility.UrlDecode(redirectUri)))))
-                return StatusCode(400, "redirect_uri_mismatch!");
-
-            if (string.IsNullOrEmpty(codeVerifier))
-                return StatusCode(400, "code_verifier_mismatch!");
-
-            // builds the  request
+        private async Task<string> Test(SignInGoogleParameters signInGoogleParameters, GoogleSettings config)
+        {
+            // builds the request
             string tokenRequestBody = string.Format("code={0}&redirect_uri={1}&client_id={2}&code_verifier={3}&client_secret={4}&scope=&grant_type=authorization_code",
-                authorizationCode,
-                redirectUri,
-                clientID,
-                codeVerifier,
-                clientSecret);
+                signInGoogleParameters.AuthorizationCode,
+                signInGoogleParameters.RedirectUri,
+                config.ClientId,
+                signInGoogleParameters.CodeVerifier,
+                config.ClientSecret);
 
             // sends the request
-            HttpWebRequest tokenRequest = (HttpWebRequest)WebRequest.Create(tokenEndpoint);
+            HttpWebRequest tokenRequest = (HttpWebRequest)WebRequest.Create(config.TokenUri);
             tokenRequest.Method = "POST";
             tokenRequest.ContentType = "application/x-www-form-urlencoded";
             tokenRequest.Accept = "Accept=text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
@@ -893,46 +888,44 @@ namespace IssuerOfClaims.Controllers
             stream.Close();
 
             string id_token = "";
-            string user_info = "";
-            try
+            string access_token = "";
+            // gets the response
+            WebResponse tokenResponse = await tokenRequest.GetResponseAsync();
+
+            using (StreamReader reader = new StreamReader(tokenResponse.GetResponseStream()))
             {
-                // gets the response
-                WebResponse tokenResponse = await tokenRequest.GetResponseAsync();
+                // reads response body
+                string responseText = await reader.ReadToEndAsync();
 
-                using (StreamReader reader = new StreamReader(tokenResponse.GetResponseStream()))
-                {
-                    // reads response body
-                    string responseText = await reader.ReadToEndAsync();
-                    //output(responseText);
+                // TODO: because I will send nonce to google, that was created by web server and send to my identity server, so need to check nonce from google to prevent id_token inject.
 
-                    // TODO: because I will send nonce to google, that was created by web server and send to my identity server, so need to check nonce from google to prevent id_token inject.
+                // converts to dictionary
+                Dictionary<string, string> tokenEndpointDecoded = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
 
-                    // converts to dictionary
-                    Dictionary<string, string> tokenEndpointDecoded = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
+                access_token = tokenEndpointDecoded["access_token"];
+                id_token = tokenEndpointDecoded["id_token"];
 
-                    string access_token = tokenEndpointDecoded["access_token"];
-                    id_token = tokenEndpointDecoded["id_token"];
-
-                    // TODO: validate at_hash from id_token is OPTIONAL in some flows (hybrid flow,...),
-                    //     : I will check when to implement it later, now, better it has than it doesn't
-                    //     : comment for now
-                    //ValidateAtHash(id_token, access_token);
-
-                    // TODO: will learn how to use it, comment for now
-                    //GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(id_token);
-                    user_info = userinfoCall(access_token).Result;
-                }
-
-                // TODO: will need to create new user if current user with this email is not have
-                //     : after that, create login session object and save to db
-                //     : after create login session, authentication then will perform
-            }
-            catch (WebException ex)
-            {
-                throw;
+                // TODO: validate at_hash from id_token is OPTIONAL in some flows (hybrid flow,...),
+                //     : I will check when to implement it later, now, better it has than it doesn't
+                //     : comment for now
+                //ValidateAtHash(id_token, access_token);
             }
 
-            return Ok(user_info);
+            return access_token;
+        }
+
+        private static void ValidateGoogleSettings(GoogleSettings? googleClientConfig)
+        {
+            if (googleClientConfig == null)
+                throw new CustomException((int)HttpStatusCode.InternalServerError, "Elaboration of google inside server is mismatch!");
+
+            if (googleClientConfig == null
+                || string.IsNullOrEmpty(googleClientConfig.ClientId)
+                || string.IsNullOrEmpty(googleClientConfig.ClientSecret)
+                || string.IsNullOrEmpty(googleClientConfig.AuthUri)
+                || string.IsNullOrEmpty(googleClientConfig.TokenUri)
+                || googleClientConfig.RedirectUris == null || googleClientConfig.RedirectUris.Count == 0)
+                throw new CustomException((int)HttpStatusCode.InternalServerError, "Elaboration of google inside server is mismatch!");
         }
 
         /// <summary>
@@ -976,7 +969,7 @@ namespace IssuerOfClaims.Controllers
             return jwtSecurityToken;
         }
 
-        private async Task<string> userinfoCall(string access_token)
+        private async Task<string> userinfoCallAsync(string access_token)
         {
             string output = "";
             // builds the  request
@@ -1104,9 +1097,12 @@ namespace IssuerOfClaims.Controllers
 
         #region DiscoveryWebKeys
         [HttpGet("jwks")]
+        [AllowAnonymous]
         public ActionResult GetPublicKeyForVerifyingIdToken()
         {
-            return StatusCode((int)HttpStatusCode.OK);
+            var publicKey = _tokenManager.GetPublicKeyJson();
+
+            return StatusCode((int)HttpStatusCode.OK, JsonConvert.SerializeObject(publicKey, Formatting.Indented));
         }
         #endregion
     }

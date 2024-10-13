@@ -1,5 +1,6 @@
 ﻿using IssuerOfClaims.Extensions;
 using ServerUltilities.Identity;
+using System.Net;
 using System.Web;
 using static ServerUltilities.Identity.Constants;
 using static ServerUltilities.Identity.OidcConstants;
@@ -15,10 +16,10 @@ namespace IssuerOfClaims.Controllers.Ultility
 
         public bool HasValue => !string.IsNullOrEmpty(this.Value);
 
-        public Parameter(string name)
+        public Parameter(string name, RequestType requestType)
         {
             this.Name = name;
-            SetParameterPriority();
+            SetParameterPriority(requestType);
         }
 
         public void SetValue(string value)
@@ -32,32 +33,27 @@ namespace IssuerOfClaims.Controllers.Ultility
             if (this.Priority == ParameterPriority.REQRUIRED)
             {
                 if (string.IsNullOrEmpty(value))
-                    throw new InvalidDataException($"{this.Name} : {ExceptionMessage.REQUIRED_PARAMETER_NOT_NULL}");
+                    throw new CustomException((int)HttpStatusCode.BadRequest, $"{this.Name} : {ExceptionMessage.REQUIRED_PARAMETER_NOT_NULL}");
             }
 
             return true;
         }
 
-        private void SetParameterPriority()
+        private void SetParameterPriority(RequestType requestType)
         {
-            if (ParameterExtensions.DefaultParameterPriority.ContainsKey(this.Name))
+            this.Priority = requestType switch
             {
-                this.Priority = ParameterExtensions.DefaultParameterPriority[this.Name];
-            }
-            else if (ParameterExtensions.RegisterParamterPriority.ContainsKey(this.Name))
-            {
-                this.Priority = ParameterExtensions.RegisterParamterPriority[this.Name];
-            }
-            else
-            {
-                throw new InvalidDataException($"{this.Name} : Parameter priority is not set!");
-            }
+                RequestType.AuthorizationCode => ParameterExtensions.AuthCodeParameterPriority[this.Name],
+                RequestType.Register => ParameterExtensions.RegisterParamterPriority[this.Name],
+                RequestType.SignInGoogle => ParameterExtensions.SignInGoogleParamterPriority[this.Name],
+                _ => throw new InvalidDataException($"{this.Name} : Parameter priority is not set!")
+            };
         }
     }
 
     internal static class ParameterExtensions
     {
-        internal static Dictionary<string, ParameterPriority> DefaultParameterPriority = new Dictionary<string, ParameterPriority>()
+        internal static Dictionary<string, ParameterPriority> AuthCodeParameterPriority = new Dictionary<string, ParameterPriority>()
         {
             { AuthorizeRequest.Scope, ParameterPriority.REQRUIRED },
             { AuthorizeRequest.ResponseType, ParameterPriority.REQRUIRED },
@@ -74,7 +70,7 @@ namespace IssuerOfClaims.Controllers.Ultility
             { AuthorizeRequest.IdTokenHint, ParameterPriority.OPTIONAL }
         };
 
-        internal static Dictionary<string, Func<string, string, string>> OAuth2ParameterWithSpecialInitiate = new Dictionary<string, Func<string, string, string>>()
+        internal static Dictionary<string, Func<string, string, string>> RequestParameterWithSpecialInitiate = new Dictionary<string, Func<string, string, string>>()
         {
             { AuthorizeRequest.Scope, (str, str1) => { return System.Uri.UnescapeDataString(str); } },
             { AuthorizeRequest.RedirectUri, (str, str1) => { return System.Uri.UnescapeDataString(str); } },
@@ -100,6 +96,21 @@ namespace IssuerOfClaims.Controllers.Ultility
             { RegisterRequest.Roles, ParameterPriority.OPTIONAL }
         };
 
+        internal static Dictionary<string, ParameterPriority> SignInGoogleParamterPriority = new Dictionary<string, ParameterPriority>()
+        {
+            { SignInGoogleRequest.AuthorizationCode, ParameterPriority.REQRUIRED },
+            { SignInGoogleRequest.RedirectUri, ParameterPriority.REQRUIRED },
+            { SignInGoogleRequest.CodeVerifier, ParameterPriority.OPTIONAL },
+        };
+
+        public static Dictionary<Type, RequestType> RequestTypeForParameter = new Dictionary<Type, RequestType>()
+        {
+            { typeof(AuthCodeParameters), RequestType.AuthorizationCode },
+            { typeof(RegisterParameters), RequestType.Register },
+            // TODO: will add later
+            //{ typeof(TokenParameters), RequestType.Token },
+            { typeof(SignInGoogleParameters), RequestType.SignInGoogle },
+        };
 
         private static string GetDefaultResponseModeByResponseType(string responseType)
         {

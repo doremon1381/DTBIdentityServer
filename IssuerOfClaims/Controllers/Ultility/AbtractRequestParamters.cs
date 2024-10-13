@@ -1,6 +1,7 @@
 ﻿using IssuerOfClaims.Extensions;
 using ServerUltilities.Extensions;
 using System.Linq.Expressions;
+using System.Net;
 using System.Reflection;
 using System.Web;
 using static ServerUltilities.Identity.Constants;
@@ -13,12 +14,14 @@ namespace IssuerOfClaims.Controllers.Ultility
         protected readonly string[] requestQuery;
 
         private static readonly Type _currentType = typeof(T);
+        private static readonly RequestType _requestType = ParameterExtensions.RequestTypeForParameter[_currentType];
         private static readonly Type _registerRequestType = typeof(RegisterRequest);
         private static readonly Type _authorizeRequestType = typeof(AuthorizeRequest);
+        private static readonly Type _signInGoogleRequestType = typeof(SignInGoogleRequest);
 
         private static readonly FieldInfo[] _parameterNames = _currentType.Name switch
         {
-            nameof(Oauth2Parameters) => _authorizeRequestType.GetFields(
+            nameof(AuthCodeParameters) => _authorizeRequestType.GetFields(
                 // Gets all public and static fields
                 BindingFlags.Public | BindingFlags.Static |
                 // This tells it to get the fields from all base types as well
@@ -28,14 +31,17 @@ namespace IssuerOfClaims.Controllers.Ultility
                 BindingFlags.Public | BindingFlags.Static |
                 // This tells it to get the fields from all base types as well
                 BindingFlags.FlattenHierarchy), (i) => RegisterParameters_MatchPredicate(i.Name)),
+            nameof(SignInGoogleParameters) => _signInGoogleRequestType.GetFields(
+                BindingFlags.Public | BindingFlags.Static),
             // TODO: will check it later
             _ => throw new InvalidOperationException()
         };
 
         private static readonly PropertyInfo[] _properties = _currentType.Name switch 
         {
-            nameof(Oauth2Parameters) => GetProperties(_currentType),
+            nameof(AuthCodeParameters) => GetProperties(_currentType),
             nameof(RegisterParameters) => Array.FindAll(GetProperties(_currentType), (i) => RegisterParameters_MatchPredicate(i.Name)),
+            nameof(SignInGoogleParameters) => GetProperties(_currentType),
             // TODO: will check it later
             _ => throw new InvalidOperationException()
         };
@@ -44,6 +50,7 @@ namespace IssuerOfClaims.Controllers.Ultility
 
         public AbtractRequestParamters(string? queryString)
         {
+            ValidateRequestQuery(queryString);
             requestQuery = QueryStringToArray(queryString);
 
             InitiateProperties();
@@ -96,9 +103,9 @@ namespace IssuerOfClaims.Controllers.Ultility
             string mappingName = GetMappingNameForRequestParameter(property.Name);
             string parameterValue = requestQuery.GetFromQueryString(mappingName);
 
-            var parameter = new Parameter(mappingName);
+            var parameter = new Parameter(mappingName, _requestType);
 
-            if (ParameterExtensions.OAuth2ParameterWithSpecialInitiate.TryGetValue(mappingName, out Func<string, string, string> execute))
+            if (ParameterExtensions.RequestParameterWithSpecialInitiate.TryGetValue(mappingName, out Func<string, string, string> execute))
             {
                 if (mappingName.Equals(AuthorizeRequest.ResponseMode))
                 {
@@ -143,53 +150,20 @@ namespace IssuerOfClaims.Controllers.Ultility
         private static void ValidateRequestQuery(string? requestQuery)
         {
             if (string.IsNullOrEmpty(requestQuery))
-                throw new CustomException(400, ExceptionMessage.QUERYSTRING_NOT_NULL_OR_EMPTY);
+                throw new CustomException((int)HttpStatusCode.BadRequest, ExceptionMessage.QUERYSTRING_NOT_NULL_OR_EMPTY);
         }
 
         private static string[] QueryStringToArray(string? queryString)
         {
-            ValidateRequestQuery(queryString);
-
             return queryString.Remove(0, 1).Split("&");
         }
     }
 
-    public static class RequestParametersExtensions
-    {
-        public static Dictionary<RequestType, List<string>> ParametersForRequestType = new Dictionary<RequestType, List<string>>()
-        {
-            { RequestType.Authorization, new List<string>()
-                {
-                    AuthorizeRequest.Scope, AuthorizeRequest.Nonce, AuthorizeRequest.Prompt,
-                    AuthorizeRequest.State, AuthorizeRequest.Nonce, AuthorizeRequest.ClientId,
-                    AuthorizeRequest.RedirectUri, AuthorizeRequest.CodeChallenge, AuthorizeRequest.CodeChallengeMethod,
-                    AuthorizeRequest.ResponseType, AuthorizeRequest.ResponseMode
-                }
-            },
-            { RequestType.Register, new List<string>()
-                {
-                    RegisterRequest.State, RegisterRequest.RedirectUri, RegisterRequest.ClientId,
-                    RegisterRequest.UserName, RegisterRequest.Password, RegisterRequest.Nonce,
-                    RegisterRequest.Email, RegisterRequest.FirstName, RegisterRequest.LastName,
-                    RegisterRequest.Roles, RegisterRequest.Gender
-                }
-            }
-        };
-
-        // TODO: name of parameter and initiate function
-        public static Dictionary<string, Func<string, string>> InitiateForParameters = new Dictionary<string, Func<string, string>>()
-        {
-            { AuthorizeRequest.Scope, (value) => System.Uri.UnescapeDataString(value) },
-            { "redirect_uri", (value) => System.Uri.UnescapeDataString(value) },
-            { RegisterRequest.FirstName, (value) => HttpUtility.UrlDecode(value).TrimStart().TrimEnd() },
-            { RegisterRequest.LastName, (value) => HttpUtility.UrlDecode(value).TrimStart().TrimEnd() }
-        };
-    }
-
     public enum RequestType
     {
-        Authorization,
+        AuthorizationCode,
         Token,
-        Register
+        Register,
+        SignInGoogle
     }
 }

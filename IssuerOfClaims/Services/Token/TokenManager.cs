@@ -8,6 +8,11 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using IssuerOfClaims.Extensions;
+using System.Text;
+using IssuerOfClaims.Controllers.Ultility;
+using System.Net;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Org.BouncyCastle.Crypto;
 
 namespace IssuerOfClaims.Services.Token
 {
@@ -389,16 +394,78 @@ namespace IssuerOfClaims.Services.Token
             RSAParameters publicKey;
             RSAParameters privateKey;
 
-            using (RSACryptoServiceProvider rsa = new RSACryptoServiceProvider())
+            if (KeyIsNotExpired())
             {
-                // Get the public and private key
-                publicKey = rsa.ExportParameters(false); // Public key
-                privateKey = rsa.ExportParameters(true); // Private key
+                publicKey = ReadJsonKey(); // Public key
+                privateKey = ReadJsonKey(isPublicKey: false); // Private key
+            }
+            else
+            {
+                using (RSACryptoServiceProvider rsa = new RSACryptoServiceProvider())
+                {
+                    // Get the public and private key
+                    publicKey = rsa.ExportParameters(false); // Public key
+                    privateKey = rsa.ExportParameters(true); // Private key
 
-                // Store or distribute these keys securely
+                    // Store or distribute these keys securely                
+                }
+
+                ExportJsonKey(publicKey);
+                ExportJsonKey(privateKey, isPublicKey: false);
             }
 
             return new KeyValuePair<RSAParameters, RSAParameters>(privateKey, publicKey);
+        }
+
+        private static bool KeyIsNotExpired(bool isPublicKey = true)
+        {
+            FileInfo keyFile = new FileInfo(GetKeyFilePath(isPublicKey));
+
+            if (keyFile.Exists)
+            {
+                if (keyFile.CreationTime.AddDays(15) > DateTime.Now)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static string GetKeyFilePath(bool isPublicKey)
+        {
+            return isPublicKey switch
+            {
+                true => $"{Environment.CurrentDirectory}\\Services\\Token\\RsaSha256Keys\\Rsa_publicKey.json",
+                false => $"{Environment.CurrentDirectory}\\Services\\Token\\RsaSha256Keys\\Rsa_privateKey.json",
+            };
+        }
+
+        private static void ExportJsonKey(RSAParameters key, bool isPublicKey = true)
+        {
+            FileInfo keyFile = new FileInfo(GetKeyFilePath(isPublicKey));
+
+            using (FileStream fs = keyFile.Open(FileMode.Create))
+            {
+                var contents = JsonConvert.SerializeObject(key);
+                Byte[] bytes = new UTF8Encoding(true).GetBytes(contents);
+
+                fs.Write(bytes, 0, bytes.Length);
+            }
+        }
+
+        private static RSAParameters ReadJsonKey(bool isPublicKey = true)
+        {
+            FileInfo keyFile = new FileInfo(GetKeyFilePath(isPublicKey));
+            RSAParameters result = default;
+            if (keyFile.Exists)
+            {
+                var text = keyFile.OpenText().ReadToEnd();
+                result = JsonConvert.DeserializeObject<RSAParameters>(text);
+            }
+            // TODO: will check again
+            else
+                throw new CustomException((int)HttpStatusCode.InternalServerError, "public key is missing!");
+
+            return result;
         }
 
         private object GetJsonPublicKey(RSAParameters publicKey)
@@ -537,6 +604,11 @@ namespace IssuerOfClaims.Services.Token
         {
             return _tokenResponseDbServices.Find(refreshToken, TokenType.RefreshToken);
         }
+
+        public RSAParameters GetPublicKeyJson()
+        {
+            return ReadJsonKey(); // Public key
+        }
     }
 
     public interface ITokenManager
@@ -551,5 +623,6 @@ namespace IssuerOfClaims.Services.Token
         TokenRequestHandler FindTokenRequestHandlerByAuthorizationCode(string authCode);
         TokenRequestSession FindRequestSessionById(int id);
         TokenResponse FindRefreshToken(string refreshToken);
+        RSAParameters GetPublicKeyJson();
     }
 }

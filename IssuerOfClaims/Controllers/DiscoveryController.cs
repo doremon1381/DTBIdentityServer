@@ -15,7 +15,7 @@ namespace IssuerOfClaims.Controllers
     //[ApiVersion("1.0")]
     [ControllerName("")]
     [AllowAnonymous]
-    public class DiscoveryController: ControllerBase
+    public class DiscoveryController : ControllerBase
     {
         private static readonly List<FieldInfo> _EndpointNames = typeof(EndpointNames).GetFields(BindingFlags.Public | BindingFlags.Static).ToList();
         private static readonly List<FieldInfo> _ProtocolRoutePaths = typeof(ProtocolRoutePaths).GetFields(BindingFlags.Public | BindingFlags.Static).ToList();
@@ -25,6 +25,7 @@ namespace IssuerOfClaims.Controllers
         // TODO: for now, I dont know what is the form of the response to send to client with query and fragment. Currently, I send to client inside response body
         //     : will change to implement openid specs correctly
         private static readonly List<FieldInfo> _ResponseModes = typeof(ResponseModes).GetFields(BindingFlags.Public | BindingFlags.Static).ToList();
+        private static Dictionary<string, object> discovery = new Dictionary<string, object>();
 
         public DiscoveryController()
         {
@@ -42,26 +43,26 @@ namespace IssuerOfClaims.Controllers
         {
             var issuer = $"{Request.Scheme}://{Request.Host.Value}/";
 
-            // TODO: Discovery + ProtocolRoutePaths
-            Dictionary<string, object> discovery = new Dictionary<string, object>() 
+            if (discovery.Count == 0)
             {
-                { Discovery.Issuer, issuer }
-            };
+                // TODO: Discovery + ProtocolRoutePaths
+                discovery.Add(Discovery.Issuer, issuer);
 
-            // add metadata
-            AddDefaultEndpoint(discovery, issuer);
-            AddSupportedResponseTypes(discovery);
-            AddSupportedResponseModes(discovery);
-            AddScopesSupport(discovery);
-            AddSupportedGrantType(discovery);
-            AddSupportedSubjectTypes(discovery);
-            AddIdTokenSigningAlgorithmsSupported(discovery);
-            //AddIdTokenEncryptionAlgorithmsSupported(discovery);
-            //AddIdTokenEncryptionEncValuesSupported(discovery);
-            AddTokenEndpointAuthenticationMethodsSupported(discovery);
-            AddClaimsParameterSupported(discovery);
-            AddRequestParameterSupported(discovery);
-            AddRequestUriParameterSupported(discovery);
+                // add metadata
+                AddDefaultEndpoint(discovery, issuer);
+                AddSupportedResponseTypes(discovery);
+                AddSupportedResponseModes(discovery);
+                AddScopesSupport(discovery);
+                AddSupportedGrantType(discovery);
+                AddSupportedSubjectTypes(discovery);
+                AddIdTokenSigningAlgorithmsSupported(discovery);
+                //AddIdTokenEncryptionAlgorithmsSupported(discovery);
+                //AddIdTokenEncryptionEncValuesSupported(discovery);
+                AddTokenEndpointAuthenticationMethodsSupported(discovery);
+                AddClaimsParameterSupported(discovery);
+                AddRequestParameterSupported(discovery);
+                AddRequestUriParameterSupported(discovery);
+            }
 
             return StatusCode((int)HttpStatusCode.OK, JsonConvert.SerializeObject(discovery, Formatting.Indented));
         }

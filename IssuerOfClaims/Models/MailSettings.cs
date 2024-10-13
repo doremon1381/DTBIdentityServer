@@ -1,4 +1,4 @@
-﻿namespace ServerDbModels
+﻿namespace IssuerOfClaims.Models
 {
     public class MailSettings
     {

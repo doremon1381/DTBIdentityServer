@@ -1,4 +1,5 @@
 ﻿using IssuerOfClaims.Extensions;
+using IssuerOfClaims.Models;
 using ServerUltilities.Identity;
 using System.Net;
 using System.Web;
@@ -46,6 +47,9 @@ namespace IssuerOfClaims.Controllers.Ultility
                 RequestType.AuthorizationCode => ParameterExtensions.AuthCodeParameterPriority[this.Name],
                 RequestType.Register => ParameterExtensions.RegisterParamterPriority[this.Name],
                 RequestType.SignInGoogle => ParameterExtensions.SignInGoogleParamterPriority[this.Name],
+                RequestType.Token => ParameterExtensions.AuthCodeTokenParamterPriority[this.Name],
+                RequestType.OfflineAccess => ParameterExtensions.OfflineAccessTokenParamterPriority[this.Name],
+                RequestType.ChangePassword => ParameterExtensions.ChangePasswordParamterPriority[this.Name],
                 _ => throw new InvalidDataException($"{this.Name} : Parameter priority is not set!")
             };
         }
@@ -53,6 +57,18 @@ namespace IssuerOfClaims.Controllers.Ultility
 
     internal static class ParameterExtensions
     {
+        internal static Dictionary<string, Func<string, string, string>> RequestParameterWithSpecialInitiate = new Dictionary<string, Func<string, string, string>>()
+        {
+            { AuthorizeRequest.Scope, (str, str1) => { return System.Uri.UnescapeDataString(str); } },
+            { AuthorizeRequest.RedirectUri, (str, str1) => { return System.Uri.UnescapeDataString(str); } },
+            { AuthorizeRequest.ResponseMode, (responseMode, responseType) => 
+            {
+                return string.IsNullOrEmpty(responseMode) ? GetDefaultResponseModeByResponseType(responseType) : responseMode;
+            }},
+            { RegisterRequest.FirstName, (str, str1) => { return HttpUtility.UrlDecode(str); } },
+            { RegisterRequest.LastName, (str, str1) => { return HttpUtility.UrlDecode(str); } }
+        };
+
         internal static Dictionary<string, ParameterPriority> AuthCodeParameterPriority = new Dictionary<string, ParameterPriority>()
         {
             { AuthorizeRequest.Scope, ParameterPriority.REQRUIRED },
@@ -68,18 +84,6 @@ namespace IssuerOfClaims.Controllers.Ultility
             { AuthorizeRequest.MaxAge, ParameterPriority.OPTIONAL },
             { AuthorizeRequest.UiLocales, ParameterPriority.OPTIONAL },
             { AuthorizeRequest.IdTokenHint, ParameterPriority.OPTIONAL }
-        };
-
-        internal static Dictionary<string, Func<string, string, string>> RequestParameterWithSpecialInitiate = new Dictionary<string, Func<string, string, string>>()
-        {
-            { AuthorizeRequest.Scope, (str, str1) => { return System.Uri.UnescapeDataString(str); } },
-            { AuthorizeRequest.RedirectUri, (str, str1) => { return System.Uri.UnescapeDataString(str); } },
-            { AuthorizeRequest.ResponseMode, (responseMode, responseType) => 
-            {
-                return string.IsNullOrEmpty(responseMode) ? GetDefaultResponseModeByResponseType(responseType) : responseMode;
-            }},
-            { RegisterRequest.FirstName, (str, str1) => { return HttpUtility.UrlDecode(str); } },
-            { RegisterRequest.LastName, (str, str1) => { return HttpUtility.UrlDecode(str); } }
         };
 
         internal static Dictionary<string, ParameterPriority> RegisterParamterPriority = new Dictionary<string, ParameterPriority>()
@@ -101,6 +105,7 @@ namespace IssuerOfClaims.Controllers.Ultility
             { SignInGoogleRequest.AuthorizationCode, ParameterPriority.REQRUIRED },
             { SignInGoogleRequest.RedirectUri, ParameterPriority.REQRUIRED },
             { SignInGoogleRequest.CodeVerifier, ParameterPriority.OPTIONAL },
+            { SignInGoogleRequest.Nonce, ParameterPriority.OPTIONAL },
         };
 
         public static Dictionary<Type, RequestType> RequestTypeForParameter = new Dictionary<Type, RequestType>()
@@ -110,6 +115,35 @@ namespace IssuerOfClaims.Controllers.Ultility
             // TODO: will add later
             //{ typeof(TokenParameters), RequestType.Token },
             { typeof(SignInGoogleParameters), RequestType.SignInGoogle },
+            { typeof(AuthCodeTokenParameters), RequestType.Token },
+            { typeof(OfflineAccessTokenParameters), RequestType.OfflineAccess },
+            { typeof(ChangePasswordParameters), RequestType.ChangePassword },
+        };
+
+        internal static Dictionary<string, ParameterPriority> AuthCodeTokenParamterPriority = new Dictionary<string, ParameterPriority>()
+        {
+            { TokenRequest.Code, ParameterPriority.REQRUIRED },
+            { TokenRequest.RedirectUri, ParameterPriority.REQRUIRED },
+            { TokenRequest.ClientId, ParameterPriority.REQRUIRED },
+            { TokenRequest.ClientSecret, ParameterPriority.REQRUIRED },
+            { TokenRequest.Audience, ParameterPriority.OPTIONAL },
+            { TokenRequest.Scope, ParameterPriority.OPTIONAL },
+            { TokenRequest.CodeVerifier, ParameterPriority.OPTIONAL }
+        };
+        
+        internal static Dictionary<string, ParameterPriority> OfflineAccessTokenParamterPriority = new Dictionary<string, ParameterPriority>()
+        {
+            { TokenRequest.RefreshToken, ParameterPriority.REQRUIRED },
+            { TokenRequest.ClientId, ParameterPriority.REQRUIRED },
+            { TokenRequest.ClientSecret, ParameterPriority.REQRUIRED },
+            { TokenRequest.Scope, ParameterPriority.OPTIONAL },
+        };
+        
+        internal static Dictionary<string, ParameterPriority> ChangePasswordParamterPriority = new Dictionary<string, ParameterPriority>()
+        {
+            { ChangePasswordRequest.Code, ParameterPriority.REQRUIRED },
+            { ChangePasswordRequest.NewPassword, ParameterPriority.REQRUIRED },
+            { ChangePasswordRequest.ClientId, ParameterPriority.REQRUIRED }
         };
 
         private static string GetDefaultResponseModeByResponseType(string responseType)
@@ -137,23 +171,5 @@ namespace IssuerOfClaims.Controllers.Ultility
         OPTIONAL,
         REQRUIRED,
         RECOMMENDED
-    }
-
-    public class CustomException : Exception
-    {
-        public ExceptionIssueToward ExceptionIssueToward { get; private set; }
-        public int StatusCode { get; private set; }
-        public CustomException(int statusCode, string message, ExceptionIssueToward exceptionIssueToward = ExceptionIssueToward.UserAgent)
-            : base(message)
-        {
-            ExceptionIssueToward = exceptionIssueToward;
-            StatusCode = statusCode;
-        }
-    }
-
-    public enum ExceptionIssueToward
-    {
-        Local,
-        UserAgent
     }
 }

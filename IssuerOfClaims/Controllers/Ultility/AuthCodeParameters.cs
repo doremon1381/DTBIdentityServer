@@ -1,4 +1,5 @@
 ﻿using IssuerOfClaims.Extensions;
+using IssuerOfClaims.Models;
 using Microsoft.IdentityModel.Tokens;
 using ServerUltilities.Extensions;
 using ServerUltilities.Identity;
@@ -9,7 +10,7 @@ namespace IssuerOfClaims.Controllers.Ultility
     /// <summary>
     /// Implement specs from https://openid.net/specs/openid-connect-core-1_0.html
     /// </summary>
-    public class AuthCodeParameters: AbtractRequestParamters<AuthCodeParameters>
+    public class AuthCodeParameters: AbstractRequestParamters<AuthCodeParameters>
     {
         #region requested parameters
         /// <summary>

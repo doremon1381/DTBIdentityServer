@@ -27,7 +27,7 @@ namespace ServerUltilities
             return Base64urlencodeNoPadding(arr);
         }
 
-        public static byte[] WithSHA265(this string str)
+        public static byte[] EncodingWithSHA265(this string str)
         {
             byte[] newByteArr = Encoding.ASCII.GetBytes(str);
             SHA256Managed sha256 = new SHA256Managed();

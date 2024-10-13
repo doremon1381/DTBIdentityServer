@@ -24,13 +24,13 @@ namespace IssuerOfClaims.Services.Database
             return client;
         }
 
-        public Client Find(string id)
+        public Client Find(string clientId)
         {
             Client client = null;
 
             UsingDbSet(_Clients =>
             {
-                client = _Clients.Include(c => c.TokenRequestSession).First(c => c.ClientId.Equals(id));
+                client = _Clients.Include(c => c.TokenRequestSession).First(c => c.ClientId.Equals(clientId));
             });
 
             ValidateEntity(client, $"{this.GetType().Name}: client is null!");

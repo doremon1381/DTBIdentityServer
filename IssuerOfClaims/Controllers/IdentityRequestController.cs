@@ -26,6 +26,8 @@ using static ServerUltilities.Identity.Constants;
 using System.Reflection;
 using IssuerOfClaims.Models;
 using Azure.Core;
+using Google.Apis.Auth;
+using Microsoft.AspNetCore.Http;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -549,10 +551,8 @@ namespace IssuerOfClaims.Controllers
                 //     : need to implement another action
                 //     : send back access_token when have request refresh 
 
-                Dictionary<string, string> requestBody = await TokenResponse_GetRequestBodyAsync();
-
-                // TODO: will fix it later
-                string grantType = requestBody[TokenRequest.GrantType];
+                string requestBody = await GetRequestBodyAsQueryFormAsync(HttpContext.Request.Body);
+                string grantType = TokenEndpoint_GetGrantType(requestBody);
 
                 switch (grantType)
                 {
@@ -582,35 +582,44 @@ namespace IssuerOfClaims.Controllers
             }
         }
 
-        private async Task<Dictionary<string, string>> TokenResponse_GetRequestBodyAsync()
+        private string TokenEndpoint_GetGrantType(string requestBody)
         {
-            var requestBody = new Dictionary<string, string>();
-            using (StreamReader reader = new StreamReader(HttpContext.Request.Body))
-            {
-                var temp = await reader.ReadToEndAsync();
-                temp.Split('&').ToList().ForEach(t =>
-                {
-                    var r = t.Split("=");
-                    requestBody.Add(r[0], r[1]);
-                });
-            }
-
-            if (requestBody.Count == 0)
-                throw new InvalidDataException(ExceptionMessage.REQUEST_BODY_NOT_NULL_OR_EMPTY);
-
-            return requestBody;
+            return requestBody.Remove(0, 1).Split("&")
+                .First(t => t.StartsWith("grant_type"))
+                .Replace("grant_type=", "");
         }
 
-        private async Task<ActionResult> IssueTokenForRefreshToken(Dictionary<string, string> requestBody)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="stream">HttpContext.Request.Body</param>
+        /// <returns></returns>
+        /// <exception cref="InvalidDataException"></exception>
+        private static async Task<string> GetRequestBodyAsQueryFormAsync(Stream stream)
+        {
+            string content = "";
+            using (StreamReader reader = new StreamReader(stream))
+            {
+                content = await reader.ReadToEndAsync();
+                // TODO: add '?' to match request query form
+                content = "?" + content;
+            }
+
+            if (string.IsNullOrEmpty(content))
+                throw new InvalidDataException(ExceptionMessage.REQUEST_BODY_NOT_NULL_OR_EMPTY);
+
+            return content;
+        }
+
+        private async Task<ActionResult> IssueTokenForRefreshToken(string requestBody)
         {
             // 1. check refresh token type, external or local
             // 2. if local, check expired time, issue token
             // 3. if external, send request to external source to get response
 
-            var refreshTokenStr = requestBody[OidcConstants.TokenResponse.RefreshToken];
-            ValidateRefreshToken(refreshTokenStr);
+            OfflineAccessTokenParameters parameters = new OfflineAccessTokenParameters(requestBody);
 
-            var refreshToken = _tokenManager.FindRefreshToken(refreshTokenStr);
+            var refreshToken = _tokenManager.FindRefreshToken(parameters.RefreshToken.Value);
 
             object tokenResponses = new object();
             // Token from external source
@@ -631,31 +640,22 @@ namespace IssuerOfClaims.Controllers
             return StatusCode((int)HttpStatusCode.OK, System.Text.Json.JsonSerializer.Serialize(tokenResponses));
         }
 
-        private void ValidateRefreshToken(string refreshToken)
-        {
-            if (string.IsNullOrEmpty(refreshToken))
-                throw new CustomException((int)HttpStatusCode.BadRequest, ExceptionMessage.REFRESH_TOKEN_NULL);
-        }
-
-        private async Task<ActionResult> IssueTokenForAuthorizationCodeAsync(Dictionary<string, string> requestBody)
+        private async Task<ActionResult> IssueTokenForAuthorizationCodeAsync(string requestBody)
         {
             // TODO: get from queryString, authorization code
             //     : get user along with authorization code inside latest login session (of that user)
             //     : create access token and id token, send it to client
-
-            string authCode = ACF_II_VerifyAndGetAuthCodeFromRequest(requestBody);
-
-            //// TODO: hotfix for now
-            //var _tokenRequestHandlerDbServices = _servicesProvider.GetService<ITokenRequestHandlerDbServices>();
+            AuthCodeTokenParameters parameters = new AuthCodeTokenParameters(requestBody);
 
             // TODO: for now, every request, by default in scop will have openid, so ignore this part of checking now
             //     : Verify that the Authorization Code used was issued in response to an OpenID Connect Authentication Request(so that an ID Token will be returned from the Token Endpoint).
-            var tokenRequestHandler = _tokenManager.FindTokenRequestHandlerByAuthorizationCode(authCode);
+            var tokenRequestHandler = _tokenManager.FindTokenRequestHandlerByAuthorizationCode(parameters.Code.Value);
             // TODO: will change to use email when allow using identity from another source
             UserIdentity user = ACF_II_GetResourceOwnerIdentity(tokenRequestHandler.User.UserName);
-            var client = ACF_II_VerifyAndGetClient(requestBody, tokenRequestHandler);
+            var client = ACF_II_VerifyAndGetClient(parameters.ClientId.Value, parameters.ClientSecret.Value, tokenRequestHandler);
 
-            ACF_II_VerifyRequestParameters(requestBody, tokenRequestHandler, client);
+            ACF_II_VerifyRedirectUris(parameters.RedirectUri.Value, client);
+            ACF_II_VerifyCodeChallenger(parameters.CodeVerifier.Value, tokenRequestHandler);
 
             // TODO: issue token from TokenManager
             var tokenResponses = _tokenManager.ACF_IssueToken(user, client, tokenRequestHandler.Id);
@@ -679,62 +679,34 @@ namespace IssuerOfClaims.Controllers
             return obj;
         }
 
-        private void ACF_II_VerifyRequestParameters(Dictionary<string, string> requestBody, TokenRequestHandler tokenRequestHandler, Client client)
-        {
-            ACF_II_VerifyRedirectUris(requestBody, client);
-            ACF_II_VerifyCodeChallenger(requestBody, tokenRequestHandler);
-        }
-
-        private void ACF_II_VerifyRedirectUris(Dictionary<string, string> requestBody, Client client)
+        private static void ACF_II_VerifyRedirectUris(string redirectUri, Client client)
         {
             //Ensure that the redirect_uri parameter value is identical to the redirect_uri parameter value that was included in the initial Authorization Request.
             //If the redirect_uri parameter value is not present when there is only one registered redirect_uri value,
             //the Authorization Server MAY return an error(since the Client should have included the parameter) or MAY proceed without an error(since OAuth 2.0 permits the parameter to be omitted in this case).
+
             string[] redirectUris = client.RedirectUris.Split(",");
-            var redirectUri = requestBody[TokenRequest.RedirectUri];
+
             if (!redirectUris.Contains(redirectUri))
-                throw new InvalidOperationException("redirect_uri is mismatch!");
+                throw new CustomException((int)HttpStatusCode.BadRequest, "redirect_uri is mismatch!");
         }
 
-        private string ACF_II_VerifyAndGetAuthCodeFromRequest(Dictionary<string, string> requestBody)
-        {
-            string authorizationCode = requestBody[TokenRequest.Code];
-
-            if (string.IsNullOrEmpty(authorizationCode))
-                throw new NullReferenceException("authorization code is missing!");
-
-            return authorizationCode;
-        }
-
-        private void ACF_II_VerifyCodeChallenger(Dictionary<string, string> requestBody, TokenRequestHandler tokenRequestHandler)
+        private static void ACF_II_VerifyCodeChallenger(string codeVerifier, TokenRequestHandler tokenRequestHandler)
         {
             // TODO: by default, those two go along together, it may wrong in future coding
             if (tokenRequestHandler.TokenRequestSession.CodeChallenge != null
                 && tokenRequestHandler.TokenRequestSession.CodeChallengeMethod != null)
             {
-                var codeVerifier = requestBody[TokenRequest.CodeVerifier];
-                if (string.IsNullOrEmpty(codeVerifier))
-                    throw new NullReferenceException("code challenge is included in authorization code request but does not have in access token request!");
-
-                var code_challenge = RNGCryptoServicesUltilities.Base64urlencodeNoPadding(codeVerifier.WithSHA265());
+                var code_challenge = RNGCryptoServicesUltilities.Base64urlencodeNoPadding(codeVerifier.EncodingWithSHA265());
                 if (!code_challenge.Equals(tokenRequestHandler.TokenRequestSession.CodeChallenge))
                     throw new InvalidOperationException("code verifier is wrong!");
             }
         }
 
-        private Client ACF_II_VerifyAndGetClient(Dictionary<string, string> requestBody, TokenRequestHandler tokenRequestHandler)
+        private Client ACF_II_VerifyAndGetClient(string clientId, string clientSecret, TokenRequestHandler tokenRequestHandler)
         {
-            string clientId = requestBody[TokenRequest.ClientId];
-            string clientSecret = requestBody[TokenRequest.ClientSecret];
+            Client client = _clientDbServices.Find(clientId, clientSecret);
 
-            var client = new Client();
-            if (string.IsNullOrEmpty(clientId)
-                || string.IsNullOrEmpty(clientSecret))
-                throw new NullReferenceException("client credentials's info is missing!");
-
-            //// TODO: hotfix for now
-            //var _clientDbServices = _servicesProvider.GetService<IClientDbServices>();
-            client = _clientDbServices.Find(clientId, clientSecret);
             if (tokenRequestHandler.TokenRequestSession != null
                 && !tokenRequestHandler.TokenRequestSession.Client.Id.Equals(client.Id))
                 // TODO: status code may wrong
@@ -843,37 +815,53 @@ namespace IssuerOfClaims.Controllers
                 var googleClientConfig = _configuration.GetSection(IdentityServerConfiguration.GOOGLE_CLIENT).Get<GoogleSettings>();
                 ValidateGoogleSettings(googleClientConfig);
 
-                var signInGoogleParameters = new SignInGoogleParameters(HttpContext.Request.QueryString.Value);
+                string requestBody = "";
+                using (StreamReader reader = new StreamReader(HttpContext.Request.Body))
+                {
+                    requestBody = await reader.ReadToEndAsync();
+                }
 
-                string access_token = await Test(signInGoogleParameters, googleClientConfig);
+                // TODO: add '?' before requestBody to get query form of string
+                // , AbtractRequestParamters instances use request query as parameter
+                var signInGoogleParameters = new SignInGoogleParameters("?" + requestBody);
+
+                // TODO: associate google info with current user identity inside database, using email to do it
+                //     : priority information inside database, import missing info from google
+
+                var result = await GetGoogleInfo(signInGoogleParameters, googleClientConfig);
+                var idTokenAcessToken = result.Cast(new { AccessToken = "", IdToken = "" });
+
                 // TODO: will learn how to use it, comment for now
-                //GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(id_token);
-                string user_info = await userinfoCallAsync(access_token);
+                GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(idTokenAcessToken.IdToken);
+
+                // TODO: validate nonce
+
+                string user_info = await userinfoCallAsync(idTokenAcessToken.AccessToken);
 
                 // TODO: will need to create new user if current user with this email is not have
                 //     : after that, create login session object and save to db
                 //     : after create login session, authentication then will perform
-                return Ok(user_info);
+                return Ok(idTokenAcessToken.AccessToken);
             }
             catch (CustomException ex)
             {
                 // TODO: will check again
                 return StatusCode(ex.ExceptionIssueToward.Equals(ExceptionIssueToward.UserAgent) ? ex.StatusCode : (int)HttpStatusCode.InternalServerError, ex.Message);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 throw;
             }
         }
 
-        private async Task<string> Test(SignInGoogleParameters signInGoogleParameters, GoogleSettings config)
+        private async Task<object> GetGoogleInfo(SignInGoogleParameters signInGoogleParameters, GoogleSettings config)
         {
             // builds the request
             string tokenRequestBody = string.Format("code={0}&redirect_uri={1}&client_id={2}&code_verifier={3}&client_secret={4}&scope=&grant_type=authorization_code",
-                signInGoogleParameters.AuthorizationCode,
-                signInGoogleParameters.RedirectUri,
+                signInGoogleParameters.AuthorizationCode.Value,
+                signInGoogleParameters.RedirectUri.Value,
                 config.ClientId,
-                signInGoogleParameters.CodeVerifier,
+                signInGoogleParameters.CodeVerifier.Value,
                 config.ClientSecret);
 
             // sends the request
@@ -897,8 +885,6 @@ namespace IssuerOfClaims.Controllers
                 // reads response body
                 string responseText = await reader.ReadToEndAsync();
 
-                // TODO: because I will send nonce to google, that was created by web server and send to my identity server, so need to check nonce from google to prevent id_token inject.
-
                 // converts to dictionary
                 Dictionary<string, string> tokenEndpointDecoded = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
 
@@ -911,7 +897,7 @@ namespace IssuerOfClaims.Controllers
                 //ValidateAtHash(id_token, access_token);
             }
 
-            return access_token;
+            return new { AccessToken = access_token, IdToken = id_token };
         }
 
         private static void ValidateGoogleSettings(GoogleSettings? googleClientConfig)
@@ -1022,43 +1008,30 @@ namespace IssuerOfClaims.Controllers
         [AllowAnonymous]
         public async Task<ActionResult> ChangePasswordAfterEmailConfirm()
         {
-            Dictionary<string, string> requestBody = await TokenResponse_GetRequestBodyAsync();
-
-            // TODO: get from query string, code, new password, 
-            var queryString = HttpContext.Request.QueryString.Value;
-            if (queryString == null)
-                return StatusCode(400, "query is missing!");
-            var queryBody = queryString.Remove(0, 1).Split("&");
-
-            var code = requestBody["code"];
-            if (string.IsNullOrEmpty(code))
-                return StatusCode(400, "forgot password verifying code is missing!");
-
-            var newPassword = requestBody["password"];
-            if (string.IsNullOrEmpty(newPassword))
-                return StatusCode(400, "new password is missing!");
-            string clientId = queryBody.GetFromQueryString(JwtClaimTypes.ClientId);
-            if (string.IsNullOrEmpty(clientId))
-                return StatusCode(400, "client id is missing!");
-
-            var emailForChangingPassword = _emailServices.GetChangePasswordEmailByCode(code);
-
-            var user = emailForChangingPassword.User;
             try
             {
+                string requestBody = await GetRequestBodyAsQueryFormAsync(HttpContext.Request.Body);
+                ChangePasswordParameters parameters = new ChangePasswordParameters(requestBody);
+
+                // TODO: will think about client later
+                var client = _clientDbServices.Find(parameters.ClientId.Value);
+
+                var emailForChangingPassword = _emailServices.GetChangePasswordEmailByCode(parameters.Code.Value);
+                var user = emailForChangingPassword.User;
+
                 // TODO: will check again
                 _applicationUserManager.Current.RemovePasswordAsync(user).Wait();
-                _applicationUserManager.Current.AddPasswordAsync(user, newPassword).Wait();
+                _applicationUserManager.Current.AddPasswordAsync(user, parameters.NewPassword.Value).Wait();
                 emailForChangingPassword.IsConfirmed = true;
 
                 _emailServices.UpdateConfirmEmail(emailForChangingPassword);
+
+                return Ok();
             }
             catch (Exception ex)
             {
                 return StatusCode(500, ex.Message);
             }
-
-            return Ok();
         }
 
         [HttpGet("user/forgotPassword")]

@@ -405,6 +405,14 @@ namespace ServerUltilities.Identity
             public const string AuthorizationCode = "code";
             public const string RedirectUri = "redirect_uri";
             public const string CodeVerifier = "code_verifier";
+            public const string Nonce = "nonce";
+        }
+
+        public static class ChangePasswordRequest
+        {
+            public const string Code = "code";
+            public const string NewPassword = "password";
+            public const string ClientId = "client_id";
         }
     }
 }

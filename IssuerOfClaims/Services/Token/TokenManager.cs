@@ -13,6 +13,7 @@ using IssuerOfClaims.Controllers.Ultility;
 using System.Net;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Org.BouncyCastle.Crypto;
+using IssuerOfClaims.Models;
 
 namespace IssuerOfClaims.Services.Token
 {
@@ -49,9 +50,9 @@ namespace IssuerOfClaims.Services.Token
 
             var accessToken = UsingRefreshToken_IssuseToken(tokenRequestHandler, tokenRequestHandler.TokenResponsePerHandlers.First(t => t.TokenResponse.TokenType.Equals(TokenType.AccessToken)), TokenType.AccessToken);
             var refreshToken = UsingRefreshToken_IssuseToken(tokenRequestHandler, lastestRefreshTokenBeUsed, TokenType.RefreshToken);
-            var idToken = UsingRefreshToken_IssuseIdToken(tokenRequestHandler, tokenRequestHandler.TokenResponsePerHandlers.First(t => t.TokenResponse.TokenType.Equals(TokenType.IdToken)), out object publicKey);
+            var idToken = UsingRefreshToken_IssuseIdToken(tokenRequestHandler, tokenRequestHandler.TokenResponsePerHandlers.First(t => t.TokenResponse.TokenType.Equals(TokenType.IdToken)));
 
-            var responseBody = CreateTokenResponseBody(accessToken.Token, idToken.Token, (accessToken.TokenExpiried - DateTime.Now).Value.TotalSeconds, publicKey, refreshToken.Token);
+            var responseBody = CreateTokenResponseBody(accessToken.Token, idToken.Token, (accessToken.TokenExpiried - DateTime.Now).Value.TotalSeconds, refreshToken.Token);
 
             return responseBody;
         }
@@ -61,7 +62,7 @@ namespace IssuerOfClaims.Services.Token
         /// </summary>
         /// <param name="currentRequestHandler"></param>
         /// <returns></returns>
-        private TokenResponse UsingRefreshToken_IssuseIdToken(TokenRequestHandler currentRequestHandler, TokenResponsePerIdentityRequest tokenResponsePerIdentityRequest, out object publicKey)
+        private TokenResponse UsingRefreshToken_IssuseIdToken(TokenRequestHandler currentRequestHandler, TokenResponsePerIdentityRequest tokenResponsePerIdentityRequest)
         {
             TokenResponse idToken = CreateToken(TokenType.IdToken);
             var composedObj = GenerateIdTokenAndRsaSha256PublicKey(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, ""
@@ -69,7 +70,6 @@ namespace IssuerOfClaims.Services.Token
                 .Cast(new { IdToken = string.Empty, PublicKey = new object() });
 
             idToken.Token = composedObj.IdToken;
-            publicKey = composedObj.PublicKey;
 
             _tokenResponseDbServices.Update(idToken);
             _tokenResponseDbServices.Delete(tokenResponsePerIdentityRequest.TokenResponse);
@@ -191,7 +191,7 @@ namespace IssuerOfClaims.Services.Token
                     #endregion
                 }
 
-                responseBody = CreateTokenResponseBody(accessToken.Token, idToken.Token, accessTokenExpiredTime, publicKey, refreshToken.Token);
+                responseBody = CreateTokenResponseBody(accessToken.Token, idToken.Token, accessTokenExpiredTime, refreshToken.Token);
             }
             else if (!isOfflineAccess)
             {
@@ -206,7 +206,7 @@ namespace IssuerOfClaims.Services.Token
                     accessToken = CreateToken(TokenType.AccessToken);
                 }
 
-                responseBody = CreateTokenResponseBody(accessToken.Token, idToken.Token, accessTokenExpiredTime, publicKey);
+                responseBody = CreateTokenResponseBody(accessToken.Token, idToken.Token, accessTokenExpiredTime);
             }
 
             CreateTokenResponsePerIdentityRequest(currentRequestHandler, accessToken);
@@ -540,7 +540,7 @@ namespace IssuerOfClaims.Services.Token
         }
         #endregion
 
-        private static object CreateTokenResponseBody(string access_token, string id_token, double expired_in, object publicKey, string refresh_token = "")
+        private static object CreateTokenResponseBody(string access_token, string id_token, double expired_in, string refresh_token = "")
         {
             object responseBody;
             if (string.IsNullOrEmpty(refresh_token))
@@ -550,7 +550,7 @@ namespace IssuerOfClaims.Services.Token
                     access_token = access_token,
                     id_token = id_token,
                     token_type = "Bearer",
-                    public_key = publicKey,
+                    //public_key = publicKey,
                     // TODO: set by seconds
                     expires_in = expired_in
                 };
@@ -562,7 +562,7 @@ namespace IssuerOfClaims.Services.Token
                     id_token = id_token,
                     refresh_token = refresh_token,
                     token_type = "Bearer",
-                    public_key = publicKey,
+                    //public_key = publicKey,
                     // TODO: set by seconds
                     expires_in = expired_in
                 };

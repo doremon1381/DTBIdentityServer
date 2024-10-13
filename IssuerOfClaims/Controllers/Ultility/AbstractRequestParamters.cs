@@ -1,4 +1,5 @@
 ﻿using IssuerOfClaims.Extensions;
+using IssuerOfClaims.Models;
 using ServerUltilities.Extensions;
 using System.Linq.Expressions;
 using System.Net;
@@ -9,7 +10,7 @@ using static ServerUltilities.Identity.OidcConstants;
 
 namespace IssuerOfClaims.Controllers.Ultility
 {
-    public abstract class AbtractRequestParamters<T>
+    public abstract class AbstractRequestParamters<T>
     {
         protected readonly string[] requestQuery;
 
@@ -18,6 +19,8 @@ namespace IssuerOfClaims.Controllers.Ultility
         private static readonly Type _registerRequestType = typeof(RegisterRequest);
         private static readonly Type _authorizeRequestType = typeof(AuthorizeRequest);
         private static readonly Type _signInGoogleRequestType = typeof(SignInGoogleRequest);
+        private static readonly Type _changePasswordRequestType = typeof(ChangePasswordRequest);
+        private static readonly Type _tokenRequestType = typeof(TokenRequest);
 
         private static readonly FieldInfo[] _parameterNames = _currentType.Name switch
         {
@@ -33,6 +36,12 @@ namespace IssuerOfClaims.Controllers.Ultility
                 BindingFlags.FlattenHierarchy), (i) => RegisterParameters_MatchPredicate(i.Name)),
             nameof(SignInGoogleParameters) => _signInGoogleRequestType.GetFields(
                 BindingFlags.Public | BindingFlags.Static),
+            nameof(AuthCodeTokenParameters) => _tokenRequestType.GetFields(
+                BindingFlags.Public | BindingFlags.Static),
+            nameof(OfflineAccessTokenParameters) => _tokenRequestType.GetFields(
+                BindingFlags.Public | BindingFlags.Static),
+            nameof(ChangePasswordParameters) => _changePasswordRequestType.GetFields(
+                BindingFlags.Public | BindingFlags.Static),
             // TODO: will check it later
             _ => throw new InvalidOperationException()
         };
@@ -42,13 +51,15 @@ namespace IssuerOfClaims.Controllers.Ultility
             nameof(AuthCodeParameters) => GetProperties(_currentType),
             nameof(RegisterParameters) => Array.FindAll(GetProperties(_currentType), (i) => RegisterParameters_MatchPredicate(i.Name)),
             nameof(SignInGoogleParameters) => GetProperties(_currentType),
+            nameof(AuthCodeTokenParameters) => GetProperties(_currentType),
+            nameof(OfflineAccessTokenParameters) => GetProperties(_currentType),
             // TODO: will check it later
             _ => throw new InvalidOperationException()
         };
 
         private static readonly PropertyInfo _responseType = _properties.FirstOrDefault(t => t.Name.Equals("ResponseType"));
 
-        public AbtractRequestParamters(string? queryString)
+        public AbstractRequestParamters(string? queryString)
         {
             ValidateRequestQuery(queryString);
             requestQuery = QueryStringToArray(queryString);
@@ -164,6 +175,8 @@ namespace IssuerOfClaims.Controllers.Ultility
         AuthorizationCode,
         Token,
         Register,
-        SignInGoogle
+        SignInGoogle,
+        OfflineAccess,
+        ChangePassword
     }
 }

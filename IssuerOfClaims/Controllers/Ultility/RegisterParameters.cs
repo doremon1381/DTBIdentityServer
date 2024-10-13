@@ -1,4 +1,5 @@
 ﻿using IssuerOfClaims.Extensions;
+using IssuerOfClaims.Models;
 using ServerUltilities.Extensions;
 using ServerUltilities.Identity;
 using System.Web;
@@ -7,7 +8,7 @@ using static ServerUltilities.Identity.OidcConstants;
 
 namespace IssuerOfClaims.Controllers.Ultility
 {
-    public class RegisterParameters : AbtractRequestParamters<RegisterParameters>
+    public class RegisterParameters : AbstractRequestParamters<RegisterParameters>
     {
         #region requested parameters
         /// <summary>

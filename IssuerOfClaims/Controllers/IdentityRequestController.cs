@@ -92,13 +92,13 @@ namespace IssuerOfClaims.Controllers
                         return await ImplicitGrantWithFormPostAsync(parameters);
                     // TODO: will implement another flow if I have time
                     default:
-                        return StatusCode(501, "Not yet implement!");
+                        return StatusCode((int)HttpStatusCode.NotImplemented, "Not yet implement!");
                 }
             }
             catch (CustomException ex)
             {
                 // TODO: will check again
-                return StatusCode(ex.ExceptionIssueToward.Equals(ExceptionIssueToward.UserAgent) ? ex.StatusCode : 500, ex.Message);
+                return StatusCode(ex.ExceptionIssueToward.Equals(ExceptionIssueToward.UserAgent) ? ex.StatusCode : (int)HttpStatusCode.InternalServerError, ex.Message);
             }
             catch (Exception ex)
             {
@@ -269,7 +269,7 @@ namespace IssuerOfClaims.Controllers
             catch (CustomException ex)
             {
                 // TODO: will check again
-                return StatusCode(ex.ExceptionIssueToward.Equals(ExceptionIssueToward.UserAgent) ? ex.StatusCode : 500, ex.Message);
+                return StatusCode(ex.ExceptionIssueToward.Equals(ExceptionIssueToward.UserAgent) ? ex.StatusCode : (int)HttpStatusCode.InternalServerError, ex.Message);
             }
             catch (Exception ex)
             {
@@ -415,19 +415,19 @@ namespace IssuerOfClaims.Controllers
                 else if (parameters.ResponseMode.Value.Equals(ResponseModes.Query))
                 {
                     // TODO: will need to add state into response, return this form for now
-                    return StatusCode(200, idToken);
+                    return StatusCode((int)HttpStatusCode.OK, idToken);
                 }
                 else
-                    return StatusCode(400, "Response mode is not allowed!");
+                    return StatusCode((int)HttpStatusCode.BadRequest, "Response mode is not allowed!");
 
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                return StatusCode((int)HttpStatusCode.InternalServerError, ex.Message);
             }
 
 
-            return StatusCode(200, "every thing is done!");
+            return StatusCode((int)HttpStatusCode.OK, "every thing is done!");
         }
 
         private void IGF_UpdateTokenRequestHandler(UserIdentity user, Client client, string idToken)
@@ -563,13 +563,13 @@ namespace IssuerOfClaims.Controllers
                     case OidcConstants.GrantTypes.AuthorizationCode:
                         return await IssueTokenForAuthorizationCodeAsync(requestBody);
                     default:
-                        return StatusCode(500, "Unknown error!");
+                        return StatusCode((int)HttpStatusCode.InternalServerError, "Unknown error!");
                 }
             }
             catch (CustomException ex)
             {
                 // TODO: will check again
-                return StatusCode(ex.ExceptionIssueToward.Equals(ExceptionIssueToward.UserAgent) ? ex.StatusCode : 500, ex.Message);
+                return StatusCode(ex.ExceptionIssueToward.Equals(ExceptionIssueToward.UserAgent) ? ex.StatusCode : (int)HttpStatusCode.InternalServerError, ex.Message);
             }
             catch (Exception ex)
             {
@@ -623,13 +623,13 @@ namespace IssuerOfClaims.Controllers
                 tokenResponses = _tokenManager.IssueTokenForRefreshToken(refreshToken);
             }
 
-            return StatusCode(200, System.Text.Json.JsonSerializer.Serialize(tokenResponses));
+            return StatusCode((int)HttpStatusCode.OK, System.Text.Json.JsonSerializer.Serialize(tokenResponses));
         }
 
         private void ValidateRefreshToken(string refreshToken)
         {
             if (string.IsNullOrEmpty(refreshToken))
-                throw new CustomException(400, ExceptionMessage.REFRESH_TOKEN_NULL);
+                throw new CustomException((int)HttpStatusCode.BadRequest, ExceptionMessage.REFRESH_TOKEN_NULL);
         }
 
         private async Task<ActionResult> IssueTokenForAuthorizationCodeAsync(Dictionary<string, string> requestBody)
@@ -659,7 +659,7 @@ namespace IssuerOfClaims.Controllers
             tokenRequestHandler.SuccessAt = DateTime.Now;
             _tokenManager.UpdateTokenRequestHandler(tokenRequestHandler);
 
-            return StatusCode(200, System.Text.Json.JsonSerializer.Serialize(tokenResponses));
+            return StatusCode((int)HttpStatusCode.OK, System.Text.Json.JsonSerializer.Serialize(tokenResponses));
         }
 
         private UserIdentity ACF_II_GetResourceOwnerIdentity(string userName)
@@ -754,7 +754,7 @@ namespace IssuerOfClaims.Controllers
 
             object responseBody = ResponseForUserInfoRequest(user);
 
-            return StatusCode(200, JsonConvert.SerializeObject(responseBody));
+            return StatusCode((int)HttpStatusCode.OK, JsonConvert.SerializeObject(responseBody));
         }
 
         private static object ResponseForUserInfoRequest(UserIdentity user)

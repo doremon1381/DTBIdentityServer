@@ -664,9 +664,9 @@ namespace IssuerOfClaims.Controllers
 
         private UserIdentity ACF_II_GetResourceOwnerIdentity(string userName)
         {
-            var obj = _applicationUserManager.UserIdentities
-                    //.Include(u => u.TokenRequestHandlers)
-                    //.Include(u => u.TokenRequestHandlers).ThenInclude(l => l.TokenRequestSession).ThenInclude(s => s.Client).ToList()
+            var obj = _applicationUserManager.Current.Users
+                    .Include(u => u.TokenRequestHandlers)
+                    .Include(u => u.TokenRequestHandlers).ThenInclude(l => l.TokenRequestSession).ThenInclude(s => s.Client)
                     .FirstOrDefault(u => u.UserName == userName);
             if (obj == null)
                 throw new InvalidDataException(ExceptionMessage.USER_NULL);

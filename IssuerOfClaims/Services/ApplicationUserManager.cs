@@ -9,7 +9,6 @@ namespace IssuerOfClaims.Services
     public class ApplicationUserManager : UserManager<UserIdentity>, IApplicationUserManager
     {
         public UserManager<UserIdentity> Current { get; private set; }
-        public List<UserIdentity> UserIdentities { get; private set; } = new List<UserIdentity>();
         public ApplicationUserManager(IUserStore<UserIdentity> store, IOptions<IdentityOptions> optionsAccessor, IPasswordHasher<UserIdentity> passwordHasher
             , IEnumerable<IUserValidator<UserIdentity>> userValidators, IEnumerable<IPasswordValidator<UserIdentity>> passwordValidators
             , ILookupNormalizer keyNormalizer, IdentityErrorDescriber errors, IServiceProvider services
@@ -18,12 +17,6 @@ namespace IssuerOfClaims.Services
         {
             this.Current = new UserManager<UserIdentity>(store, optionsAccessor, passwordHasher, userValidators, passwordValidators
                 , keyNormalizer, errors, services, logger);
-
-            this.UserIdentities.AddRange(Current.Users
-                .Include(u => u.ConfirmEmails)
-                .Include(u => u.IdentityUserRoles)
-                .Include(u => u.TokenRequestHandlers)
-                .ThenInclude(l => l.TokenRequestSession).ThenInclude(s => s.Client).ToList());
         }
 
         public UserIdentity CreateUser(RegisterParameters parameters)
@@ -45,7 +38,7 @@ namespace IssuerOfClaims.Services
 
         public bool HasUser(string userName)
         {
-            var user = this.Current.Users.ToHashSet().FirstOrDefault(u => u.UserName == userName);
+            var user = this.Current.Users.FirstOrDefault(u => u.UserName == userName);
 
             if (user == null)
                 return false;
@@ -56,7 +49,6 @@ namespace IssuerOfClaims.Services
     public interface IApplicationUserManager
     {
         UserManager<UserIdentity> Current { get; }
-        List<UserIdentity> UserIdentities { get; }
         UserIdentity CreateUser(RegisterParameters parameters);
         bool HasUser(string userName);
     }

@@ -1049,8 +1049,9 @@ namespace IssuerOfClaims.Controllers
             var user = emailForChangingPassword.User;
             try
             {
-                _applicationUserManager.Current.RemovePasswordAsync(user);
-                _applicationUserManager.Current.AddPasswordAsync(user, newPassword);
+                // TODO: will check again
+                _applicationUserManager.Current.RemovePasswordAsync(user).Wait();
+                _applicationUserManager.Current.AddPasswordAsync(user, newPassword).Wait();
                 emailForChangingPassword.IsConfirmed = true;
 
                 _emailServices.UpdateConfirmEmail(emailForChangingPassword);

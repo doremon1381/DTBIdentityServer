@@ -443,6 +443,7 @@
             public const string CheckSessionIframe = "check_session_iframe";
             public const string RegistrationEndpoint = "registration_endpoint";
             public const string MtlsEndpointAliases = "mtls_endpoint_aliases";
+            public const string GoogleAuthorizationEndpoint = "google_authorization";
 
             // common capabilities
             public const string FrontChannelLogoutSupported = "frontchannel_logout_supported";

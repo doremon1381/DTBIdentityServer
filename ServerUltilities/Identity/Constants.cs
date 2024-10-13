@@ -215,20 +215,16 @@ namespace ServerUltilities.Identity
             { EndpointNames.Authorize, Discovery.AuthorizationEndpoint },
             { EndpointNames.Token, Discovery.TokenEndpoint },
             { EndpointNames.Register, Discovery.RegistrationEndpoint },
-            { EndpointNames.DeviceAuthorization, Discovery.DeviceAuthorizationEndpoint },
+            //{ EndpointNames.DeviceAuthorization, Discovery.DeviceAuthorizationEndpoint },
             { EndpointNames.Discovery, Discovery.DiscoveryEndpoint },
-            { EndpointNames.Introspection, Discovery.IntrospectionEndpoint },
-            { EndpointNames.Revocation, Discovery.RevocationEndpoint },
-            { EndpointNames.EndSession, Discovery.EndSessionEndpoint },
-            { EndpointNames.CheckSession, Discovery.CheckSessionEndpoint },
+            //{ EndpointNames.Introspection, Discovery.IntrospectionEndpoint },
+            //{ EndpointNames.Revocation, Discovery.RevocationEndpoint },
+            //{ EndpointNames.EndSession, Discovery.EndSessionEndpoint },
+            //{ EndpointNames.CheckSession, Discovery.CheckSessionEndpoint },
             { EndpointNames.UserInfo, Discovery.UserInfoEndpoint },
             { EndpointNames.Jwks, Discovery.JwksEndpoint },
+            { EndpointNames.GoogleAuthorize, Discovery.GoogleAuthorizationEndpoint },
         };
-
-        //public static readonly Dictionary<string, string> DiscoveryToCapabilitiesMapping = new Dictionary<string, string>()
-        //{
-        //    {  }
-        //};
 
         public static class EndpointNames
         {
@@ -237,14 +233,16 @@ namespace ServerUltilities.Identity
             // TODO: Not in specs, but I currently use
             public const string Register = "Register";
             // TODO: Not in specs, but I currently use
-            public const string DeviceAuthorization = "DeviceAuthorization";
+            //public const string DeviceAuthorization = "DeviceAuthorization";
             public const string Discovery = "Discovery";
-            public const string Introspection = "Introspection";
-            public const string Revocation = "Revocation";
-            public const string EndSession = "Endsession";
-            public const string CheckSession = "Checksession";
+            //public const string Introspection = "Introspection";
+            //public const string Revocation = "Revocation";
+            //public const string EndSession = "Endsession";
+            //public const string CheckSession = "Checksession";
             public const string UserInfo = "Userinfo";
             public const string Jwks = "JwksUri";
+
+            public const string GoogleAuthorize = "GoogleAuthorize";
         }
 
         public static class ProtocolRoutePaths
@@ -266,6 +264,7 @@ namespace ServerUltilities.Identity
             public const string CheckSession = ConnectPathPrefix + "/checksession";
             public const string DeviceAuthorization = ConnectPathPrefix + "/deviceauthorization";
             public const string Register = ConnectPathPrefix + "/register";
+            public const string GoogleAuthorize = Authorize + "/google";
 
             public const string MtlsPathPrefix = ConnectPathPrefix + "/mtls";
             public const string MtlsToken = MtlsPathPrefix + "/token";

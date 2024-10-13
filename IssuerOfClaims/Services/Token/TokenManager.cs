@@ -16,22 +16,18 @@ namespace IssuerOfClaims.Services.Token
     /// </summary>
     public class TokenManager : ITokenManager
     {
-        //private readonly IConfigurationManager _configuration;
         private readonly ITokenResponseDbServices _tokenResponseDbServices;
         private readonly ITokenResponsePerHandlerDbServices _tokensPerIdentityRequestDbServices;
         private readonly ITokenRequestSessionDbServices _tokenRequestSessionDbServices;
         private readonly ITokenRequestHandlerDbServices _tokenRequestHandlerDbServices;
-        //private readonly IIdTokenDbServices _idTokenDbServices;
 
         public TokenManager(ITokenResponseDbServices tokenResponseDbServices
             , ITokenResponsePerHandlerDbServices tokenResponsePerHandlerDbServices, ITokenRequestSessionDbServices tokenRequestSessionDbServices
             , ITokenRequestHandlerDbServices tokenRequestHandlerDbServices)
         {
-            //_configuration = configuration;
             _tokenResponseDbServices = tokenResponseDbServices;
             _tokensPerIdentityRequestDbServices = tokenResponsePerHandlerDbServices;
             _tokenRequestSessionDbServices = tokenRequestSessionDbServices;
-            //_idTokenDbServices = idTokenDbServices;
 
             _tokenRequestHandlerDbServices = tokenRequestHandlerDbServices;
         }
@@ -304,10 +300,9 @@ namespace IssuerOfClaims.Services.Token
             try
             {
                 // TODO: use rsa256 instead of hs256 for now
+                var claims = CreateClaimsForIdToken(user, nonce, authTime, scope, clientId);
 
-                var claims = ClaimsForIdToken(user, nonce, authTime, scope, clientId);
-
-                var publicPrivateKeys = GetRsaPublicKeyAndPrivateKey();
+                var publicPrivateKeys = CreateRsaPublicKeyAndPrivateKey();
 
                 // TODO: will add rsa key to database
 
@@ -335,7 +330,7 @@ namespace IssuerOfClaims.Services.Token
             }
         }
 
-        private static IDictionary<string, object> ClaimsForIdToken(UserIdentity user, string nonce, string authTime, string scope, string clientId)
+        private static IDictionary<string, object> CreateClaimsForIdToken(UserIdentity user, string nonce, string authTime, string scope, string clientId)
         {
             var claims = new List<Claim>();
             var scopeVariables = scope.Split(" ");
@@ -389,7 +384,7 @@ namespace IssuerOfClaims.Services.Token
         /// for this pair, key is rsa private key, value is rsa public key
         /// </summary>
         /// <returns></returns>
-        private static KeyValuePair<RSAParameters, RSAParameters> GetRsaPublicKeyAndPrivateKey()
+        private static KeyValuePair<RSAParameters, RSAParameters> CreateRsaPublicKeyAndPrivateKey()
         {
             RSAParameters publicKey;
             RSAParameters privateKey;

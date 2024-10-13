@@ -46,6 +46,7 @@
 
   <ItemGroup>
     <Folder Include="Migrations\" />
+    <Folder Include="Services\Token\RsaSha256Keys\" />
   </ItemGroup>
 
   <ItemGroup>

@@ -39,7 +39,6 @@ namespace IssuerOfClaims.Services
         public async Task SendVerifyingEmailAsync(UserIdentity user, string callbackEndpoint, Client client, string requestScheme, string requestHost)
         {
             var code = await _applicationUserManager.Current.GenerateEmailConfirmationTokenAsync(user);
-            //var sr = _userManager.get
             code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
 
             int expiredTimeInMinutes = 60;

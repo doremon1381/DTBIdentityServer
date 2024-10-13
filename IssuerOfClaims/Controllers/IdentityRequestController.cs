@@ -79,7 +79,7 @@ namespace IssuerOfClaims.Controllers
 
                 Oauth2Parameters parameters = new Oauth2Parameters(HttpContext.Request.QueryString.Value);
 
-                var client = _clientDbServices.GetByClientId(parameters.ClientId.Value);
+                var client = _clientDbServices.Find(parameters.ClientId.Value);
 
                 ACF_VerifyClient(client);
                 ACF_VerifyRedirectUris(parameters, client);
@@ -139,7 +139,7 @@ namespace IssuerOfClaims.Controllers
             //     : get user, create authorization code, save it to login session and out
 
             UserIdentity user = await ACF_I_GetResourceOwnerIdentity();
-            var client = _clientDbServices.GetByClientId(parameters.ClientId.Value);
+            var client = _clientDbServices.Find(parameters.ClientId.Value);
 
             ACF_I_VerifyClient(parameters.Scope.Value, client);
 
@@ -164,6 +164,9 @@ namespace IssuerOfClaims.Controllers
             // TODO: comment for now
             //ACF_I_AddResponseStatus(200);
 
+            // TODO: if following openid specs, I will need to return responseBody as query or fragment inside uri
+            //     , but currently I don't know particular form of the response
+            //     , so if it 's considered a bug, I will fix it later
             return StatusCode((int)HttpStatusCode.OK, System.Text.Json.JsonSerializer.Serialize(responseBody));
         }
 
@@ -278,7 +281,7 @@ namespace IssuerOfClaims.Controllers
 
         private Client GetClient(string clientId)
         {
-            var client = _clientDbServices.GetByClientId(clientId);
+            var client = _clientDbServices.Find(clientId);
             if (client == null || client.Id == 0)
                 throw new InvalidDataException("client id is wrong!");
 
@@ -299,47 +302,32 @@ namespace IssuerOfClaims.Controllers
             // TODO: will add role later
             // TODO: for now, I allow one email can be used by more than one UserIdentity
             //     : but will change to "one email belong to one useridentity" later
-
-            var currentUser = _applicationUserManager.Current.Users.ToList().Find(u => u.UserName == parameters.UserName.Value);
-            if (currentUser != null)
-                return StatusCode(409, "user with this username is already exist");
-
-            var newUser = new UserIdentity
-            {
-                UserName = parameters.UserName.Value,
-                Email = parameters.Email.Value,
-                FirstName = parameters.FirstName.Value,
-                LastName = parameters.LastName.Value,
-                FullName = string.Format("{0} {1}", parameters.LastName.Value, parameters.FirstName.Value),
-                Gender = parameters.Gender.Value
-            };
+            VerifyUser(parameters.UserName.Value);
 
             // TODO: will check again
-            var result = _applicationUserManager.Current.CreateAsync(newUser, parameters.Password.Value).Result;
+            var user = _applicationUserManager.CreateUser(parameters);
 
-            if (result.Succeeded)
-            {
-                var user = _applicationUserManager.Current.Users.First(u => u.UserName == parameters.UserName.Value);
+            // TODO: https://openid.net/specs/openid-connect-prompt-create-1_0.html#name-authorization-request
+            var client = _clientDbServices.Find(parameters.ClientId.Value);
 
-                // TODO: https://openid.net/specs/openid-connect-prompt-create-1_0.html#name-authorization-request
-                var client = _clientDbServices.GetByClientId(parameters.ClientId.Value);
+            // TODO: will check again
+            string id_token = _tokenManager.GenerateIdTokenAndRsaSha256PublicKey(user, string.Empty, parameters.Nonce.Value, client.ClientId)
+                .Cast(new { IdToken = string.Empty, PublicKey = new object() })
+                .IdToken;
 
-                // TODO: will check again
-                string id_token = _tokenManager.GenerateIdTokenAndRsaSha256PublicKey(newUser, string.Empty, parameters.Nonce.Value, client.ClientId)
-                    .Cast(new { IdToken = string.Empty, PublicKey = new object() })
-                    .IdToken;
+            if (parameters.Email.HasValue)
+                await _emailServices.SendVerifyingEmailAsync(user, "ConfirmEmail", client, Request.Scheme, Request.Host.ToString());
 
-                if (parameters.Email.HasValue)
-                    await _emailServices.SendVerifyingEmailAsync(newUser, "ConfirmEmail", client, Request.Scheme, Request.Host.ToString());
+            object responseBody = CreateRegisterUserResponseBody(id_token, parameters.State.Value, parameters.State.HasValue);
 
-                object responseBody = CreateRegisterUserResponseBody(id_token, parameters.State.Value, parameters.State.HasValue);
+            return StatusCode((int)HttpStatusCode.OK, responseBody);
+        }
 
-                return StatusCode(200, responseBody);
-            }
-            else
-            {
-                return StatusCode(500, "Internal server error!");
-            }
+        private void VerifyUser(string userName)
+        {
+            var hasUser = _applicationUserManager.HasUser(userName);
+            if (hasUser == true)
+                throw new CustomException((int)HttpStatusCode.Conflict, ExceptionMessage.USER_ALREADY_EXISTS);
         }
 
         private static object CreateRegisterUserResponseBody(string id_token, string state = "", bool stateHasValue = false)
@@ -388,7 +376,7 @@ namespace IssuerOfClaims.Controllers
                 var principal = HttpContext.User;
 
                 var user = await _applicationUserManager.Current.GetUserAsync(principal);
-                var client = _clientDbServices.GetByClientId(parameters.ClientId.Value);
+                var client = _clientDbServices.Find(parameters.ClientId.Value);
 
                 // TODO: scope is used for getting claims to send to client,
                 //     : for example, if scope is missing email, then in id_token which will be sent to client will not contain email's information 
@@ -741,7 +729,7 @@ namespace IssuerOfClaims.Controllers
 
             //// TODO: hotfix for now
             //var _clientDbServices = _servicesProvider.GetService<IClientDbServices>();
-            client = _clientDbServices.GetByIdAndSecret(clientId, clientSecret);
+            client = _clientDbServices.Find(clientId, clientSecret);
             if (tokenRequestHandler.TokenRequestSession != null
                 && !tokenRequestHandler.TokenRequestSession.Client.Id.Equals(client.Id))
                 // TODO: status code may wrong
@@ -984,7 +972,7 @@ namespace IssuerOfClaims.Controllers
             return jwtSecurityToken;
         }
 
-        async Task<string> userinfoCall(string access_token)
+        private async Task<string> userinfoCall(string access_token)
         {
             string output = "";
             // builds the  request
@@ -1093,7 +1081,7 @@ namespace IssuerOfClaims.Controllers
                 if (string.IsNullOrEmpty(email))
                     return StatusCode(400, "email is missing!");
 
-                var client = _clientDbServices.GetByClientId(clientId);
+                var client = _clientDbServices.Find(clientId);
                 if (client == null)
                     return StatusCode(404, "client id may wrong!");
 
@@ -1106,6 +1094,20 @@ namespace IssuerOfClaims.Controllers
                 return StatusCode(500, ex.Message);
             }
             return Ok();
+        }
+        #endregion
+
+        #region endpoint discovery
+        /// <summary>
+        /// https://openid.net/specs/openid-connect-discovery-1_0.html
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet(".well-known/openid-configuration")]
+        public ActionResult EndpointDiscovery()
+        {
+
+
+            return StatusCode((int)HttpStatusCode.OK);
         }
         #endregion
     }

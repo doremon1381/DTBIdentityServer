@@ -12,14 +12,35 @@ namespace IssuerOfClaims.Controllers.Ultility
     {
         protected readonly string[] requestQuery;
 
-        private static FieldInfo[] _parameterNames = typeof(AuthorizeRequest).GetFields(
+        private static readonly Type _currentType = typeof(T);
+        private static readonly Type _registerRequestType = typeof(RegisterRequest);
+        private static readonly Type _authorizeRequestType = typeof(AuthorizeRequest);
+
+        private static readonly FieldInfo[] _parameterNames = _currentType.Name switch
+        {
+            nameof(Oauth2Parameters) => _authorizeRequestType.GetFields(
                 // Gets all public and static fields
                 BindingFlags.Public | BindingFlags.Static |
                 // This tells it to get the fields from all base types as well
-                BindingFlags.FlattenHierarchy);
+                BindingFlags.FlattenHierarchy),
+            nameof(RegisterParameters) => Array.FindAll(_registerRequestType.GetFields(
+                // Gets all public and static fields
+                BindingFlags.Public | BindingFlags.Static |
+                // This tells it to get the fields from all base types as well
+                BindingFlags.FlattenHierarchy), (i) => RegisterParameters_MatchPredicate(i.Name)),
+            // TODO: will check it later
+            _ => throw new InvalidOperationException()
+        };
 
-        private static PropertyInfo[] _properties = typeof(T).GetProperties().Where(p => p.PropertyType.Equals(typeof(Parameter))).ToArray();
-        private static PropertyInfo _responseType = _properties.FirstOrDefault(t => t.Name.Equals("ResponseType"));
+        private static readonly PropertyInfo[] _properties = _currentType.Name switch 
+        {
+            nameof(Oauth2Parameters) => GetProperties(_currentType),
+            nameof(RegisterParameters) => Array.FindAll(GetProperties(_currentType), (i) => RegisterParameters_MatchPredicate(i.Name)),
+            // TODO: will check it later
+            _ => throw new InvalidOperationException()
+        };
+
+        private static readonly PropertyInfo _responseType = _properties.FirstOrDefault(t => t.Name.Equals("ResponseType"));
 
         public AbtractRequestParamters(string? queryString)
         {
@@ -28,13 +49,27 @@ namespace IssuerOfClaims.Controllers.Ultility
             InitiateProperties();
         }
 
+        private static PropertyInfo[] GetProperties(Type type)
+        {
+            return type.GetProperties().Where(p => p.PropertyType.Equals(typeof(Parameter))).ToArray();
+        }
+
+        private static bool RegisterParameters_MatchPredicate(string name)
+        {
+            // TODO: special case
+            if (name == RegisterRequest.UserName
+                || name == RegisterRequest.Password)
+                return false;
+            return true;
+        }
+
         private void InitiateProperties()
         {
             Action<Parameter, string> setValueMethod = FunctionToInitiateValueOfProperty();
 
             // TODO: for currently logic, to ensure response mode is set, I run this function first
             if (_responseType != null)
-                Task.Run(async () => { await SetPropertyValue(setValueMethod, _responseType); }).Wait();
+                Task.Run(async () => { await SetPropertyValueAsync(setValueMethod, _responseType); }).Wait();
 
             List<Task> tasks = new List<Task>();
             foreach (var property in _properties)
@@ -42,9 +77,9 @@ namespace IssuerOfClaims.Controllers.Ultility
                 if (property.Name.Equals("ResponseType"))
                     continue;
                 else
-                    tasks.Add(Task.Run(() =>
+                    tasks.Add(Task.Run(async () =>
                     {
-                        SetPropertyValue(setValueMethod, property);
+                        await SetPropertyValueAsync(setValueMethod, property);
                     }));
             }
             Task.WaitAll(tasks.ToArray());
@@ -56,12 +91,12 @@ namespace IssuerOfClaims.Controllers.Ultility
         /// <param name="setValue"></param>
         /// <param name="property"></param>
         /// <returns></returns>
-        private async Task SetPropertyValue(Action<Parameter, string> setValue, PropertyInfo property)
+        private async Task SetPropertyValueAsync(Action<Parameter, string> setValue, PropertyInfo property)
         {
             string mappingName = GetMappingNameForRequestParameter(property.Name);
             string parameterValue = requestQuery.GetFromQueryString(mappingName);
 
-            var propertyValue = new Parameter(mappingName);
+            var parameter = new Parameter(mappingName);
 
             if (ParameterExtensions.OAuth2ParameterWithSpecialInitiate.TryGetValue(mappingName, out Func<string, string, string> execute))
             {
@@ -80,8 +115,8 @@ namespace IssuerOfClaims.Controllers.Ultility
                     parameterValue = execute.Invoke(parameterValue, string.Empty);
             }
 
-            setValue(propertyValue, parameterValue);
-            property.SetValue(this, propertyValue);
+            setValue(parameter, parameterValue);
+            property.SetValue(this, parameter);
         }
 
         private static string GetMappingNameForRequestParameter(string propertyName)
@@ -112,29 +147,6 @@ namespace IssuerOfClaims.Controllers.Ultility
         }
 
         private static string[] QueryStringToArray(string? queryString)
-        {
-            ValidateRequestQuery(queryString);
-
-            return queryString.Remove(0, 1).Split("&");
-        }
-    }
-
-    public abstract class AbtractRequestParamters
-    {
-        protected readonly string[] requestQuery;
-
-        public AbtractRequestParamters(string? queryString)
-        {
-            requestQuery = QueryStringToArray(queryString);
-        }
-
-        private void ValidateRequestQuery(string? requestQuery)
-        {
-            if (string.IsNullOrEmpty(requestQuery))
-                throw new CustomException(400, ExceptionMessage.QUERYSTRING_NOT_NULL_OR_EMPTY);
-        }
-
-        private string[] QueryStringToArray(string? queryString)
         {
             ValidateRequestQuery(queryString);
 

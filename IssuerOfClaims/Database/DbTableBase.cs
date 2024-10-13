@@ -186,7 +186,7 @@ namespace IssuerOfClaims.Database
             return !hasError;
         }
 
-        public void ValidateEntity(TEntity obj, string message = "")
+        public static void ValidateEntity(TEntity obj, string message = "")
         {
             if (obj == null)
                 throw new InvalidOperationException(message);
@@ -205,6 +205,5 @@ namespace IssuerOfClaims.Database
         bool Update(DbModel model);
         bool Delete(DbModel model);
         bool AddMany(List<DbModel> models);
-        void ValidateEntity(DbModel obj, string message = "");
     }
 }

@@ -215,6 +215,9 @@ namespace ServerUltilities.Identity
         public static class EndpointNames
         {
             public const string Authorize = "Authorize";
+            // TODO: Not in specs, but I currently use
+            public const string Register = "Register";
+            // TODO: Not in specs, but I currently use
             public const string BackchannelAuthentication = "BackchannelAuthentication";
             public const string Token = "Token";
             public const string DeviceAuthorization = "DeviceAuthorization";

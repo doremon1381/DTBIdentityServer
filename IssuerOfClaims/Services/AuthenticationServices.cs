@@ -43,7 +43,7 @@ namespace IssuerOfClaims.Services
                 var authenticateInfor = this.Request.Headers.Authorization.ToString();
                 ValidateAuthenticateInfo(authenticateInfor);
 
-                UserIdentity user = GetUser(authenticateInfor);
+                UserIdentity user = GetUserUsingAuthenticationScheme(authenticateInfor);
                 ClaimsPrincipal claimsPrincipal = CreateClaimPrincipal(user);
 
                 ValidateClaimsPrincipal(claimsPrincipal);
@@ -57,20 +57,20 @@ namespace IssuerOfClaims.Services
             }
         }
 
-        private UserIdentity GetUser(string authenticateInfor)
+        private UserIdentity GetUserUsingAuthenticationScheme(string authenticateInfor)
         {
             // authentication with "Basic access" - username + password
             if (authenticateInfor.StartsWith(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC))
-                return GetUserByUserNameAndPassword(authenticateInfor);
+                return BasicAccess_FindUser(authenticateInfor);
             // authentication with Bearer" token - access token or id token, for now, I'm trying to implement
             //     , https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
             else if (authenticateInfor.StartsWith(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BEARER))
-                return GetUserByAccessToken(authenticateInfor);
+                return BearerToken_FindUser(authenticateInfor);
             else
                 throw new InvalidOperationException("Not implemented or does not have user with these informations!");
         }
 
-        private UserIdentity GetUserByAccessToken(string authenticateInfor)
+        private UserIdentity BearerToken_FindUser(string authenticateInfor)
         {
             var accessToken = authenticateInfor.Replace(AuthenticationSchemes.AuthorizationHeaderBearer, "").Trim();
             var tokenResponse = _tokenResponsePerHandlerDbServices.FindByAccessToken(accessToken);
@@ -78,7 +78,7 @@ namespace IssuerOfClaims.Services
             return tokenResponse.TokenRequestHandler.User;
         }
 
-        private UserIdentity GetUserByUserNameAndPassword(string authenticateInfor)
+        private UserIdentity BasicAccess_FindUser(string authenticateInfor)
         {
             var userNamePassword = authenticateInfor.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim().ToBase64Decode();
             ValidateIdentityCredentials(userNamePassword);
@@ -101,7 +101,7 @@ namespace IssuerOfClaims.Services
         private static void ValidateIdentityCredentials(string userNamePassword)
         {
             if (string.IsNullOrEmpty(userNamePassword))
-                throw new Exception("username and password is empty!");
+                throw new InvalidOperationException("username and password is empty!");
         }
 
         private void ValidateUser(UserIdentity user, string password)

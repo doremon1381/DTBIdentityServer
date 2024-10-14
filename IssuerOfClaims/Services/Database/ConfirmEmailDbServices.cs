@@ -1,4 +1,5 @@
 ﻿using IssuerOfClaims.Database;
+using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
 
@@ -26,7 +27,7 @@ namespace IssuerOfClaims.Services.Database
                 .First(c => c.ConfirmCode == code);
             });
 
-            ValidateEntity(obj, $"{this.GetType().Name}: ConfirmEmail is null!");
+            ValidateEntity(obj, $"{nameof(ConfirmEmailDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
 
             return obj;
         }

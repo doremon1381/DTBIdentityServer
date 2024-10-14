@@ -1,5 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using IssuerOfClaims.Models;
+using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
+using System.Net;
 
 namespace IssuerOfClaims.Database
 {
@@ -189,7 +191,7 @@ namespace IssuerOfClaims.Database
         public static void ValidateEntity(TEntity obj, string message = "")
         {
             if (obj == null)
-                throw new InvalidOperationException(message);
+                throw new CustomException((int)HttpStatusCode.NotFound ,message);
         }
     }
 

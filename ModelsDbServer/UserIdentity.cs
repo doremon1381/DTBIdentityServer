@@ -23,12 +23,12 @@ namespace ServerDbModels
         public string? Gender { get; set; } = string.Empty;
         public DateTime? DateOfBirth { get; set; } = null;
         public string? Avatar { get; set; } = string.Empty;
-        public bool IsEmailConfirmed { get; set; } = false;
+        //public bool EmailConfirmed { get; set; } = false;
         public DateTime CreateTime { get; set; } = DateTime.Now;
         public DateTime? UpdateTime { get; set; } = DateTime.Now;
-#if IdentityServer
-        [NotMapped]
-#endif
+//#if IdentityServer
+//        [NotMapped]
+//#endif
         public override bool EmailConfirmed { get; set; }
         /// <summary>
         /// TODO: by logic of current process of creation, always need UserName, so it basically not null

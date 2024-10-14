@@ -1,6 +1,6 @@
 ﻿using System.Security.Cryptography;
 
-namespace IssuerOfClaims.Controllers.Ultility
+namespace IssuerOfClaims.Extensions
 {
     public static class PasswordUltilities
     {
@@ -61,7 +61,7 @@ namespace IssuerOfClaims.Controllers.Ultility
 
             // Verify a version 0 (see comment above) text hash.
 
-            if (hashedPasswordBytes.Length != (1 + SaltSize + PBKDF2SubkeyLength) || hashedPasswordBytes[0] != 0x00)
+            if (hashedPasswordBytes.Length != 1 + SaltSize + PBKDF2SubkeyLength || hashedPasswordBytes[0] != 0x00)
             {
                 // Wrong length or version header.
                 return false;
@@ -103,7 +103,7 @@ namespace IssuerOfClaims.Controllers.Ultility
             var areSame = true;
             for (var i = 0; i < a.Length; i++)
             {
-                areSame &= (a[i] == b[i]);
+                areSame &= a[i] == b[i];
             }
             return areSame;
         }

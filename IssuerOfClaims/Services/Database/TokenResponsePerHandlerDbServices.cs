@@ -1,5 +1,6 @@
 ﻿using Azure.Core;
 using IssuerOfClaims.Database;
+using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
 
@@ -42,7 +43,7 @@ namespace IssuerOfClaims.Services.Database
                     .First(r => r.TokenResponse.Token.Equals(accessToken));
             });
 
-            ValidateEntity(obj, $"{this.GetType().Name}: Something is wrong!");
+            ValidateEntity(obj, $"{nameof(TokenResponsePerHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
 
             return obj;
         }

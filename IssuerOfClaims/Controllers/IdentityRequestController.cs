@@ -28,6 +28,7 @@ using IssuerOfClaims.Models;
 using Azure.Core;
 using Google.Apis.Auth;
 using Microsoft.AspNetCore.Http;
+using IssuerOfClaims.Models.Request;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -310,7 +311,7 @@ namespace IssuerOfClaims.Controllers
             // TODO: will add role later
             // TODO: for now, I allow one email can be used by more than one UserIdentity
             //     : but will change to "one email belong to one useridentity" later
-            VerifyUser(parameters.UserName.Value);
+            VerifyUser(parameters.UserName.Value, parameters.Email.Value);
 
             // TODO: will check again
             var user = _applicationUserManager.CreateUser(parameters);
@@ -331,10 +332,10 @@ namespace IssuerOfClaims.Controllers
             return StatusCode((int)HttpStatusCode.OK, responseBody);
         }
 
-        private void VerifyUser(string userName)
+        private void VerifyUser(string userName, string email)
         {
-            var hasUser = _applicationUserManager.HasUser(userName);
-            if (hasUser == true)
+            if (_applicationUserManager.EmailIsUsedForUser(email) 
+                || _applicationUserManager.HasUser(userName))
                 throw new CustomException((int)HttpStatusCode.Conflict, ExceptionMessage.USER_ALREADY_EXISTS);
         }
 
@@ -582,7 +583,7 @@ namespace IssuerOfClaims.Controllers
             }
         }
 
-        private string TokenEndpoint_GetGrantType(string requestBody)
+        private static string TokenEndpoint_GetGrantType(string requestBody)
         {
             return requestBody.Remove(0, 1).Split("&")
                 .First(t => t.StartsWith("grant_type"))
@@ -590,7 +591,7 @@ namespace IssuerOfClaims.Controllers
         }
 
         /// <summary>
-        /// 
+        /// get parameter from HttpContext.Request.Body
         /// </summary>
         /// <param name="stream">HttpContext.Request.Body</param>
         /// <returns></returns>
@@ -660,11 +661,16 @@ namespace IssuerOfClaims.Controllers
             // TODO: issue token from TokenManager
             var tokenResponses = _tokenManager.ACF_IssueToken(user, client, tokenRequestHandler.Id);
 
+            ACF_II_SuccessfulRequestHandle(tokenRequestHandler);
+
+            return StatusCode((int)HttpStatusCode.OK, System.Text.Json.JsonSerializer.Serialize(tokenResponses));
+        }
+
+        private void ACF_II_SuccessfulRequestHandle(TokenRequestHandler tokenRequestHandler)
+        {
             // TODO: will test again
             tokenRequestHandler.SuccessAt = DateTime.Now;
             _tokenManager.UpdateTokenRequestHandler(tokenRequestHandler);
-
-            return StatusCode((int)HttpStatusCode.OK, System.Text.Json.JsonSerializer.Serialize(tokenResponses));
         }
 
         private UserIdentity ACF_II_GetResourceOwnerIdentity(string userName)
@@ -727,7 +733,7 @@ namespace IssuerOfClaims.Controllers
             var user = _applicationUserManager.Current.GetUserAsync(HttpContext.User).Result;
 
             if (user == null)
-                throw new InvalidOperationException(ExceptionMessage.USER_NULL);
+                throw new InvalidOperationException(ExceptionMessage.OBJECT_NOT_FOUND);
 
             object responseBody = ResponseForUserInfoRequest(user);
 
@@ -741,7 +747,7 @@ namespace IssuerOfClaims.Controllers
                 sub = user.UserName,
                 name = user.FullName,
                 email = user.Email,
-                email_confirmed = user.IsEmailConfirmed,
+                email_confirmed = user.EmailConfirmed,
                 picture = user.Avatar
             };
         }
@@ -787,7 +793,7 @@ namespace IssuerOfClaims.Controllers
                     return StatusCode(200, "Email is confirmed!");
                 else
                 {
-                    user.IsEmailConfirmed = true;
+                    user.EmailConfirmed = true;
                     createUserConfirmEmail.IsConfirmed = true;
                 }
 
@@ -815,33 +821,41 @@ namespace IssuerOfClaims.Controllers
                 var googleClientConfig = _configuration.GetSection(IdentityServerConfiguration.GOOGLE_CLIENT).Get<GoogleSettings>();
                 ValidateGoogleSettings(googleClientConfig);
 
-                string requestBody = "";
-                using (StreamReader reader = new StreamReader(HttpContext.Request.Body))
-                {
-                    requestBody = await reader.ReadToEndAsync();
-                }
+                string requestQuery = await GetRequestBodyAsQueryFormAsync(HttpContext.Request.Body);
 
                 // TODO: add '?' before requestBody to get query form of string
                 // , AbtractRequestParamters instances use request query as parameter
-                var signInGoogleParameters = new SignInGoogleParameters("?" + requestBody);
+                var parameters = new SignInGoogleParameters(requestQuery);
+
+                // at this step, token request session is used for storing data
+                var client = _clientDbServices.Find(parameters.ClientId.Value, parameters.ClientSecret.Value);
 
                 // TODO: associate google info with current user identity inside database, using email to do it
                 //     : priority information inside database, import missing info from google
 
-                var result = await GetGoogleInfo(signInGoogleParameters, googleClientConfig);
-                var idTokenAcessToken = result.Cast(new { AccessToken = "", IdToken = "" });
-
+                var result = await GetGoogleInfo(parameters, googleClientConfig);
+                var resultAfterCast = result.Cast(new { AccessToken = "", IdToken = "", RefreshToken = "", AccessTokenIssueAt = DateTime.Now });
                 // TODO: will learn how to use it, comment for now
-                GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(idTokenAcessToken.IdToken);
+                GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(resultAfterCast.IdToken);
 
-                // TODO: validate nonce
+                string user_info = await userinfoCallAsync(resultAfterCast.AccessToken);
+                // TODO: create new user or map google user infor to current
+                //var email = payload.Email;
+                var user = _applicationUserManager.GetOrCreateUserByEmail(payload);
+                //user.Avatar = payload.Picture;
+                // TODO: get unique user by email
 
-                string user_info = await userinfoCallAsync(idTokenAcessToken.AccessToken);
+                var requestHandler = GoogleAuth_ImportRequestHandlerData(parameters.CodeVerifier.Value, resultAfterCast.RefreshToken, client, user);
+
+                GoogleAuth_SaveToken(resultAfterCast.AccessToken, resultAfterCast.RefreshToken, resultAfterCast.IdToken, payload.IssuedAtTimeSeconds.Value, payload.ExpirationTimeSeconds.Value
+                    , resultAfterCast.AccessTokenIssueAt, payload, requestHandler);
+
+                GoogleAuth_SuccessfulRequestHandle(requestHandler);
 
                 // TODO: will need to create new user if current user with this email is not have
                 //     : after that, create login session object and save to db
                 //     : after create login session, authentication then will perform
-                return Ok(idTokenAcessToken.AccessToken);
+                return Ok(JsonConvert.SerializeObject(user_info, Formatting.Indented));
             }
             catch (CustomException ex)
             {
@@ -852,6 +866,40 @@ namespace IssuerOfClaims.Controllers
             {
                 throw;
             }
+        }
+
+        private void GoogleAuth_SuccessfulRequestHandle(TokenRequestHandler requestHandler)
+        {
+            requestHandler.SuccessAt = DateTime.UtcNow;
+            _tokenManager.UpdateTokenRequestHandler(requestHandler);
+        }
+
+        private bool GoogleAuth_SaveToken(string accessToken, string refreshToken, string idToken, long issuedAtTimeSeconds, long expirationTimeSeconds, DateTime accessTokenIssueAt, GoogleJsonWebSignature.Payload payload, TokenRequestHandler requestHandler)
+        {
+            return _tokenManager.SaveTokenFromExternalSource(accessToken, refreshToken, idToken, issuedAtTimeSeconds, expirationTimeSeconds, accessTokenIssueAt, requestHandler, ExternalSources.Google);
+        }
+
+        private TokenRequestHandler GoogleAuth_ImportRequestHandlerData(string codeVerifier, string refreshToken, Client client, UserIdentity user)
+        {
+            var requestHandler = _tokenManager.GetDraftTokenRequestHandler();
+            TokenRequestSession session = GoogleAuth_CreateRequestSession(codeVerifier, refreshToken, client);
+
+            requestHandler.TokenRequestSession = session;
+            requestHandler.User = user;
+            _tokenManager.UpdateTokenRequestHandler(requestHandler);
+
+            return requestHandler;
+        }
+
+        private TokenRequestSession GoogleAuth_CreateRequestSession(string codeVerifier, string refreshToken, Client client)
+        {
+            var session = _tokenManager.CreateTokenRequestSession();
+            session.CodeVerifier = codeVerifier;
+            session.IsOfflineAccess = string.IsNullOrEmpty(refreshToken) ? false : true;
+            session.Client = client;
+
+            _tokenManager.UpdateTokenRequestSession(session);
+            return session;
         }
 
         private async Task<object> GetGoogleInfo(SignInGoogleParameters signInGoogleParameters, GoogleSettings config)
@@ -877,6 +925,8 @@ namespace IssuerOfClaims.Controllers
 
             string id_token = "";
             string access_token = "";
+            string refresh_token = "";
+            DateTime accessTokenIssueAt;
             // gets the response
             WebResponse tokenResponse = await tokenRequest.GetResponseAsync();
 
@@ -886,18 +936,21 @@ namespace IssuerOfClaims.Controllers
                 string responseText = await reader.ReadToEndAsync();
 
                 // converts to dictionary
-                Dictionary<string, string> tokenEndpointDecoded = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
+                Dictionary<string, string> result = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
 
-                access_token = tokenEndpointDecoded["access_token"];
-                id_token = tokenEndpointDecoded["id_token"];
+                access_token = result["access_token"];
+                id_token = result["id_token"];
+                result.TryGetValue("refreshToken", out refresh_token);
+                result.TryGetValue("expires_in", out string expiredIn);
 
+                accessTokenIssueAt = DateTime.Now.AddMilliseconds(double.Parse($"-{expiredIn}"));
                 // TODO: validate at_hash from id_token is OPTIONAL in some flows (hybrid flow,...),
                 //     : I will check when to implement it later, now, better it has than it doesn't
                 //     : comment for now
                 //ValidateAtHash(id_token, access_token);
             }
 
-            return new { AccessToken = access_token, IdToken = id_token };
+            return new { AccessToken = access_token, IdToken = id_token, RefreshToken = refresh_token, AccessTokenIssueAt = accessTokenIssueAt };
         }
 
         private static void ValidateGoogleSettings(GoogleSettings? googleClientConfig)
@@ -995,7 +1048,7 @@ namespace IssuerOfClaims.Controllers
             // TODO: will check again
             if (user == null)
                 return StatusCode(500, "error!");
-            if (user.IsEmailConfirmed == true)
+            if (user.EmailConfirmed == true)
                 return StatusCode(400, "user's email is already confirmed!");
 
             //return await SendVerifyingEmailAsync(user, "updateUser", client);

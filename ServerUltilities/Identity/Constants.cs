@@ -41,7 +41,11 @@ namespace ServerUltilities.Identity
         {
             GrantType.AuthorizationCode,
             GrantType.Implicit,
-            GrantType.Hybrid
+            // TODO: comment for now
+            //GrantType.Hybrid,
+            //GrantType.ClientCredentials,
+            //GrantType.ResourceOwnerPassword,
+            //GrantType.DeviceFlow
         };
 
         public static readonly List<string> SupportedCodeChallengeMethods = new List<string>
@@ -381,6 +385,7 @@ namespace ServerUltilities.Identity
         }
         public static class RegisterRequest
         {
+            // TODO: by now, register user need client_id, I think only accept a register request from client, but will create another website for user register
             public const string ClientId = "client_id";
             public const string RedirectUri = "redirect_uri";
             public const string State = "state";
@@ -404,7 +409,9 @@ namespace ServerUltilities.Identity
             public const string AuthorizationCode = "code";
             public const string RedirectUri = "redirect_uri";
             public const string CodeVerifier = "code_verifier";
-            public const string Nonce = "nonce";
+            public const string ClientId = "client_id";
+            public const string ClientSecret = "client_secret";
+            //public const string Nonce = "nonce";
         }
 
         public static class ChangePasswordRequest

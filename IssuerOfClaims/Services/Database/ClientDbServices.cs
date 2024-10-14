@@ -1,6 +1,8 @@
 ﻿using IssuerOfClaims.Database;
+using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
+using System.Management;
 
 namespace IssuerOfClaims.Services.Database
 {
@@ -20,7 +22,7 @@ namespace IssuerOfClaims.Services.Database
             });
 
 
-            ValidateEntity(client, $"{this.GetType().Name}: client is null!");
+            ValidateEntity(client, $"{nameof(ClientDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
             return client;
         }
 
@@ -33,14 +35,14 @@ namespace IssuerOfClaims.Services.Database
                 client = _Clients.Include(c => c.TokenRequestSession).First(c => c.ClientId.Equals(clientId));
             });
 
-            ValidateEntity(client, $"{this.GetType().Name}: client is null!");
+            ValidateEntity(client, $"{nameof(ClientDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
             return client;
         }
     }
 
     public interface IClientDbServices : IDbContextBase<Client>
     {
-        Client Find(string id, string secret);
-        Client Find(string id);
+        Client Find(string clientId, string clientSecret);
+        Client Find(string clientId);
     }
 }

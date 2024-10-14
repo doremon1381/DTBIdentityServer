@@ -21,6 +21,9 @@
 
         public const string USER_ALREADY_EXISTS = "user with this username is already exist!";
 
+        public const string OBJECT_IS_NULL = "Object is null!";
+        public const string OBJECT_NOT_FOUND = "Object is not found!";
+
         public const string CODECHALLENGE_CODECHALLENGEMETHODE_NOT_HAVE_VALUE_SIMUTANEOUSLY = "Code challenge does not have value simutaneosly with code challenge method or vice versa!";
     }
 }

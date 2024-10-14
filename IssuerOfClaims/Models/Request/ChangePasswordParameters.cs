@@ -1,4 +1,4 @@
-﻿namespace IssuerOfClaims.Controllers.Ultility
+﻿namespace IssuerOfClaims.Models.Request
 {
     public class ChangePasswordParameters : AbstractRequestParamters<ChangePasswordParameters>
     {

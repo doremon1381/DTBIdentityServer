@@ -218,7 +218,7 @@ namespace IssuerOfClaims.Services
                 new Claim(ClaimTypes.Gender, user.Gender),
                 new Claim(JwtClaimTypes.Picture, user.Avatar),
                 new Claim(JwtClaimTypes.UpdatedAt, user.UpdateTime.ToString()),
-                new Claim(JwtClaimTypes.EmailVerified, user.IsEmailConfirmed.ToString()),
+                new Claim(JwtClaimTypes.EmailVerified, user.EmailConfirmed.ToString()),
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
             };
             user.IdentityUserRoles.ForEach(p =>

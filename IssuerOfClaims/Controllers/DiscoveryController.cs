@@ -20,11 +20,7 @@ namespace IssuerOfClaims.Controllers
         private static readonly List<FieldInfo> _EndpointNames = typeof(EndpointNames).GetFields(BindingFlags.Public | BindingFlags.Static).ToList();
         private static readonly List<FieldInfo> _ProtocolRoutePaths = typeof(ProtocolRoutePaths).GetFields(BindingFlags.Public | BindingFlags.Static).ToList();
         private static readonly List<FieldInfo> _StandardScopes = typeof(StandardScopes).GetFields(BindingFlags.Public | BindingFlags.Static).ToList();
-        // TODO: for now, this server only supports authorization code, implicit grant will done in next days
-        private static readonly List<FieldInfo> _GrantTypes = typeof(GrantType).GetFields(BindingFlags.Public | BindingFlags.Static).Where(t => t.Name.Equals("Implicit") || t.Name.Equals("AuthorizationCode")).ToList();
-        // TODO: for now, I dont know what is the form of the response to send to client with query and fragment. Currently, I send to client inside response body
-        //     : will change to implement openid specs correctly
-        private static readonly List<FieldInfo> _ResponseModes = typeof(ResponseModes).GetFields(BindingFlags.Public | BindingFlags.Static).ToList();
+
         private static Dictionary<string, object> discovery = new Dictionary<string, object>();
 
         public DiscoveryController()
@@ -51,7 +47,7 @@ namespace IssuerOfClaims.Controllers
                 // add metadata
                 AddDefaultEndpoint(discovery, issuer);
                 AddSupportedResponseTypes(discovery);
-                AddSupportedResponseModes(discovery);
+                //AddSupportedResponseModes(discovery);
                 AddScopesSupport(discovery);
                 AddSupportedGrantType(discovery);
                 AddSupportedSubjectTypes(discovery);
@@ -59,12 +55,18 @@ namespace IssuerOfClaims.Controllers
                 //AddIdTokenEncryptionAlgorithmsSupported(discovery);
                 //AddIdTokenEncryptionEncValuesSupported(discovery);
                 AddTokenEndpointAuthenticationMethodsSupported(discovery);
+                AddCodeChallengeMethodsSupported(discovery);
                 AddClaimsParameterSupported(discovery);
                 AddRequestParameterSupported(discovery);
                 AddRequestUriParameterSupported(discovery);
             }
 
             return StatusCode((int)HttpStatusCode.OK, JsonConvert.SerializeObject(discovery, Formatting.Indented));
+        }
+
+        private void AddCodeChallengeMethodsSupported(Dictionary<string, object> discovery)
+        {
+            discovery.Add(Discovery.CodeChallengeMethodsSupported, SupportedCodeChallengeMethods);
         }
 
         private void AddRequestUriParameterSupported(Dictionary<string, object> discovery)
@@ -111,14 +113,17 @@ namespace IssuerOfClaims.Controllers
             discovery.Add(Discovery.SubjectTypesSupported, SupportedSubjectTypes);
         }
 
+        // TODO: for now, I dont know what is the form of the response to send to client with query and fragment. Currently, I send to client inside response body
+        //     : will change to implement openid specs correctly
         private void AddSupportedResponseModes(Dictionary<string, object> discovery)
         {
-            discovery.Add(Discovery.ResponseModesSupported, _ResponseModes.Select(type => type.GetValue(_ResponseModes)));
+            discovery.Add(Discovery.ResponseModesSupported, SupportedResponseModes);
         }
 
+        // TODO: for now, this server only supports authorization code, implicit grant will done in next days
         private void AddSupportedGrantType(Dictionary<string, object> discovery)
         {
-            discovery.Add(Discovery.GrantTypesSupported, _GrantTypes.Select(type => type.GetValue(_GrantTypes)));
+            discovery.Add(Discovery.GrantTypesSupported, AllowedGrantTypesForAuthorizeEndpoint);
         }
 
         /// <summary>

@@ -1,4 +1,5 @@
 ﻿using IssuerOfClaims.Database;
+using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
 
@@ -66,7 +67,7 @@ namespace IssuerOfClaims.Services.Database
                     .First(t => t.Token.Equals(accessToken)) ?? new TokenResponse();
             });
 
-            ValidateEntity(obj, $"{this.GetType().Name}: token is null!");
+            ValidateEntity(obj, $"{nameof(TokenResponseDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
 
             return obj;
         }

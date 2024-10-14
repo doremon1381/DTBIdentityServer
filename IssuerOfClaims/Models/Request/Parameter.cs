@@ -6,8 +6,11 @@ using System.Web;
 using static ServerUltilities.Identity.Constants;
 using static ServerUltilities.Identity.OidcConstants;
 
-namespace IssuerOfClaims.Controllers.Ultility
+namespace IssuerOfClaims.Models.Request
 {
+    /// <summary>
+    /// Store value of request parameter
+    /// </summary>
     public class Parameter
     {
         public string Name { get; private set; } = string.Empty;
@@ -15,53 +18,53 @@ namespace IssuerOfClaims.Controllers.Ultility
 
         public ParameterPriority Priority { get; private set; } = ParameterPriority.OPTIONAL;
 
-        public bool HasValue => !string.IsNullOrEmpty(this.Value);
+        public bool HasValue => !string.IsNullOrEmpty(Value);
 
-        public Parameter(string name, RequestType requestType)
+        public Parameter(string name, RequestPurpose requestPurpose)
         {
-            this.Name = name;
-            SetParameterPriority(requestType);
+            Name = name;
+            SetParameterPriority(requestPurpose);
         }
 
         public void SetValue(string value)
         {
             VerifyRequiredParameter(value);
-            this.Value = value;
+            Value = value;
         }
 
         private bool VerifyRequiredParameter(string value)
         {
-            if (this.Priority == ParameterPriority.REQRUIRED)
+            if (Priority == ParameterPriority.REQRUIRED)
             {
                 if (string.IsNullOrEmpty(value))
-                    throw new CustomException((int)HttpStatusCode.BadRequest, $"{this.Name} : {ExceptionMessage.REQUIRED_PARAMETER_NOT_NULL}");
+                    throw new CustomException((int)HttpStatusCode.BadRequest, $"{Name} : {ExceptionMessage.REQUIRED_PARAMETER_NOT_NULL}");
             }
 
             return true;
         }
 
-        private void SetParameterPriority(RequestType requestType)
+        private void SetParameterPriority(RequestPurpose requestType)
         {
-            this.Priority = requestType switch
+            Priority = requestType switch
             {
-                RequestType.AuthorizationCode => ParameterExtensions.AuthCodeParameterPriority[this.Name],
-                RequestType.Register => ParameterExtensions.RegisterParamterPriority[this.Name],
-                RequestType.SignInGoogle => ParameterExtensions.SignInGoogleParamterPriority[this.Name],
-                RequestType.Token => ParameterExtensions.AuthCodeTokenParamterPriority[this.Name],
-                RequestType.OfflineAccess => ParameterExtensions.OfflineAccessTokenParamterPriority[this.Name],
-                RequestType.ChangePassword => ParameterExtensions.ChangePasswordParamterPriority[this.Name],
-                _ => throw new InvalidDataException($"{this.Name} : Parameter priority is not set!")
+                RequestPurpose.AuthorizationCode => ParameterUtilities.AuthCodeParameterPriority[Name],
+                RequestPurpose.Register => ParameterUtilities.RegisterParamterPriority[Name],
+                RequestPurpose.SignInGoogle => ParameterUtilities.SignInGoogleParamterPriority[Name],
+                RequestPurpose.Token => ParameterUtilities.AuthCodeTokenParamterPriority[Name],
+                RequestPurpose.OfflineAccess => ParameterUtilities.OfflineAccessTokenParamterPriority[Name],
+                RequestPurpose.ChangePassword => ParameterUtilities.ChangePasswordParamterPriority[Name],
+                _ => throw new InvalidDataException($"{Name} : Parameter priority is not set!")
             };
         }
     }
 
-    internal static class ParameterExtensions
+    internal static class ParameterUtilities
     {
-        internal static Dictionary<string, Func<string, string, string>> RequestParameterWithSpecialInitiate = new Dictionary<string, Func<string, string, string>>()
+        internal static Dictionary<string, Func<string, string, string>> SpecificMethodForInitiatingParameter = new Dictionary<string, Func<string, string, string>>()
         {
-            { AuthorizeRequest.Scope, (str, str1) => { return System.Uri.UnescapeDataString(str); } },
-            { AuthorizeRequest.RedirectUri, (str, str1) => { return System.Uri.UnescapeDataString(str); } },
-            { AuthorizeRequest.ResponseMode, (responseMode, responseType) => 
+            { AuthorizeRequest.Scope, (str, str1) => { return Uri.UnescapeDataString(str); } },
+            { AuthorizeRequest.RedirectUri, (str, str1) => { return Uri.UnescapeDataString(str); } },
+            { AuthorizeRequest.ResponseMode, (responseMode, responseType) =>
             {
                 return string.IsNullOrEmpty(responseMode) ? GetDefaultResponseModeByResponseType(responseType) : responseMode;
             }},
@@ -104,20 +107,22 @@ namespace IssuerOfClaims.Controllers.Ultility
         {
             { SignInGoogleRequest.AuthorizationCode, ParameterPriority.REQRUIRED },
             { SignInGoogleRequest.RedirectUri, ParameterPriority.REQRUIRED },
-            { SignInGoogleRequest.CodeVerifier, ParameterPriority.OPTIONAL },
-            { SignInGoogleRequest.Nonce, ParameterPriority.OPTIONAL },
+            { SignInGoogleRequest.ClientSecret, ParameterPriority.REQRUIRED },
+            { SignInGoogleRequest.ClientId, ParameterPriority.REQRUIRED },
+            { SignInGoogleRequest.CodeVerifier, ParameterPriority.OPTIONAL }
+            //{ SignInGoogleRequest.Nonce, ParameterPriority.OPTIONAL },
         };
 
-        public static Dictionary<Type, RequestType> RequestTypeForParameter = new Dictionary<Type, RequestType>()
+        public static Dictionary<Type, RequestPurpose> ParametersForRequest = new Dictionary<Type, RequestPurpose>()
         {
-            { typeof(AuthCodeParameters), RequestType.AuthorizationCode },
-            { typeof(RegisterParameters), RequestType.Register },
+            { typeof(AuthCodeParameters), RequestPurpose.AuthorizationCode },
+            { typeof(RegisterParameters), RequestPurpose.Register },
             // TODO: will add later
             //{ typeof(TokenParameters), RequestType.Token },
-            { typeof(SignInGoogleParameters), RequestType.SignInGoogle },
-            { typeof(AuthCodeTokenParameters), RequestType.Token },
-            { typeof(OfflineAccessTokenParameters), RequestType.OfflineAccess },
-            { typeof(ChangePasswordParameters), RequestType.ChangePassword },
+            { typeof(SignInGoogleParameters), RequestPurpose.SignInGoogle },
+            { typeof(AuthCodeTokenParameters), RequestPurpose.Token },
+            { typeof(OfflineAccessTokenParameters), RequestPurpose.OfflineAccess },
+            { typeof(ChangePasswordParameters), RequestPurpose.ChangePassword },
         };
 
         internal static Dictionary<string, ParameterPriority> AuthCodeTokenParamterPriority = new Dictionary<string, ParameterPriority>()
@@ -130,7 +135,7 @@ namespace IssuerOfClaims.Controllers.Ultility
             { TokenRequest.Scope, ParameterPriority.OPTIONAL },
             { TokenRequest.CodeVerifier, ParameterPriority.OPTIONAL }
         };
-        
+
         internal static Dictionary<string, ParameterPriority> OfflineAccessTokenParamterPriority = new Dictionary<string, ParameterPriority>()
         {
             { TokenRequest.RefreshToken, ParameterPriority.REQRUIRED },
@@ -138,7 +143,7 @@ namespace IssuerOfClaims.Controllers.Ultility
             { TokenRequest.ClientSecret, ParameterPriority.REQRUIRED },
             { TokenRequest.Scope, ParameterPriority.OPTIONAL },
         };
-        
+
         internal static Dictionary<string, ParameterPriority> ChangePasswordParamterPriority = new Dictionary<string, ParameterPriority>()
         {
             { ChangePasswordRequest.Code, ParameterPriority.REQRUIRED },
@@ -151,9 +156,9 @@ namespace IssuerOfClaims.Controllers.Ultility
             string responseMode = "";
 
             // get grant type for response type
-            string grantType = Constants.ResponseTypeToGrantTypeMapping[responseType];
+            string grantType = ResponseTypeToGrantTypeMapping[responseType];
             // map grant type with allowed response mode
-            string[] responseModes = Constants.AllowedResponseModesForGrantType[grantType].ToArray();
+            string[] responseModes = AllowedResponseModesForGrantType[grantType].ToArray();
 
             // TODO: by default
             if (responseType.Equals(ResponseTypes.Code))

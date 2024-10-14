@@ -1,5 +1,4 @@
 ﻿using IssuerOfClaims.Extensions;
-using IssuerOfClaims.Models;
 using ServerUltilities.Extensions;
 using System.Linq.Expressions;
 using System.Net;
@@ -8,14 +7,14 @@ using System.Web;
 using static ServerUltilities.Identity.Constants;
 using static ServerUltilities.Identity.OidcConstants;
 
-namespace IssuerOfClaims.Controllers.Ultility
+namespace IssuerOfClaims.Models.Request
 {
     public abstract class AbstractRequestParamters<T>
     {
         protected readonly string[] requestQuery;
 
         private static readonly Type _currentType = typeof(T);
-        private static readonly RequestType _requestType = ParameterExtensions.RequestTypeForParameter[_currentType];
+        private static readonly RequestPurpose _requestPurpose = ParameterUtilities.ParametersForRequest[_currentType];
         private static readonly Type _registerRequestType = typeof(RegisterRequest);
         private static readonly Type _authorizeRequestType = typeof(AuthorizeRequest);
         private static readonly Type _signInGoogleRequestType = typeof(SignInGoogleRequest);
@@ -46,7 +45,7 @@ namespace IssuerOfClaims.Controllers.Ultility
             _ => throw new InvalidOperationException()
         };
 
-        private static readonly PropertyInfo[] _properties = _currentType.Name switch 
+        private static readonly PropertyInfo[] _properties = _currentType.Name switch
         {
             nameof(AuthCodeParameters) => GetProperties(_currentType),
             nameof(RegisterParameters) => Array.FindAll(GetProperties(_currentType), (i) => RegisterParameters_MatchPredicate(i.Name)),
@@ -83,11 +82,11 @@ namespace IssuerOfClaims.Controllers.Ultility
 
         private void InitiateProperties()
         {
-            Action<Parameter, string> setValueMethod = FunctionToInitiateValueOfProperty();
+            //Action<Parameter, string> setValueMethod = FunctionToInitiateValueOfProperty();
 
             // TODO: for currently logic, to ensure response mode is set before another properties, I run this function first
             if (_responseType != null)
-                Task.Run(async () => { await SetPropertyValueAsync(setValueMethod, _responseType); }).Wait();
+                Task.Run(async () => { await SetPropertyValueAsync(_responseType); }).Wait();
 
             List<Task> tasks = new List<Task>();
             foreach (var property in _properties)
@@ -97,7 +96,7 @@ namespace IssuerOfClaims.Controllers.Ultility
                 else
                     tasks.Add(Task.Run(async () =>
                     {
-                        await SetPropertyValueAsync(setValueMethod, property);
+                        await SetPropertyValueAsync(property);
                     }));
             }
             Task.WaitAll(tasks.ToArray());
@@ -109,16 +108,16 @@ namespace IssuerOfClaims.Controllers.Ultility
         /// <param name="setValue"></param>
         /// <param name="property"></param>
         /// <returns></returns>
-        private async Task SetPropertyValueAsync(Action<Parameter, string> setValue, PropertyInfo property)
+        private async Task SetPropertyValueAsync(PropertyInfo property)
         {
-            string mappingName = GetMappingNameForRequestParameter(property.Name);
-            string parameterValue = requestQuery.GetFromQueryString(mappingName);
+            string parameterName = GetNameOfRequestParameter(property.Name);
+            string value = requestQuery.GetFromQueryString(parameterName);
 
-            var parameter = new Parameter(mappingName, _requestType);
+            var parameter = new Parameter(parameterName, _requestPurpose);
 
-            if (ParameterExtensions.RequestParameterWithSpecialInitiate.TryGetValue(mappingName, out Func<string, string, string> execute))
+            if (ParameterUtilities.SpecificMethodForInitiatingParameter.TryGetValue(parameterName, out Func<string, string, string> execute))
             {
-                if (mappingName.Equals(AuthorizeRequest.ResponseMode))
+                if (parameterName.Equals(AuthorizeRequest.ResponseMode))
                 {
 #pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
@@ -127,23 +126,28 @@ namespace IssuerOfClaims.Controllers.Ultility
                         .GetValue(this, null);
 #pragma warning restore CS8602 // Dereference of a possibly null reference.
 #pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
-                    parameterValue = execute.Invoke(parameterValue, responseType.Value);
+                    value = execute.Invoke(value, responseType.Value);
                 }
                 else
-                    parameterValue = execute.Invoke(parameterValue, string.Empty);
+                    value = execute.Invoke(value, string.Empty);
             }
 
-            setValue(parameter, parameterValue);
+            //setValue(parameter, value);
+            parameter.SetValue(value);
             property.SetValue(this, parameter);
         }
 
-        private static string GetMappingNameForRequestParameter(string propertyName)
+        private static string GetNameOfRequestParameter(string propertyName)
         {
             var name = _parameterNames.FirstOrDefault(p => p.Name.Equals(propertyName));
             var n = (string)name.GetValue(null);
             return n;
         }
 
+        /// <summary>
+        /// TODO: will modify this function later
+        /// </summary>
+        /// <returns></returns>
         private static Action<Parameter, string> FunctionToInitiateValueOfProperty()
         {
             MethodInfo setValue = typeof(Parameter).GetMethod("SetValue", new[] { typeof(string) });
@@ -170,7 +174,7 @@ namespace IssuerOfClaims.Controllers.Ultility
         }
     }
 
-    public enum RequestType
+    public enum RequestPurpose
     {
         AuthorizationCode,
         Token,

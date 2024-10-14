@@ -25,6 +25,10 @@ namespace ServerDbModels
         /// </summary>
         public string? CodeChallenge { get; set; } = null;
         /// <summary>
+        /// use for google authorization
+        /// </summary>
+        public string? CodeVerifier { get; set; } = null;
+        /// <summary>
         /// From client
         /// </summary>
         public string? CodeChallengeMethod { get; set; } = null;

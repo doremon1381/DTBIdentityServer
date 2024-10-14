@@ -14,6 +14,7 @@ using System.Net;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Org.BouncyCastle.Crypto;
 using IssuerOfClaims.Models;
+using Google.Apis.Auth;
 
 namespace IssuerOfClaims.Services.Token
 {
@@ -242,10 +243,10 @@ namespace IssuerOfClaims.Services.Token
         /// </summary>
         /// <param name="tokenResponsePerRequest"></param>
         /// <param name="tokenType"></param>
-        /// <param name="manualDateTime">Only use for access token or refresh token</param>
+        /// <param name="expiredTime">Only use for access token or refresh token</param>
         /// <returns></returns>
         /// <exception cref="InvalidOperationException"></exception>
-        private TokenResponse CreateToken(string tokenType, DateTime? manualDateTime = null)
+        private TokenResponse CreateToken(string tokenType, DateTime? expiredTime = null)
         {
             string token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
 
@@ -267,9 +268,9 @@ namespace IssuerOfClaims.Services.Token
 
             tokenResponse.TokenExpiried = tokenType switch
             {
-                TokenType.AccessToken => manualDateTime == null ? DateTime.Now.AddHours(1) : manualDateTime,
-                TokenType.RefreshToken => manualDateTime == null ? DateTime.Now.AddHours(4) : manualDateTime,
-                TokenType.IdToken => null,
+                TokenType.AccessToken => expiredTime == null ? DateTime.Now.AddHours(1) : expiredTime,
+                TokenType.RefreshToken => expiredTime == null ? DateTime.Now.AddHours(4) : expiredTime,
+                TokenType.IdToken => expiredTime == null ? DateTime.Now.AddHours(1): expiredTime,
                 _ => throw new InvalidOperationException($"{this.GetType().Name}: Something is wrong!")
             };
 
@@ -364,7 +365,7 @@ namespace IssuerOfClaims.Services.Token
             if (scopeVariables.Contains(IdentityServerConstants.StandardScopes.Email))
             {
                 claims.Add(new Claim(JwtClaimTypes.Email, user.Email));
-                claims.Add(new Claim(JwtClaimTypes.EmailVerified, user.IsEmailConfirmed.ToString()));
+                claims.Add(new Claim(JwtClaimTypes.EmailVerified, user.EmailConfirmed.ToString()));
             }
             if (scopeVariables.Contains(IdentityServerConstants.StandardScopes.Phone))
             {
@@ -394,12 +395,7 @@ namespace IssuerOfClaims.Services.Token
             RSAParameters publicKey;
             RSAParameters privateKey;
 
-            if (KeyIsNotExpired())
-            {
-                publicKey = ReadJsonKey(); // Public key
-                privateKey = ReadJsonKey(isPublicKey: false); // Private key
-            }
-            else
+            if (KeyIsMissingOrExpired())
             {
                 using (RSACryptoServiceProvider rsa = new RSACryptoServiceProvider())
                 {
@@ -413,21 +409,26 @@ namespace IssuerOfClaims.Services.Token
                 ExportJsonKey(publicKey);
                 ExportJsonKey(privateKey, isPublicKey: false);
             }
+            else
+            {
+                publicKey = ReadJsonKey(); // Public key
+                privateKey = ReadJsonKey(isPublicKey: false); // Private key
+            }
 
             return new KeyValuePair<RSAParameters, RSAParameters>(privateKey, publicKey);
         }
 
-        private static bool KeyIsNotExpired(bool isPublicKey = true)
+        private static bool KeyIsMissingOrExpired(bool isPublicKey = true)
         {
             FileInfo keyFile = new FileInfo(GetKeyFilePath(isPublicKey));
 
             if (keyFile.Exists)
             {
                 if (keyFile.CreationTime.AddDays(15) > DateTime.Now)
-                    return true;
+                    return false;
             }
 
-            return false;
+            return true;
         }
 
         private static string GetKeyFilePath(bool isPublicKey)
@@ -609,11 +610,48 @@ namespace IssuerOfClaims.Services.Token
         {
             return ReadJsonKey(); // Public key
         }
+
+        public bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken, long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt
+            , TokenRequestHandler requestHandler, string externalSource)
+        {
+            var _accessToken = SaveExternalSourceToken(accessToken, accessTokenIssueAt, accessTokenIssueAt.AddSeconds(3600), externalSource, TokenType.AccessToken);
+            var _idToken = SaveExternalSourceToken(accessToken, TimeSecondsToDateTime(idToken_issuedAtTimeSeconds), TimeSecondsToDateTime(idToken_expirationTimeSeconds), externalSource, TokenType.IdToken);
+
+            if (refreshToken != null)
+            {
+                var _refreshToken = SaveExternalSourceToken(accessToken, null, null, externalSource, TokenType.RefreshToken);
+                CreateTokenResponsePerIdentityRequest(requestHandler, _refreshToken);
+            }
+
+            CreateTokenResponsePerIdentityRequest(requestHandler, _accessToken);
+            // TODO: will think about how to handle idtoken, create one for user, update when information of user is changed or sth else
+            CreateTokenResponsePerIdentityRequest(requestHandler, _idToken);
+
+            return true;
+        }
+
+        private TokenResponse SaveExternalSourceToken(string tokenValue, DateTime? issueAt, DateTime? expiredTime, string externalSource, string tokenType)
+        {
+            var token = CreateToken(tokenType, expiredTime);
+            token.IssueAt = issueAt;
+            token.Token = tokenValue;
+            token.ExternalSource = externalSource;
+
+            return token;
+        }
+
+        private static DateTime TimeSecondsToDateTime(long timeSeconds)
+        {
+            DateTime start = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+            return start.AddSeconds(timeSeconds).ToLocalTime();
+        }
     }
 
     public interface ITokenManager
     {
         object ACF_IssueToken(UserIdentity user, Client client, int currentRequestHandlerId);
+        bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken, long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt, TokenRequestHandler requestHandler, string externalSource);
         object IssueTokenForRefreshToken(TokenResponse previousRefreshResponse);
         object GenerateIdTokenAndRsaSha256PublicKey(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "");
         TokenRequestSession CreateTokenRequestSession();

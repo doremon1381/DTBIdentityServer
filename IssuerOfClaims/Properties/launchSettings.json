@@ -22,7 +22,7 @@
     "https": {
       "commandName": "Project",
       "dotnetRunMessages": true,
-      "launchBrowser": false,
+      "launchBrowser": true,
       "launchUrl": ".well-known/openid-configuration",
       "applicationUrl": "https://localhost:7180/;http://localhost:5255",
       "environmentVariables": {

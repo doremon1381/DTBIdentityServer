@@ -834,28 +834,25 @@ namespace IssuerOfClaims.Controllers
                 //     : priority information inside database, import missing info from google
 
                 var result = await GetGoogleInfo(parameters, googleClientConfig);
-                var resultAfterCast = result.Cast(new { AccessToken = "", IdToken = "", RefreshToken = "", AccessTokenIssueAt = DateTime.Now });
+                var resultAsForm = result.Cast(new { AccessToken = "", IdToken = "", RefreshToken = "", AccessTokenIssueAt = DateTime.Now });
                 // TODO: will learn how to use it, comment for now
-                GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(resultAfterCast.IdToken);
+                GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(resultAsForm.IdToken);
 
-                string user_info = await userinfoCallAsync(resultAfterCast.AccessToken);
-                // TODO: create new user or map google user infor to current
-                //var email = payload.Email;
+                string user_info = await userinfoCallAsync(resultAsForm.AccessToken);
+                // TODO: create new user or map google user infor to current, get unique user by email
                 var user = _applicationUserManager.GetOrCreateUserByEmail(payload);
-                //user.Avatar = payload.Picture;
-                // TODO: get unique user by email
 
-                var requestHandler = GoogleAuth_ImportRequestHandlerData(parameters.CodeVerifier.Value, resultAfterCast.RefreshToken, client, user);
+                var requestHandler = GoogleAuth_ImportRequestHandlerData(parameters.CodeVerifier.Value, resultAsForm.RefreshToken, client, user);
 
-                GoogleAuth_SaveToken(resultAfterCast.AccessToken, resultAfterCast.RefreshToken, resultAfterCast.IdToken, payload.IssuedAtTimeSeconds.Value, payload.ExpirationTimeSeconds.Value
-                    , resultAfterCast.AccessTokenIssueAt, payload, requestHandler);
+                GoogleAuth_SaveToken(resultAsForm.AccessToken, resultAsForm.RefreshToken, resultAsForm.IdToken, payload.IssuedAtTimeSeconds.Value, payload.ExpirationTimeSeconds.Value
+                    , resultAsForm.AccessTokenIssueAt, payload, requestHandler);
 
                 GoogleAuth_SuccessfulRequestHandle(requestHandler);
 
                 // TODO: will need to create new user if current user with this email is not have
                 //     : after that, create login session object and save to db
                 //     : after create login session, authentication then will perform
-                return Ok(JsonConvert.SerializeObject(user_info, Formatting.Indented));
+                return Ok(JsonConvert.SerializeObject(resultAsForm.AccessToken));
             }
             catch (CustomException ex)
             {
@@ -943,7 +940,7 @@ namespace IssuerOfClaims.Controllers
                 result.TryGetValue("refreshToken", out refresh_token);
                 result.TryGetValue("expires_in", out string expiredIn);
 
-                accessTokenIssueAt = DateTime.Now.AddMilliseconds(double.Parse($"-{expiredIn}"));
+                accessTokenIssueAt = DateTime.Now.AddSeconds(double.Parse($"-{expiredIn}"));
                 // TODO: validate at_hash from id_token is OPTIONAL in some flows (hybrid flow,...),
                 //     : I will check when to implement it later, now, better it has than it doesn't
                 //     : comment for now

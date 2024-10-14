@@ -615,7 +615,7 @@ namespace IssuerOfClaims.Services.Token
             , TokenRequestHandler requestHandler, string externalSource)
         {
             var _accessToken = SaveExternalSourceToken(accessToken, accessTokenIssueAt, accessTokenIssueAt.AddSeconds(3600), externalSource, TokenType.AccessToken);
-            var _idToken = SaveExternalSourceToken(accessToken, TimeSecondsToDateTime(idToken_issuedAtTimeSeconds), TimeSecondsToDateTime(idToken_expirationTimeSeconds), externalSource, TokenType.IdToken);
+            var _idToken = SaveExternalSourceToken(idToken, TimeSecondsToDateTime(idToken_issuedAtTimeSeconds), TimeSecondsToDateTime(idToken_expirationTimeSeconds), externalSource, TokenType.IdToken);
 
             if (refreshToken != null)
             {

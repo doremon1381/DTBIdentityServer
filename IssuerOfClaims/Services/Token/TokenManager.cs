@@ -67,8 +67,7 @@ namespace IssuerOfClaims.Services.Token
         {
             TokenResponse idToken = CreateToken(TokenType.IdToken);
             var composedObj = GenerateIdTokenAndRsaSha256PublicKey(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, ""
-                , currentRequestHandler.TokenRequestSession.Client.ClientId, currentRequestHandler.SuccessAt.Value.ToString())
-                .Cast(new { IdToken = string.Empty, PublicKey = new object() });
+                , currentRequestHandler.TokenRequestSession.Client.ClientId, currentRequestHandler.SuccessAt.Value.ToString());
 
             idToken.Token = composedObj.IdToken;
 
@@ -227,8 +226,7 @@ namespace IssuerOfClaims.Services.Token
         private TokenResponse ACF_CreateIdToken(TokenRequestHandler currentRequestHandler, string clientId, out object publicKey)
         {
             TokenResponse tokenResponse = CreateToken(TokenType.IdToken);
-            var composedObj = GenerateIdTokenAndRsaSha256PublicKey(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, currentRequestHandler.TokenRequestSession.Nonce, clientId)
-                .Cast(new { IdToken = string.Empty, PublicKey = new object() });
+            var composedObj = GenerateIdTokenAndRsaSha256PublicKey(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, currentRequestHandler.TokenRequestSession.Nonce, clientId);
 
             tokenResponse.Token = composedObj.IdToken;
             publicKey = composedObj.PublicKey;
@@ -246,7 +244,7 @@ namespace IssuerOfClaims.Services.Token
         /// <param name="expiredTime">Only use for access token or refresh token</param>
         /// <returns></returns>
         /// <exception cref="InvalidOperationException"></exception>
-        private TokenResponse CreateToken(string tokenType, DateTime? expiredTime = null)
+        private TokenResponse CreateToken(string tokenType, DateTime? expiredTime = null, DateTime? issueAt = null)
         {
             string token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
 
@@ -270,11 +268,11 @@ namespace IssuerOfClaims.Services.Token
             {
                 TokenType.AccessToken => expiredTime == null ? DateTime.Now.AddHours(1) : expiredTime,
                 TokenType.RefreshToken => expiredTime == null ? DateTime.Now.AddHours(4) : expiredTime,
-                TokenType.IdToken => expiredTime == null ? DateTime.Now.AddHours(1): expiredTime,
+                TokenType.IdToken => expiredTime == null ? DateTime.Now.AddHours(1) : expiredTime,
                 _ => throw new InvalidOperationException($"{this.GetType().Name}: Something is wrong!")
             };
 
-            tokenResponse.IssueAt = DateTime.Now;
+            tokenResponse.IssueAt = issueAt == null ? DateTime.Now : issueAt;
             _tokenResponseDbServices.Update(tokenResponse);
 
             return tokenResponse;
@@ -301,7 +299,7 @@ namespace IssuerOfClaims.Services.Token
         /// <param name="clientId"></param>
         /// <param name="authTime">for issue access token using offline-access with refresh token</param>
         /// <returns>key is token, value is public key</returns>
-        public object GenerateIdTokenAndRsaSha256PublicKey(UserIdentity user, string scope, string nonce, string clientId, string authTime = "")
+        public (string IdToken, object PublicKey) GenerateIdTokenAndRsaSha256PublicKey(UserIdentity user, string scope, string nonce, string clientId, string authTime = "")
         {
             try
             {
@@ -328,7 +326,7 @@ namespace IssuerOfClaims.Services.Token
 
                 var jsonPublicKey = GetJsonPublicKey(publicPrivateKeys.Value);
 
-                return new { IdToken = jwt, PublicKey = jsonPublicKey };
+                return new(jwt, jsonPublicKey);
             }
             catch (Exception ex)
             {
@@ -632,8 +630,7 @@ namespace IssuerOfClaims.Services.Token
 
         private TokenResponse SaveExternalSourceToken(string tokenValue, DateTime? issueAt, DateTime? expiredTime, string externalSource, string tokenType)
         {
-            var token = CreateToken(tokenType, expiredTime);
-            token.IssueAt = issueAt;
+            var token = CreateToken(tokenType, expiredTime, issueAt);
             token.Token = tokenValue;
             token.ExternalSource = externalSource;
 
@@ -653,7 +650,7 @@ namespace IssuerOfClaims.Services.Token
         object ACF_IssueToken(UserIdentity user, Client client, int currentRequestHandlerId);
         bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken, long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt, TokenRequestHandler requestHandler, string externalSource);
         object IssueTokenForRefreshToken(TokenResponse previousRefreshResponse);
-        object GenerateIdTokenAndRsaSha256PublicKey(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "");
+        (string IdToken, object PublicKey) GenerateIdTokenAndRsaSha256PublicKey(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "");
         TokenRequestSession CreateTokenRequestSession();
         TokenRequestHandler GetDraftTokenRequestHandler();
         bool UpdateTokenRequestHandler(TokenRequestHandler tokenRequestHandler);

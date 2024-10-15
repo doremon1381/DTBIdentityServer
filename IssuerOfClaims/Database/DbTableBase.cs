@@ -191,7 +191,7 @@ namespace IssuerOfClaims.Database
         public static void ValidateEntity(TEntity obj, string message = "")
         {
             if (obj == null)
-                throw new CustomException((int)HttpStatusCode.NotFound ,message);
+                throw new CustomException((int)HttpStatusCode.NotFound, message);
         }
     }
 

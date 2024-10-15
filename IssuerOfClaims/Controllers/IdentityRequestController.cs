@@ -29,6 +29,8 @@ using Azure.Core;
 using Google.Apis.Auth;
 using Microsoft.AspNetCore.Http;
 using IssuerOfClaims.Models.Request;
+using Google.Apis.Auth.OAuth2;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -150,16 +152,14 @@ namespace IssuerOfClaims.Controllers
             UserIdentity user = await ACF_I_GetResourceOwnerIdentity();
             var client = _clientDbServices.Find(parameters.ClientId.Value);
 
-            ACF_I_VerifyClient(parameters.Scope.Value, client);
+            ACF_I_ValidateScopes(parameters.Scope.Value, client);
 
             var acfProcessSession = _tokenManager.CreateTokenRequestSession();
-            ACF_I_UpdateRequestSessionDetails(parameters, acfProcessSession, client, out string authorizationCode);
+            ACF_I_UpdateRequestSessionDetails(parameters, acfProcessSession, out string authorizationCode);
             ACF_I_CreateTokenRequestHandler(user, acfProcessSession);
 
             #region TODO: using these statements because has an error with tracking object, for now i dont know why 
-            var requestSession = _tokenManager.FindRequestSessionById(acfProcessSession.Id);
-            requestSession.Client = client;
-            _tokenManager.UpdateTokenRequestSession(requestSession);
+            ACF_I_AddClientToRequestSesstion(client, acfProcessSession.Id);
             #endregion
 
             // TODO: for now, explicit use response type will have no meaning, but I will think about how to handle response type later
@@ -177,6 +177,13 @@ namespace IssuerOfClaims.Controllers
             //     , but currently I don't know particular form of the response
             //     , so if it 's considered a bug, I will fix it later
             return StatusCode((int)HttpStatusCode.OK, System.Text.Json.JsonSerializer.Serialize(responseBody));
+        }
+
+        private void ACF_I_AddClientToRequestSesstion(Client client, int id)
+        {
+            var requestSession = _tokenManager.FindRequestSessionById(id);
+            requestSession.Client = client;
+            _tokenManager.UpdateTokenRequestSession(requestSession);
         }
 
         private async Task<UserIdentity> ACF_I_GetResourceOwnerIdentity()
@@ -201,20 +208,13 @@ namespace IssuerOfClaims.Controllers
             //HttpContext.Response.Headers.Append("location", string.Format("{0}?code={1}", redirectUri, authorizationCode));
         }
 
-        private void ACF_I_VerifyClient(string scopes, Client client)
-        {
-            if (client.Id == 0)
-                throw new InvalidDataException(ExceptionMessage.INVALID_CLIENTID);
-            if (!ACF_I_IsSimilarWithClientScopes(scopes, client))
-                throw new InvalidDataException(ExceptionMessage.SCOPES_NOT_ALLOWED);
-        }
-        private bool ACF_I_IsSimilarWithClientScopes(string scopes, Client client)
+        private bool ACF_I_ValidateScopes(string scopes, Client client)
         {
             var variables = System.Uri.UnescapeDataString(scopes).Split(" ");
             foreach (var s in variables)
             {
                 if (!client.AllowedScopes.Contains(s))
-                    return false;
+                    throw new InvalidDataException(ExceptionMessage.SCOPES_NOT_ALLOWED);
             }
             return true;
         }
@@ -234,12 +234,14 @@ namespace IssuerOfClaims.Controllers
 
             return tokenRequestHandler;
         }
-        private void ACF_I_UpdateRequestSessionDetails(AuthCodeParameters parameters, TokenRequestSession ACFProcessSession, Client client, out string authorizationCode)
+        private void ACF_I_UpdateRequestSessionDetails(AuthCodeParameters parameters, TokenRequestSession ACFProcessSession, out string authorizationCode)
         {
             ACF_I_ImportPKCERequestedParams(parameters.CodeChallenge.Value, parameters.CodeChallengeMethod.Value, parameters.CodeChallenge.HasValue, ACFProcessSession);
             ACF_I_ImportRequestSessionData(parameters.Scope.Value, parameters.Nonce.Value, ACFProcessSession, out authorizationCode);
+
+            _tokenManager.UpdateTokenRequestSession(ACFProcessSession);
         }
-        private void ACF_I_ImportRequestSessionData(string scope, string nonce, TokenRequestSession tokenRequestSession, out string authorizationCode)
+        private static void ACF_I_ImportRequestSessionData(string scope, string nonce, TokenRequestSession tokenRequestSession, out string authorizationCode)
         {
             // TODO: create authorization code
             authorizationCode = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(32);
@@ -248,9 +250,9 @@ namespace IssuerOfClaims.Controllers
             tokenRequestSession.Nonce = nonce;
             tokenRequestSession.Scope = scope;
             tokenRequestSession.IsOfflineAccess = scope.Contains(StandardScopes.OfflineAccess);
-            _tokenManager.UpdateTokenRequestSession(tokenRequestSession);
         }
-        private void ACF_I_ImportPKCERequestedParams(string codeChallenge, string codeChallengeMethod, bool codeChallenge_HasValue, TokenRequestSession tokenRequestSession)
+
+        private static void ACF_I_ImportPKCERequestedParams(string codeChallenge, string codeChallengeMethod, bool codeChallenge_HasValue, TokenRequestSession tokenRequestSession)
         {
             if (codeChallenge_HasValue)
             {
@@ -320,9 +322,7 @@ namespace IssuerOfClaims.Controllers
             var client = _clientDbServices.Find(parameters.ClientId.Value);
 
             // TODO: will check again
-            string id_token = _tokenManager.GenerateIdTokenAndRsaSha256PublicKey(user, string.Empty, parameters.Nonce.Value, client.ClientId)
-                .Cast(new { IdToken = string.Empty, PublicKey = new object() })
-                .IdToken;
+            string id_token = _tokenManager.GenerateIdTokenAndRsaSha256PublicKey(user, string.Empty, parameters.Nonce.Value, client.ClientId).IdToken;
 
             if (parameters.Email.HasValue)
                 await _emailServices.SendVerifyingEmailAsync(user, "ConfirmEmail", client, Request.Scheme, Request.Host.ToString());
@@ -389,9 +389,7 @@ namespace IssuerOfClaims.Controllers
 
                 // TODO: scope is used for getting claims to send to client,
                 //     : for example, if scope is missing email, then in id_token which will be sent to client will not contain email's information 
-                var idToken = _tokenManager.GenerateIdTokenAndRsaSha256PublicKey(user, parameters.Scope.Value, parameters.Nonce.Value, client.ClientId)
-                    .Cast(new { IdToken = string.Empty, PublicKey = new object() })
-                    .IdToken;
+                var idToken = _tokenManager.GenerateIdTokenAndRsaSha256PublicKey(user, parameters.Scope.Value, parameters.Nonce.Value, client.ClientId).IdToken;
 
                 //var tokenResponse = _tokenManager.GenerateIdToken();
 
@@ -827,32 +825,31 @@ namespace IssuerOfClaims.Controllers
                 // , AbtractRequestParamters instances use request query as parameter
                 var parameters = new SignInGoogleParameters(requestQuery);
 
-                // at this step, token request session is used for storing data
                 var client = _clientDbServices.Find(parameters.ClientId.Value, parameters.ClientSecret.Value);
 
                 // TODO: associate google info with current user identity inside database, using email to do it
                 //     : priority information inside database, import missing info from google
 
                 var result = await GetGoogleInfo(parameters, googleClientConfig);
-                var resultAsForm = result.Cast(new { AccessToken = "", IdToken = "", RefreshToken = "", AccessTokenIssueAt = DateTime.Now });
                 // TODO: will learn how to use it, comment for now
-                GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(resultAsForm.IdToken);
+                GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(result.IdToken);
 
-                string user_info = await userinfoCallAsync(resultAsForm.AccessToken);
+                string user_info = await userinfoCallAsync(result.AccessToken);
                 // TODO: create new user or map google user infor to current, get unique user by email
                 var user = _applicationUserManager.GetOrCreateUserByEmail(payload);
 
-                var requestHandler = GoogleAuth_ImportRequestHandlerData(parameters.CodeVerifier.Value, resultAsForm.RefreshToken, client, user);
+                var requestHandler = GoogleAuth_ImportRequestHandlerData(parameters.CodeVerifier.Value, result.RefreshToken, client, user);
 
-                GoogleAuth_SaveToken(resultAsForm.AccessToken, resultAsForm.RefreshToken, resultAsForm.IdToken, payload.IssuedAtTimeSeconds.Value, payload.ExpirationTimeSeconds.Value
-                    , resultAsForm.AccessTokenIssueAt, payload, requestHandler);
+                // at this step, token request session is used for storing data
+                GoogleAuth_SaveToken(result.AccessToken, result.RefreshToken, result.IdToken, payload.IssuedAtTimeSeconds.Value, payload.ExpirationTimeSeconds.Value
+                    , result.AccessTokenIssueAt, payload, requestHandler);
 
                 GoogleAuth_SuccessfulRequestHandle(requestHandler);
 
                 // TODO: will need to create new user if current user with this email is not have
                 //     : after that, create login session object and save to db
                 //     : after create login session, authentication then will perform
-                return Ok(JsonConvert.SerializeObject(resultAsForm.AccessToken));
+                return Ok(JsonConvert.SerializeObject(result.AccessToken));
             }
             catch (CustomException ex)
             {
@@ -899,7 +896,7 @@ namespace IssuerOfClaims.Controllers
             return session;
         }
 
-        private async Task<object> GetGoogleInfo(SignInGoogleParameters signInGoogleParameters, GoogleSettings config)
+        private async Task<(string AccessToken, string IdToken, string RefreshToken, DateTime AccessTokenIssueAt)> GetGoogleInfo(SignInGoogleParameters signInGoogleParameters, GoogleSettings config)
         {
             // builds the request
             string tokenRequestBody = string.Format("code={0}&redirect_uri={1}&client_id={2}&code_verifier={3}&client_secret={4}&scope=&grant_type=authorization_code",
@@ -947,7 +944,7 @@ namespace IssuerOfClaims.Controllers
                 //ValidateAtHash(id_token, access_token);
             }
 
-            return new { AccessToken = access_token, IdToken = id_token, RefreshToken = refresh_token, AccessTokenIssueAt = accessTokenIssueAt };
+            return new (access_token, id_token, refresh_token, accessTokenIssueAt);
         }
 
         private static void ValidateGoogleSettings(GoogleSettings? googleClientConfig)

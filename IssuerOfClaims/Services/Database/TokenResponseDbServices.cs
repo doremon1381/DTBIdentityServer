@@ -2,6 +2,7 @@
 using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
+using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
@@ -67,7 +68,7 @@ namespace IssuerOfClaims.Services.Database
                     .First(t => t.Token.Equals(accessToken)) ?? new TokenResponse();
             });
 
-            ValidateEntity(obj, $"{nameof(TokenResponseDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
+            ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(TokenResponseDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
 
             return obj;
         }

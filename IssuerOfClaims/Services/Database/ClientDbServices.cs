@@ -3,6 +3,7 @@ using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
 using System.Management;
+using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
@@ -22,7 +23,7 @@ namespace IssuerOfClaims.Services.Database
             });
 
 
-            ValidateEntity(client, $"{nameof(ClientDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
+            ValidateEntity(client, HttpStatusCode.BadRequest, $"{nameof(ClientDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
             return client;
         }
 
@@ -35,7 +36,7 @@ namespace IssuerOfClaims.Services.Database
                 client = _Clients.Include(c => c.TokenRequestSession).First(c => c.ClientId.Equals(clientId));
             });
 
-            ValidateEntity(client, $"{nameof(ClientDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
+            ValidateEntity(client, HttpStatusCode.BadRequest, $"{nameof(ClientDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
             return client;
         }
     }

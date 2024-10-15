@@ -1,6 +1,7 @@
 ﻿using IssuerOfClaims.Database;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
+using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
@@ -31,7 +32,7 @@ namespace IssuerOfClaims.Services.Database
                 role = roles.First(r => r.RoleName.Equals(roleName));
             });
 
-            ValidateEntity(role);
+            ValidateEntity(role, HttpStatusCode.NotFound);
 
             return role;
         }

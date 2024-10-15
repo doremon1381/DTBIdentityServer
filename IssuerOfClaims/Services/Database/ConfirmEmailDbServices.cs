@@ -2,6 +2,7 @@
 using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
+using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
@@ -27,7 +28,7 @@ namespace IssuerOfClaims.Services.Database
                 .First(c => c.ConfirmCode == code);
             });
 
-            ValidateEntity(obj, $"{nameof(ConfirmEmailDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
+            ValidateEntity(obj, HttpStatusCode.NotFound, $"{nameof(ConfirmEmailDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
 
             return obj;
         }

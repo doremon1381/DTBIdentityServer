@@ -90,7 +90,6 @@ namespace IssuerOfClaims.Controllers
 
                 var client = _clientDbServices.Find(parameters.ClientId.Value);
 
-                ACF_VerifyClient(client);
                 ACF_VerifyRedirectUris(parameters, client);
 
                 switch (parameters.ResponseType.Value)
@@ -117,17 +116,11 @@ namespace IssuerOfClaims.Controllers
             }
         }
 
-        private void ACF_VerifyClient(Client client)
-        {
-            if (client == null || client.Id == 0)
-                throw new InvalidOperationException("client id is wrong!");
-        }
-
         private void ACF_VerifyRedirectUris(AuthCodeParameters parameters, Client client)
         {
             string[] redirectUris = client.RedirectUris.Split(",");
             if (!redirectUris.Contains(parameters.RedirectUri.Value))
-                throw new InvalidOperationException("redirectUri is mismatch!");
+                throw new CustomException((int)HttpStatusCode.BadRequest, "redirectUri is mismatch!");
         }
         #endregion
 

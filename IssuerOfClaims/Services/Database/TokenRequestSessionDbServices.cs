@@ -1,6 +1,7 @@
 ﻿using IssuerOfClaims.Database;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
+using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
@@ -36,7 +37,7 @@ namespace IssuerOfClaims.Services.Database
                 obj = _loginSessions.First(t => t.Id.Equals(id));
             });
 
-            ValidateEntity(obj);
+            ValidateEntity(obj, HttpStatusCode.NotFound);
 
             return obj;
         }

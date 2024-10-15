@@ -3,6 +3,7 @@ using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using ServerDbModels;
+using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
@@ -26,7 +27,7 @@ namespace IssuerOfClaims.Services.Database
                 obj = obj1.First(l => l.TokenRequestSession != null && l.TokenRequestSession.AuthorizationCode != null && l.TokenRequestSession.AuthorizationCode.Equals(authorizationCode));
             });
 
-            ValidateEntity(obj, $"{nameof(TokenRequestHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
+            ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(TokenRequestHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
             //_logger.LogInformation($"current thread id is {Thread.CurrentThread.ManagedThreadId}");
 
             return obj;
@@ -44,7 +45,7 @@ namespace IssuerOfClaims.Services.Database
                 .First(t => t.Id.Equals(currentRequestHandlerId));
             });
 
-            ValidateEntity(obj, $"{nameof(TokenRequestHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
+            ValidateEntity(obj, HttpStatusCode.NotFound, $"{nameof(TokenRequestHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
 
             return obj;
         }

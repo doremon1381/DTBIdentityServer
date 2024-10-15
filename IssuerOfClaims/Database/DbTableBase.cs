@@ -188,10 +188,10 @@ namespace IssuerOfClaims.Database
             return !hasError;
         }
 
-        public static void ValidateEntity(TEntity obj, string message = "")
+        public static void ValidateEntity(TEntity obj, HttpStatusCode statusCode, string message = "")
         {
             if (obj == null)
-                throw new CustomException((int)HttpStatusCode.NotFound, message);
+                throw new CustomException((int)statusCode, message);
         }
     }
 

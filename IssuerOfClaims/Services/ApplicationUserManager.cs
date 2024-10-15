@@ -72,14 +72,10 @@ namespace IssuerOfClaims.Services
         {
             var newUser = new UserIdentity
             {
-                //UserName = payload.UserName,
                 Email = payload.Email,
-                //FirstName = parameters.FirstName.Value,
-                //LastName = parameters.LastName.Value,
                 FullName = payload.Name,
                 EmailConfirmed = payload.EmailVerified,
                 Avatar = payload.Picture
-                //Gender = payload.
             };
 
             Current.CreateAsync(newUser).Wait();
@@ -93,7 +89,6 @@ namespace IssuerOfClaims.Services
         UserManager<UserIdentity> Current { get; }
         UserIdentity CreateUser(RegisterParameters parameters);
         bool EmailIsUsedForUser(string email);
-        //UserIdentity GetOrCreateUserByEmail(string email);
         UserIdentity GetOrCreateUserByEmail(GoogleJsonWebSignature.Payload payload);
         bool HasUser(string userName);
     }

@@ -210,7 +210,7 @@ namespace IssuerOfClaims.Controllers
 
         private bool ACF_I_ValidateScopes(string scopes, Client client)
         {
-            var variables = System.Uri.UnescapeDataString(scopes).Split(" ");
+            var variables = scopes.Split(" ");
             foreach (var s in variables)
             {
                 if (!client.AllowedScopes.Contains(s))
@@ -827,17 +827,16 @@ namespace IssuerOfClaims.Controllers
 
                 var client = _clientDbServices.Find(parameters.ClientId.Value, parameters.ClientSecret.Value);
 
-                // TODO: associate google info with current user identity inside database, using email to do it
-                //     : priority information inside database, import missing info from google
-
                 var result = await GetGoogleInfo(parameters, googleClientConfig);
                 // TODO: will learn how to use it, comment for now
                 GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(result.IdToken);
 
-                string user_info = await userinfoCallAsync(result.AccessToken);
+                string user_info = await userinfoCallAsync(result.AccessToken, googleClientConfig.UserInfoUri);
                 // TODO: create new user or map google user infor to current, get unique user by email
                 var user = _applicationUserManager.GetOrCreateUserByEmail(payload);
 
+                // TODO: associate google info with current user identity inside database, using email to do it
+                //     : priority information inside database, import missing info from google
                 var requestHandler = GoogleAuth_ImportRequestHandlerData(parameters.CodeVerifier.Value, result.RefreshToken, client, user);
 
                 // at this step, token request session is used for storing data
@@ -896,14 +895,14 @@ namespace IssuerOfClaims.Controllers
             return session;
         }
 
-        private async Task<(string AccessToken, string IdToken, string RefreshToken, DateTime AccessTokenIssueAt)> GetGoogleInfo(SignInGoogleParameters signInGoogleParameters, GoogleSettings config)
+        private async Task<(string AccessToken, string IdToken, string RefreshToken, DateTime AccessTokenIssueAt)> GetGoogleInfo(SignInGoogleParameters parameters, GoogleSettings config)
         {
             // builds the request
             string tokenRequestBody = string.Format("code={0}&redirect_uri={1}&client_id={2}&code_verifier={3}&client_secret={4}&scope=&grant_type=authorization_code",
-                signInGoogleParameters.AuthorizationCode.Value,
-                signInGoogleParameters.RedirectUri.Value,
+                parameters.AuthorizationCode.Value,
+                parameters.RedirectUri.Value,
                 config.ClientId,
-                signInGoogleParameters.CodeVerifier.Value,
+                parameters.CodeVerifier.Value,
                 config.ClientSecret);
 
             // sends the request
@@ -921,9 +920,9 @@ namespace IssuerOfClaims.Controllers
             string access_token = "";
             string refresh_token = "";
             DateTime accessTokenIssueAt;
+
             // gets the response
             WebResponse tokenResponse = await tokenRequest.GetResponseAsync();
-
             using (StreamReader reader = new StreamReader(tokenResponse.GetResponseStream()))
             {
                 // reads response body
@@ -944,7 +943,7 @@ namespace IssuerOfClaims.Controllers
                 //ValidateAtHash(id_token, access_token);
             }
 
-            return new (access_token, id_token, refresh_token, accessTokenIssueAt);
+            return new(access_token, id_token, refresh_token, accessTokenIssueAt);
         }
 
         private static void ValidateGoogleSettings(GoogleSettings? googleClientConfig)
@@ -1002,30 +1001,27 @@ namespace IssuerOfClaims.Controllers
             return jwtSecurityToken;
         }
 
-        private async Task<string> userinfoCallAsync(string access_token)
+        private async Task<string> userinfoCallAsync(string access_token, string userInfoUri)
         {
-            string output = "";
-            // builds the  request
-            string userinfoRequestURI = "https://www.googleapis.com/oauth2/v3/userinfo";
+            string userInfo = "";
 
             // sends the request
-            HttpWebRequest userinfoRequest = (HttpWebRequest)WebRequest.Create(userinfoRequestURI);
-            userinfoRequest.Method = "GET";
-            userinfoRequest.Headers.Add(string.Format("Authorization: Bearer {0}", access_token));
-            userinfoRequest.ContentType = "application/x-www-form-urlencoded";
-            userinfoRequest.Accept = "Accept=text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(userInfoUri);
+            request.Method = "GET";
+            request.Headers.Add(string.Format("Authorization: Bearer {0}", access_token));
+            request.ContentType = "application/x-www-form-urlencoded";
+            request.Accept = "Accept=text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
 
             // gets the response
-            WebResponse userinfoResponse = await userinfoRequest.GetResponseAsync();
-            using (StreamReader userinfoResponseReader = new StreamReader(userinfoResponse.GetResponseStream()))
+            WebResponse response = await request.GetResponseAsync();
+            using (StreamReader reader = new StreamReader(response.GetResponseStream()))
             {
                 // reads response body
-                string userinfoResponseText = await userinfoResponseReader.ReadToEndAsync();
-                //output(userinfoResponseText);
-                output = userinfoResponseText;
+                string result = await reader.ReadToEndAsync();
+                userInfo = result;
             }
 
-            return output;
+            return userInfo;
         }
         #endregion
 

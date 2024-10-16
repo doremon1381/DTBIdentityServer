@@ -462,7 +462,7 @@ namespace IssuerOfClaims.Services.Token
             }
             // TODO: will check again
             else
-                throw new CustomException((int)HttpStatusCode.InternalServerError, "public key is missing!");
+                throw new CustomException("public key is missing!", HttpStatusCode.InternalServerError);
 
             return result;
         }

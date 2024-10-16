@@ -1,9 +1,6 @@
 ﻿using IssuerOfClaims.Controllers.Ultility;
 using ServerUltilities.Extensions;
-using MimeKit;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.WebUtilities;
 using Newtonsoft.Json;
 using ServerDbModels;
 using ServerUltilities;
@@ -13,7 +10,6 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
-using System.Web;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using IssuerOfClaims.Services.Database;
@@ -22,15 +18,11 @@ using IssuerOfClaims.Services.Token;
 using static ServerUltilities.Identity.OidcConstants;
 using IssuerOfClaims.Services;
 using Microsoft.IdentityModel.Tokens;
-using static ServerUltilities.Identity.Constants;
-using System.Reflection;
 using IssuerOfClaims.Models;
-using Azure.Core;
 using Google.Apis.Auth;
-using Microsoft.AspNetCore.Http;
 using IssuerOfClaims.Models.Request;
-using Google.Apis.Auth.OAuth2;
-using static System.Formats.Asn1.AsnWriter;
+using Google.Apis.Auth.OAuth2.Requests;
+using System.Net.Sockets;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -78,49 +70,47 @@ namespace IssuerOfClaims.Controllers
         [Authorize]
         public async Task<ActionResult> AuthorizationAsync()
         {
-            try
+            // 1. Get authorization request from server
+            // 2. Return an http 302 message to server, give it a nonce cookie (for now, ignore this part),
+            //    if asking for google, then send a redirect to google to get authorization code
+            //    if basic access (I mean implicit grant - form_post or not), then return a redirect to another request to identity server - send request to "authentication/basicAccess" route
+            // 3. With many account can be found in one useragent (chrome or ...) - for example, using more than one google account when using google authentication without explicit authuser as request parameter
+            //  , need to open a consent prompt to let resource owner chooses which one will be used for authorization request.
+            //  With the way I want to use web application, I will not let more than one user interacts with server in one useragent.
+            //  So basically, I can use "none" as prompt value by defualt, but will think about some changes in future.
+
+            AuthCodeParameters parameters = new AuthCodeParameters(HttpContext.Request.QueryString.Value);
+
+            var client = _clientDbServices.Find(parameters.ClientId.Value);
+
+            ACF_VerifyRedirectUris(parameters, client);
+
+            switch (parameters.ResponseType.Value)
             {
-                // 1. Get authorization request from server
-                // 2. Return an http 302 message to server, give it a nonce cookie (for now, ignore this part),
-                //    if asking for google, then send a redirect to google to get authorization code
-                //    if basic access (I mean implicit grant - form_post or not), then return a redirect to another request to identity server - send request to "authentication/basicAccess" route
-                // 3.
-
-                AuthCodeParameters parameters = new AuthCodeParameters(HttpContext.Request.QueryString.Value);
-
-                var client = _clientDbServices.Find(parameters.ClientId.Value);
-
-                ACF_VerifyRedirectUris(parameters, client);
-
-                switch (parameters.ResponseType.Value)
-                {
-                    case ResponseTypes.Code:
-                        return await IssueAuthorizationCodeAsync(parameters);
-                    case ResponseTypes.IdToken:
-                        return await ImplicitGrantWithFormPostAsync(parameters);
-                    case ResponseTypes.IdTokenToken:
-                        throw new CustomException((int)HttpStatusCode.NotImplemented, "Not yet implement!");
-                    // TODO: will implement another flow if I have time
-                    default:
-                        throw new CustomException((int)HttpStatusCode.NotImplemented, "Not yet implement!");
-                }
-            }
-            catch (CustomException ex)
-            {
-                // TODO: will check again
-                return StatusCode(ex.ExceptionIssueToward.Equals(ExceptionIssueToward.UserAgent) ? ex.StatusCode : (int)HttpStatusCode.InternalServerError, ex.Message);
-            }
-            catch (Exception ex)
-            {
-                throw;
+                case ResponseTypes.Code:
+                    return await IssueAuthorizationCodeAsync(parameters);
+                case ResponseTypes.IdToken:
+                    return await ImplicitGrantWithFormPostAsync(parameters);
+                case ResponseTypes.IdTokenToken:
+                    throw new CustomException("Not yet implement!", HttpStatusCode.NotImplemented);
+                // TODO: will implement another flow if I have time
+                default:
+                    throw new CustomException("Not yet implement!", HttpStatusCode.NotImplemented);
             }
         }
 
-        private void ACF_VerifyRedirectUris(AuthCodeParameters parameters, Client client)
+        private static void ACF_VerifyRedirectUris(AuthCodeParameters parameters, Client client)
         {
-            string[] redirectUris = client.RedirectUris.Split(",");
-            if (!redirectUris.Contains(parameters.RedirectUri.Value))
-                throw new CustomException((int)HttpStatusCode.BadRequest, "redirectUri is mismatch!");
+            IEnumerable<Uri> redirectUris = client.RedirectUris.Split(",").Select(r => new Uri(r));
+            Uri requestUri = new Uri(parameters.RedirectUri.Value);
+
+            if (!ACF_RedirectUriIsRegistered(redirectUris, requestUri))
+                throw new CustomException("redirectUri is mismatch!", HttpStatusCode.BadRequest);
+        }
+
+        private static bool ACF_RedirectUriIsRegistered(IEnumerable<Uri> redirectUris, Uri requestUri)
+        {
+            return redirectUris.FirstOrDefault(r => r.Host.Equals(requestUri.Host)) != null;
         }
         #endregion
 
@@ -136,40 +126,82 @@ namespace IssuerOfClaims.Controllers
         /// <param name="nonce"></param>
         /// <param name="headers"></param>
         /// <returns></returns>
-        private async Task<ActionResult> IssueAuthorizationCodeAsync(AuthCodeParameters parameters)
+        private async Task<ActionResult> IssueAuthorizationCodeAsync(AuthCodeParameters @params)
         {
             // TODO: comment for now
             //     : by using AuthenticateHanlder, in this step, authenticated is done
             //     : get user, create authorization code, save it to login session and out
 
             UserIdentity user = await ACF_I_GetResourceOwnerIdentity();
-            var client = _clientDbServices.Find(parameters.ClientId.Value);
+            var client = _clientDbServices.Find(@params.ClientId.Value);
 
-            ACF_I_ValidateScopes(parameters.Scope.Value, client);
+            ACF_I_ValidateScopes(@params.Scope.Value, client);
 
             var acfProcessSession = _tokenManager.CreateTokenRequestSession();
-            ACF_I_UpdateRequestSessionDetails(parameters, acfProcessSession, out string authorizationCode);
+            ACF_I_UpdateRequestSessionDetails(@params, acfProcessSession, out string authorizationCode);
             ACF_I_CreateTokenRequestHandler(user, acfProcessSession);
 
             #region TODO: using these statements because has an error with tracking object, for now i dont know why 
             ACF_I_AddClientToRequestSesstion(client, acfProcessSession.Id);
             #endregion
 
-            // TODO: for now, explicit use response type will have no meaning, but I will think about how to handle response type later
-            // Create a custom response object
-            object responseBody = new
-            {
-                state = parameters.State.Value,
-                code = authorizationCode
-            };
+            // TODO: will check again
+            ACF_I_SendResponseFollowingResponseMode(@params, authorizationCode);
 
-            // TODO: comment for now
-            //ACF_I_AddResponseStatus(200);
-
+            // WRONG IMPLEMENT!
             // TODO: if following openid specs, I will need to return responseBody as query or fragment inside uri
             //     , but currently I don't know particular form of the response
             //     , so if it 's considered a bug, I will fix it later
-            return StatusCode((int)HttpStatusCode.OK, System.Text.Json.JsonSerializer.Serialize(responseBody));
+            //return StatusCode((int)HttpStatusCode.OK, System.Text.Json.JsonSerializer.Serialize(responseBody));
+            return new EmptyResult();
+        }
+
+        private static void ACF_I_SendResponseFollowingResponseMode(AuthCodeParameters @params, string authorizationCode)
+        {
+            string redirectUri = CreateRedirectUri("", @params.ResponseMode.Value, @params.State.Value, authorizationCode, @params.Scope.Value, @params.Prompt.Value);
+
+            // TODO: need to send another request to redirect uri, contain fragment or query
+            ACF_I_HttpClientOnDuty(@params, redirectUri);
+            // TODO: will trying to use socket
+        }
+
+        private static void ACF_I_HttpClientOnDuty(AuthCodeParameters @params, string redirectUri)
+        {
+            // Usage:
+            HttpClient httpClient = new HttpClient();
+            httpClient.BaseAddress = new Uri(@params.RedirectUri.Value);
+            // TODO: currently, I take advantage of fired and forget action, but will think about it later.
+            httpClient.GetAsync(redirectUri);
+        }
+
+        private static void SendHttpRequest(string message, Uri uri = null, int port = 80)
+        {
+            uri ??= new Uri("http://example.com");
+            byte[] requestBytes = Encoding.ASCII.GetBytes(message);
+
+            using (Socket socket = new Socket(SocketType.Stream, ProtocolType.Tcp))
+            {
+                socket.Connect(uri.Host, port);
+                socket.Send(requestBytes);
+                // Handle the response here if needed
+            }
+        }
+
+        private static string CreateRedirectUri(string redirectUri, string responseMode, string state, string authorizationCode, string scope, string prompt)
+        {
+            string seprate = responseMode switch
+            {
+                ResponseModes.Query => "?",
+                ResponseModes.Fragment => "#",
+                _ => throw new CustomException("response mode is invalid!")
+            };
+
+            StringBuilder builder = new StringBuilder($"{redirectUri}{seprate}code={authorizationCode}");
+            builder.Append(string.IsNullOrEmpty(state) ? "" : $"&state={state}");
+            builder.Append($"&scope={scope}");
+            builder.Append($"&prompt={prompt}");
+
+            return builder.ToString();
         }
 
         private void ACF_I_AddClientToRequestSesstion(Client client, int id)
@@ -189,19 +221,7 @@ namespace IssuerOfClaims.Controllers
             return obj;
         }
 
-        private void ACF_I_AddResponseStatus(int statusCode)
-        {
-            // TODO: change for now
-            HttpContext.Response.StatusCode = statusCode;
-            // TODO: has error
-            //HttpContext.Response.Headers.Append("state", state);
-
-            // TODO: I don't know why if add "Location" as key in response header, the response will be sent to vuejs's web is with status code 200,
-            //     : but if I modify the name, for example, to "Location1", then the response will has status code 302 as I set to it before...
-            //HttpContext.Response.Headers.Append("location", string.Format("{0}?code={1}", redirectUri, authorizationCode));
-        }
-
-        private bool ACF_I_ValidateScopes(string scopes, Client client)
+        private static bool ACF_I_ValidateScopes(string scopes, Client client)
         {
             var variables = scopes.Split(" ");
             foreach (var s in variables)
@@ -262,25 +282,11 @@ namespace IssuerOfClaims.Controllers
         //[Authorize]
         public async Task<ActionResult> RegisterIdentity()
         {
-            try
-            {
-                RegisterParameters parameters = new RegisterParameters(HttpContext.Request.QueryString.Value, HttpContext.Request.Headers);
+            RegisterParameters parameters = new RegisterParameters(HttpContext.Request.QueryString.Value, HttpContext.Request.Headers);
 
-                ValidateRedirectUri(parameters);
+            ValidateRedirectUri(parameters);
 
-                return await RegisterUserAsync(parameters);
-            }
-            catch (CustomException ex)
-            {
-                // TODO: will check again
-                return StatusCode(ex.ExceptionIssueToward.Equals(ExceptionIssueToward.UserAgent) ? ex.StatusCode : (int)HttpStatusCode.InternalServerError, ex.Message);
-            }
-            catch (Exception ex)
-            {
-                // TODO: will check again
-                _logger.LogError($"REGISTER ENDPOINT: {ex.Message}");
-                throw;
-            }
+            return await RegisterUserAsync(parameters);
         }
 
         private Client GetClient(string clientId)
@@ -327,9 +333,9 @@ namespace IssuerOfClaims.Controllers
 
         private void VerifyUser(string userName, string email)
         {
-            if (_applicationUserManager.EmailIsUsedForUser(email) 
+            if (_applicationUserManager.EmailIsUsedForUser(email)
                 || _applicationUserManager.HasUser(userName))
-                throw new CustomException((int)HttpStatusCode.Conflict, ExceptionMessage.USER_ALREADY_EXISTS);
+                throw new CustomException(ExceptionMessage.USER_ALREADY_EXISTS, HttpStatusCode.BadRequest);
         }
 
         private static object CreateRegisterUserResponseBody(string id_token, string state = "", bool stateHasValue = false)
@@ -371,61 +377,52 @@ namespace IssuerOfClaims.Controllers
         /// <returns></returns>
         private async Task<ActionResult> ImplicitGrantWithFormPostAsync(AuthCodeParameters parameters)
         {
-            try
+            // TODO: for this situation, Thread and http context may not need
+            //var principal = Thread.CurrentPrincipal;
+            var principal = HttpContext.User;
+
+            var user = await _applicationUserManager.Current.GetUserAsync(principal);
+            var client = _clientDbServices.Find(parameters.ClientId.Value);
+
+            // TODO: scope is used for getting claims to send to client,
+            //     : for example, if scope is missing email, then in id_token which will be sent to client will not contain email's information 
+            var idToken = _tokenManager.GenerateIdTokenAndRsaSha256PublicKey(user, parameters.Scope.Value, parameters.Nonce.Value, client.ClientId).IdToken;
+
+            //var tokenResponse = _tokenManager.GenerateIdToken();
+
+            // TODO: update must follow order, I will explain late
+            //IGF_UpdateTokenResponse(idToken, tokenResponse);
+            IGF_UpdateTokenRequestHandler(user, client, idToken);
+
+            // Check response mode to know what kind of response is going to be used
+            // return a form_post, url fragment or body of response
+            if (parameters.ResponseMode.Value.Equals(ResponseModes.FormPost))
             {
-                // TODO: for this situation, Thread and http context may not need
-                //var principal = Thread.CurrentPrincipal;
-                var principal = HttpContext.User;
+                Dictionary<string, string> inputBody = new Dictionary<string, string>();
+                inputBody.Add(AuthorizeResponse.IdentityToken, idToken);
 
-                var user = await _applicationUserManager.Current.GetUserAsync(principal);
-                var client = _clientDbServices.Find(parameters.ClientId.Value);
+                //string formPost = GetFormPostHtml(webServerConfiguration["redirect_uris:0"], inputBody);
+                string formPost = GetFormPostHtml(parameters.RedirectUri.Value, inputBody);
 
-                // TODO: scope is used for getting claims to send to client,
-                //     : for example, if scope is missing email, then in id_token which will be sent to client will not contain email's information 
-                var idToken = _tokenManager.GenerateIdTokenAndRsaSha256PublicKey(user, parameters.Scope.Value, parameters.Nonce.Value, client.ClientId).IdToken;
+                HttpContext.Response.Headers.Append("state", parameters.State.Value);
 
-                //var tokenResponse = _tokenManager.GenerateIdToken();
+                // TODO: will learn how to use this function
+                await WriteHtmlAsync(HttpContext.Response, formPost);
 
-                // TODO: update must follow order, I will explain late
-                //IGF_UpdateTokenResponse(idToken, tokenResponse);
-                IGF_UpdateTokenRequestHandler(user, client, idToken);
-
-                // Check response mode to know what kind of response is going to be used
-                // return a form_post, url fragment or body of response
-                if (parameters.ResponseMode.Value.Equals(ResponseModes.FormPost))
-                {
-                    Dictionary<string, string> inputBody = new Dictionary<string, string>();
-                    inputBody.Add(AuthorizeResponse.IdentityToken, idToken);
-
-                    //string formPost = GetFormPostHtml(webServerConfiguration["redirect_uris:0"], inputBody);
-                    string formPost = GetFormPostHtml(parameters.RedirectUri.Value, inputBody);
-
-                    HttpContext.Response.Headers.Append("state", parameters.State.Value);
-
-                    // TODO: will learn how to use this function
-                    await WriteHtmlAsync(HttpContext.Response, formPost);
-
-                    // TODO: will learn how to use it later
-                    return new EmptyResult();
-                }
-                else if (parameters.ResponseMode.Value.Equals(ResponseModes.Fragment))
-                {
-                    // TODO:
-                }
-                else if (parameters.ResponseMode.Value.Equals(ResponseModes.Query))
-                {
-                    // TODO: will need to add state into response, return this form for now
-                    return StatusCode((int)HttpStatusCode.OK, idToken);
-                }
-                else
-                    return StatusCode((int)HttpStatusCode.BadRequest, "Response mode is not allowed!");
-
+                // TODO: will learn how to use it later
+                return new EmptyResult();
             }
-            catch (Exception ex)
+            else if (parameters.ResponseMode.Value.Equals(ResponseModes.Fragment))
             {
-                return StatusCode((int)HttpStatusCode.InternalServerError, ex.Message);
+                // TODO:
             }
-
+            else if (parameters.ResponseMode.Value.Equals(ResponseModes.Query))
+            {
+                // TODO: will need to add state into response, return this form for now
+                return StatusCode((int)HttpStatusCode.OK, idToken);
+            }
+            else
+                return StatusCode((int)HttpStatusCode.BadRequest, "Response mode is not allowed!");
 
             return StatusCode((int)HttpStatusCode.OK, "every thing is done!");
         }
@@ -537,40 +534,28 @@ namespace IssuerOfClaims.Controllers
         [AllowAnonymous]
         public async Task<ActionResult> TokenEndpointPostAsync()
         {
-            try
-            {
-                // TODO: for now, only response to authorization code request to access token
-                //     : need to implement another action
-                //     : send back access_token when have request refresh 
+            // TODO: for now, only response to authorization code request to access token
+            //     : need to implement another action
+            //     : send back access_token when have request refresh 
 
-                string requestBody = await GetRequestBodyAsQueryFormAsync(HttpContext.Request.Body);
-                string grantType = TokenEndpoint_GetGrantType(requestBody);
+            string requestBody = await GetRequestBodyAsQueryFormAsync(HttpContext.Request.Body);
+            string grantType = TokenEndpoint_GetGrantType(requestBody);
 
-                switch (grantType)
-                {
-                    case OidcConstants.GrantTypes.RefreshToken:
-                        {
-                            // 1. check token response information.
-                            // 2. check request for that response, which it has offline access or not
-                            // 3. check expired time of refresh token and access token
-                            // 4. issue new access token if there is no problem
+            switch (grantType)
+            {
+                case OidcConstants.GrantTypes.RefreshToken:
+                    {
+                        // 1. check token response information.
+                        // 2. check request for that response, which it has offline access or not
+                        // 3. check expired time of refresh token and access token
+                        // 4. issue new access token if there is no problem
 
-                            return await IssueTokenForRefreshToken(requestBody);
-                        }
-                    case OidcConstants.GrantTypes.AuthorizationCode:
-                        return await IssueTokenForAuthorizationCodeAsync(requestBody);
-                    default:
-                        return StatusCode((int)HttpStatusCode.InternalServerError, "Unknown error!");
-                }
-            }
-            catch (CustomException ex)
-            {
-                // TODO: will check again
-                return StatusCode(ex.ExceptionIssueToward.Equals(ExceptionIssueToward.UserAgent) ? ex.StatusCode : (int)HttpStatusCode.InternalServerError, ex.Message);
-            }
-            catch (Exception ex)
-            {
-                throw;
+                        return await IssueTokenForRefreshToken(requestBody);
+                    }
+                case OidcConstants.GrantTypes.AuthorizationCode:
+                    return await IssueTokenForAuthorizationCodeAsync(requestBody);
+                default:
+                    return StatusCode((int)HttpStatusCode.InternalServerError, "Unknown error!");
             }
         }
 
@@ -598,7 +583,7 @@ namespace IssuerOfClaims.Controllers
             }
 
             if (string.IsNullOrEmpty(content))
-                throw new InvalidDataException(ExceptionMessage.REQUEST_BODY_NOT_NULL_OR_EMPTY);
+                throw new CustomException(ExceptionMessage.REQUEST_BODY_NOT_NULL_OR_EMPTY, HttpStatusCode.BadRequest);
 
             return content;
         }
@@ -685,7 +670,7 @@ namespace IssuerOfClaims.Controllers
             string[] redirectUris = client.RedirectUris.Split(",");
 
             if (!redirectUris.Contains(redirectUri))
-                throw new CustomException((int)HttpStatusCode.BadRequest, "redirect_uri is mismatch!");
+                throw new CustomException("redirect_uri is mismatch!", HttpStatusCode.BadRequest);
         }
 
         private static void ACF_II_VerifyCodeChallenger(string codeVerifier, TokenRequestHandler tokenRequestHandler)
@@ -763,37 +748,31 @@ namespace IssuerOfClaims.Controllers
         [AllowAnonymous]
         public ActionResult CreatingUserConfirm()
         {
-            try
+            if (!HttpContext.Request.QueryString.HasValue)
+                return StatusCode(400, "query_string_is_mismatch!");
+
+            var query = HttpContext.Request.Query;
+            var userId = int.Parse(query["userId"]);
+            var code = query["code"];
+
+            // TODO:
+            var user = _applicationUserManager.Current.Users.Include(u => u.ConfirmEmails).FirstOrDefault(u => u.Id == userId);
+            var createUserConfirmEmail = user.ConfirmEmails.First(e => e.Purpose == (int)ConfirmEmailPurpose.CreateIdentity);
+
+            if (!createUserConfirmEmail.ConfirmCode.Equals(code))
+                return StatusCode(404, "Confirm code is not match!");
+            if (!(createUserConfirmEmail.ExpiryTime > DateTime.Now))
+                return StatusCode(400, "Confirm code is expired!");
+            if (createUserConfirmEmail.IsConfirmed == true)
+                return StatusCode(200, "Email is confirmed!");
+            else
             {
-                if (!HttpContext.Request.QueryString.HasValue)
-                    return StatusCode(400, "query_string_is_mismatch!");
-
-                var query = HttpContext.Request.Query;
-                var userId = int.Parse(query["userId"]);
-                var code = query["code"];
-
-                // TODO:
-                var user = _applicationUserManager.Current.Users.Include(u => u.ConfirmEmails).FirstOrDefault(u => u.Id == userId);
-                var createUserConfirmEmail = user.ConfirmEmails.First(e => e.Purpose == (int)ConfirmEmailPurpose.CreateIdentity);
-
-                if (!createUserConfirmEmail.ConfirmCode.Equals(code))
-                    return StatusCode(404, "Confirm code is not match!");
-                if (!(createUserConfirmEmail.ExpiryTime > DateTime.Now))
-                    return StatusCode(400, "Confirm code is expired!");
-                if (createUserConfirmEmail.IsConfirmed == true)
-                    return StatusCode(200, "Email is confirmed!");
-                else
-                {
-                    user.EmailConfirmed = true;
-                    createUserConfirmEmail.IsConfirmed = true;
-                }
-
-                var temp = _applicationUserManager.Current.UpdateAsync(user).Result;
+                user.EmailConfirmed = true;
+                createUserConfirmEmail.IsConfirmed = true;
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
+
+            var temp = _applicationUserManager.Current.UpdateAsync(user).Result;
+
             return StatusCode(200, "Email is confirmed!");
         }
         #endregion
@@ -807,51 +786,39 @@ namespace IssuerOfClaims.Controllers
         //[Authorize(Roles = "Client")]
         public async Task<ActionResult> GoogleAuthenticating()
         {
-            try
-            {
-                var googleClientConfig = _configuration.GetSection(IdentityServerConfiguration.GOOGLE_CLIENT).Get<GoogleSettings>();
-                ValidateGoogleSettings(googleClientConfig);
+            var googleClientConfig = _configuration.GetSection(IdentityServerConfiguration.GOOGLE_CLIENT).Get<GoogleSettings>();
+            ValidateGoogleSettings(googleClientConfig);
 
-                string requestQuery = await GetRequestBodyAsQueryFormAsync(HttpContext.Request.Body);
+            string requestQuery = await GetRequestBodyAsQueryFormAsync(HttpContext.Request.Body);
 
-                // TODO: add '?' before requestBody to get query form of string
-                // , AbtractRequestParamters instances use request query as parameter
-                var parameters = new SignInGoogleParameters(requestQuery);
+            // TODO: add '?' before requestBody to get query form of string
+            // , AbtractRequestParamters instances use request query as parameter
+            var parameters = new SignInGoogleParameters(requestQuery);
 
-                var client = _clientDbServices.Find(parameters.ClientId.Value, parameters.ClientSecret.Value);
+            var client = _clientDbServices.Find(parameters.ClientId.Value, parameters.ClientSecret.Value);
 
-                var result = await GetGoogleInfo(parameters, googleClientConfig);
-                // TODO: will learn how to use it, comment for now
-                GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(result.IdToken);
+            var result = await GetGoogleInfo(parameters, googleClientConfig);
+            // TODO: will learn how to use it, comment for now
+            GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(result.IdToken);
 
-                string user_info = await userinfoCallAsync(result.AccessToken, googleClientConfig.UserInfoUri);
-                // TODO: create new user or map google user infor to current, get unique user by email
-                var user = _applicationUserManager.GetOrCreateUserByEmail(payload);
+            string user_info = await userinfoCallAsync(result.AccessToken, googleClientConfig.UserInfoUri);
+            // TODO: create new user or map google user infor to current, get unique user by email
+            var user = _applicationUserManager.GetOrCreateUserByEmail(payload);
 
-                // TODO: associate google info with current user identity inside database, using email to do it
-                //     : priority information inside database, import missing info from google
-                var requestHandler = GoogleAuth_ImportRequestHandlerData(parameters.CodeVerifier.Value, result.RefreshToken, client, user);
+            // TODO: associate google info with current user identity inside database, using email to do it
+            //     : priority information inside database, import missing info from google
+            var requestHandler = GoogleAuth_ImportRequestHandlerData(parameters.CodeVerifier.Value, result.RefreshToken, client, user);
 
-                // at this step, token request session is used for storing data
-                GoogleAuth_SaveToken(result.AccessToken, result.RefreshToken, result.IdToken, payload.IssuedAtTimeSeconds.Value, payload.ExpirationTimeSeconds.Value
-                    , result.AccessTokenIssueAt, payload, requestHandler);
+            // at this step, token request session is used for storing data
+            GoogleAuth_SaveToken(result.AccessToken, result.RefreshToken, result.IdToken, payload.IssuedAtTimeSeconds.Value, payload.ExpirationTimeSeconds.Value
+                , result.AccessTokenIssueAt, payload, requestHandler);
 
-                GoogleAuth_SuccessfulRequestHandle(requestHandler);
+            GoogleAuth_SuccessfulRequestHandle(requestHandler);
 
-                // TODO: will need to create new user if current user with this email is not have
-                //     : after that, create login session object and save to db
-                //     : after create login session, authentication then will perform
-                return Ok(JsonConvert.SerializeObject(result.AccessToken));
-            }
-            catch (CustomException ex)
-            {
-                // TODO: will check again
-                return StatusCode(ex.ExceptionIssueToward.Equals(ExceptionIssueToward.UserAgent) ? ex.StatusCode : (int)HttpStatusCode.InternalServerError, ex.Message);
-            }
-            catch (Exception ex)
-            {
-                throw;
-            }
+            // TODO: will need to create new user if current user with this email is not have
+            //     : after that, create login session object and save to db
+            //     : after create login session, authentication then will perform
+            return Ok(JsonConvert.SerializeObject(result.AccessToken));
         }
 
         private void GoogleAuth_SuccessfulRequestHandle(TokenRequestHandler requestHandler)
@@ -942,7 +909,7 @@ namespace IssuerOfClaims.Controllers
         private static void ValidateGoogleSettings(GoogleSettings? googleClientConfig)
         {
             if (googleClientConfig == null)
-                throw new CustomException((int)HttpStatusCode.InternalServerError, "Elaboration of google inside server is mismatch!");
+                throw new CustomException("Elaboration of google inside server is mismatch!");
 
             if (googleClientConfig == null
                 || string.IsNullOrEmpty(googleClientConfig.ClientId)
@@ -950,7 +917,7 @@ namespace IssuerOfClaims.Controllers
                 || string.IsNullOrEmpty(googleClientConfig.AuthUri)
                 || string.IsNullOrEmpty(googleClientConfig.TokenUri)
                 || googleClientConfig.RedirectUris == null || googleClientConfig.RedirectUris.Count == 0)
-                throw new CustomException((int)HttpStatusCode.InternalServerError, "Elaboration of google inside server is mismatch!");
+                throw new CustomException("Elaboration of google inside server is mismatch!");
         }
 
         /// <summary>
@@ -1044,62 +1011,49 @@ namespace IssuerOfClaims.Controllers
         [AllowAnonymous]
         public async Task<ActionResult> ChangePasswordAfterEmailConfirm()
         {
-            try
-            {
-                string requestBody = await GetRequestBodyAsQueryFormAsync(HttpContext.Request.Body);
-                ChangePasswordParameters parameters = new ChangePasswordParameters(requestBody);
+            string requestBody = await GetRequestBodyAsQueryFormAsync(HttpContext.Request.Body);
+            ChangePasswordParameters parameters = new ChangePasswordParameters(requestBody);
 
-                // TODO: will think about client later
-                var client = _clientDbServices.Find(parameters.ClientId.Value);
+            // TODO: will think about client later
+            var client = _clientDbServices.Find(parameters.ClientId.Value);
 
-                var emailForChangingPassword = _emailServices.GetChangePasswordEmailByCode(parameters.Code.Value);
-                var user = emailForChangingPassword.User;
+            var emailForChangingPassword = _emailServices.GetChangePasswordEmailByCode(parameters.Code.Value);
+            var user = emailForChangingPassword.User;
 
-                // TODO: will check again
-                _applicationUserManager.Current.RemovePasswordAsync(user).Wait();
-                _applicationUserManager.Current.AddPasswordAsync(user, parameters.NewPassword.Value).Wait();
-                emailForChangingPassword.IsConfirmed = true;
+            // TODO: will check again
+            _applicationUserManager.Current.RemovePasswordAsync(user).Wait();
+            _applicationUserManager.Current.AddPasswordAsync(user, parameters.NewPassword.Value).Wait();
+            emailForChangingPassword.IsConfirmed = true;
 
-                _emailServices.UpdateConfirmEmail(emailForChangingPassword);
+            _emailServices.UpdateConfirmEmail(emailForChangingPassword);
 
-                return Ok();
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
+            return Ok();
         }
 
         [HttpGet("user/forgotPassword")]
         [AllowAnonymous]
         public async Task<ActionResult> ForgotPassword()
         {
-            try
-            {
-                var queryString = HttpContext.Request.QueryString.Value;
-                if (queryString == null)
-                    return StatusCode(400, "query is missing!");
-                var queryBody = queryString.Remove(0, 1).Split("&");
+            var queryString = HttpContext.Request.QueryString.Value;
+            if (queryString == null)
+                return StatusCode(400, "query is missing!");
+            var queryBody = queryString.Remove(0, 1).Split("&");
 
-                string clientId = queryBody.GetFromQueryString(JwtClaimTypes.ClientId);
-                if (string.IsNullOrEmpty(clientId))
-                    return StatusCode(400, "client id is missing!");
-                string email = queryBody.GetFromQueryString(JwtClaimTypes.Email);
-                if (string.IsNullOrEmpty(email))
-                    return StatusCode(400, "email is missing!");
+            string clientId = queryBody.GetFromQueryString(JwtClaimTypes.ClientId);
+            if (string.IsNullOrEmpty(clientId))
+                return StatusCode(400, "client id is missing!");
+            string email = queryBody.GetFromQueryString(JwtClaimTypes.Email);
+            if (string.IsNullOrEmpty(email))
+                return StatusCode(400, "email is missing!");
 
-                var client = _clientDbServices.Find(clientId);
-                if (client == null)
-                    return StatusCode(404, "client id may wrong!");
+            var client = _clientDbServices.Find(clientId);
+            if (client == null)
+                return StatusCode(404, "client id may wrong!");
 
-                // TODO: get user by email, by logic, username + email is unique for an user that is stored in db, but fow now, email may be duplicated for test
-                var user = _applicationUserManager.Current.Users.FirstOrDefault(u => u.Email.Equals(email));
-                await _emailServices.SendForgotPasswordCodeToEmailAsync(user, client);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
+            // TODO: get user by email, by logic, username + email is unique for an user that is stored in db, but fow now, email may be duplicated for test
+            var user = _applicationUserManager.Current.Users.FirstOrDefault(u => u.Email.Equals(email));
+            await _emailServices.SendForgotPasswordCodeToEmailAsync(user, client);
+
             return Ok();
         }
         #endregion

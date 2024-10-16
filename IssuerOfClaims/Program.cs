@@ -137,6 +137,8 @@ namespace IssuerOfClaims
             // TODO: comment for now
             //app.UseSession();
             app.MapControllers();
+
+            app.UseMiddleware<ExceptionHandlerMiddleware>();
         }
     }
 }

@@ -37,7 +37,7 @@ namespace IssuerOfClaims.Models.Request
             if (Priority == ParameterPriority.REQRUIRED)
             {
                 if (string.IsNullOrEmpty(value))
-                    throw new CustomException((int)HttpStatusCode.BadRequest, $"{Name} : {ExceptionMessage.REQUIRED_PARAMETER_NOT_NULL}");
+                    throw new CustomException($"{Name} : {ExceptionMessage.REQUIRED_PARAMETER_NOT_NULL}", HttpStatusCode.BadRequest);
             }
 
             return true;
@@ -158,14 +158,13 @@ namespace IssuerOfClaims.Models.Request
             // get grant type for response type
             string grantType = ResponseTypeToGrantTypeMapping[responseType];
             // map grant type with allowed response mode
-            string[] responseModes = AllowedResponseModesForGrantType[grantType].ToArray();
+            var responseModes = AllowedResponseModesForGrantType[grantType];
 
             // TODO: by default
             if (responseType.Equals(ResponseTypes.Code))
                 responseMode = responseModes.First(m => m.Equals(ResponseModes.Query));
             else if (responseType.Equals(ResponseTypes.Token))
                 responseMode = responseModes.First(m => m.Equals(ResponseModes.Fragment));
-
 
             return responseMode;
         }

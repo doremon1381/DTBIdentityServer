@@ -165,7 +165,7 @@ namespace IssuerOfClaims.Models.Request
         private static void ValidateRequestQuery(string? requestQuery)
         {
             if (string.IsNullOrEmpty(requestQuery))
-                throw new CustomException((int)HttpStatusCode.BadRequest, ExceptionMessage.QUERYSTRING_NOT_NULL_OR_EMPTY);
+                throw new CustomException(ExceptionMessage.QUERYSTRING_NOT_NULL_OR_EMPTY, HttpStatusCode.BadRequest);
         }
 
         private static string[] QueryStringToArray(string? queryString)

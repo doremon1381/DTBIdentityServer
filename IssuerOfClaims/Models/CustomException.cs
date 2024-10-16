@@ -1,15 +1,25 @@
-﻿namespace IssuerOfClaims.Models
+﻿using System.Net;
+
+namespace IssuerOfClaims.Models
 {
     public class CustomException : Exception
     {
         public ExceptionIssueToward ExceptionIssueToward { get; private set; }
-        public int StatusCode { get; private set; }
-        public CustomException(int statusCode, string message, ExceptionIssueToward exceptionIssueToward = ExceptionIssueToward.UserAgent)
+        public HttpStatusCode StatusError { get; private set; }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="message"></param>
+        /// <param name="statusCode">By default, it's internal server error</param>
+        /// <param name="exceptionIssueToward"></param>
+        public CustomException(string message, HttpStatusCode statusCode = HttpStatusCode.InternalServerError, ExceptionIssueToward exceptionIssueToward = ExceptionIssueToward.UserAgent)
             : base(message)
         {
             ExceptionIssueToward = exceptionIssueToward;
-            StatusCode = statusCode;
+            StatusError = statusCode;
         }
+
+        internal int StatusCode => (int)this.StatusError;
     }
 
     public enum ExceptionIssueToward

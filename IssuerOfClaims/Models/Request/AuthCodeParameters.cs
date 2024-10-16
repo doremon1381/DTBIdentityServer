@@ -3,6 +3,7 @@ using IssuerOfClaims.Models;
 using Microsoft.IdentityModel.Tokens;
 using ServerUltilities.Extensions;
 using ServerUltilities.Identity;
+using System.Net;
 using static ServerUltilities.Identity.OidcConstants;
 
 namespace IssuerOfClaims.Models.Request
@@ -104,14 +105,14 @@ namespace IssuerOfClaims.Models.Request
         private void ValidateScope()
         {
             if (!Scope.Value.Contains(StandardScopes.OpenId))
-                throw new CustomException(501, ExceptionMessage.AUTHORIZE_SCOPES_MUST_HAVE_OPENID);
+                throw new CustomException(ExceptionMessage.AUTHORIZE_SCOPES_MUST_HAVE_OPENID, HttpStatusCode.NotImplemented);
         }
 
         private void ValidatePKCEParameters()
         {
             if (CodeChallengeMethod.HasValue && !CodeChallenge.HasValue
                 || CodeChallenge.HasValue && !CodeChallengeMethod.HasValue)
-                throw new CustomException(400, ExceptionMessage.CODECHALLENGE_CODECHALLENGEMETHODE_NOT_HAVE_VALUE_SIMUTANEOUSLY);
+                throw new CustomException(ExceptionMessage.CODECHALLENGE_CODECHALLENGEMETHODE_NOT_HAVE_VALUE_SIMUTANEOUSLY, HttpStatusCode.BadRequest);
         }
 
         /// <summary>
@@ -121,7 +122,7 @@ namespace IssuerOfClaims.Models.Request
         private void ValidateResponseType()
         {
             if (!Constants.SupportedResponseTypes.Contains(ResponseType.Value))
-                throw new CustomException(400, ExceptionMessage.RESPONSE_TYPE_NOT_SUPPORTED);
+                throw new CustomException(ExceptionMessage.RESPONSE_TYPE_NOT_SUPPORTED, HttpStatusCode.BadRequest);
         }
     }
 }

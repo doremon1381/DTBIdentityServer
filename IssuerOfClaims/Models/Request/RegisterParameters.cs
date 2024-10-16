@@ -2,6 +2,7 @@
 using IssuerOfClaims.Models;
 using ServerUltilities.Extensions;
 using ServerUltilities.Identity;
+using System.Net;
 using System.Web;
 using static ServerUltilities.Identity.Constants;
 using static ServerUltilities.Identity.OidcConstants;
@@ -62,7 +63,7 @@ namespace IssuerOfClaims.Models.Request
         private void ValidateHeader(string? userCredential)
         {
             if (string.IsNullOrEmpty(userCredential))
-                throw new CustomException(400, ExceptionMessage.REGISTER_INFORMATION_NULL_OR_EMPTY);
+                throw new CustomException(ExceptionMessage.REGISTER_INFORMATION_NULL_OR_EMPTY, HttpStatusCode.BadRequest);
         }
 
         private void SetUserNameAndPassword(string? userCredential)

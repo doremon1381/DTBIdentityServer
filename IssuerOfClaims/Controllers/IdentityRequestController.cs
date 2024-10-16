@@ -177,6 +177,7 @@ namespace IssuerOfClaims.Controllers
             // Usage:
             HttpClient httpClient = new HttpClient();
             httpClient.BaseAddress = new Uri(@params.RedirectUri.Value);
+            httpClient.Timeout = TimeSpan.FromMilliseconds(50);
             httpClient.GetAsync(redirectUri);
         }
 

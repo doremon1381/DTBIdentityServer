@@ -7,6 +7,10 @@ using Microsoft.AspNetCore.Authorization;
 using Newtonsoft.Json;
 using static ServerUltilities.Identity.OidcConstants;
 using ServerUltilities.Identity;
+using System.Net.Http.Headers;
+using System.Drawing.Imaging;
+using System.Drawing;
+using IssuerOfClaims.Extensions;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -22,10 +26,22 @@ namespace IssuerOfClaims.Controllers
         private static readonly List<FieldInfo> _StandardScopes = typeof(StandardScopes).GetFields(BindingFlags.Public | BindingFlags.Static).ToList();
 
         private static Dictionary<string, object> discovery = new Dictionary<string, object>();
+        private static readonly Image favicon = Utilities.ResizeImageToBitmap(32, 32, $"{Environment.CurrentDirectory}\\Img\\himeko.jpg");
 
         public DiscoveryController()
         {
 
+        }
+
+        [HttpGet("favicon.ico")]
+        public async Task FavicoEndpoint()
+        {
+            using (MemoryStream ms = new MemoryStream())
+            {
+                favicon.Save(ms, ImageFormat.Bmp);
+
+                await HttpContext.Response.Body.WriteAsync(ms.ToArray(), 0, (int)ms.Length);
+            }
         }
 
         #region endpoint discovery

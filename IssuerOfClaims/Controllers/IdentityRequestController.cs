@@ -143,11 +143,11 @@ namespace IssuerOfClaims.Controllers
             ACF_I_CreateTokenRequestHandler(user, acfProcessSession);
 
             #region TODO: using these statements because has an error with tracking object, for now i dont know why 
-            ACF_I_AddClientToRequestSesstion(client, acfProcessSession.Id);
+            await ACF_I_AddClientToRequestSesstionAsync(client, acfProcessSession.Id);
             #endregion
 
             // TODO: will check again
-            await ACF_I_SendResponseFollowingResponseMode(@params, authorizationCode);
+            await ACF_I_SendResponseFollowingResponseModeAsync(@params, authorizationCode);
 
             // WRONG IMPLEMENT!
             // TODO: if following openid specs, I will need to return responseBody as query or fragment inside uri
@@ -157,9 +157,9 @@ namespace IssuerOfClaims.Controllers
             return new EmptyResult();
         }
 
-        private static async Task ACF_I_SendResponseFollowingResponseMode(AuthCodeParameters @params, string authorizationCode)
+        private static async Task ACF_I_SendResponseFollowingResponseModeAsync(AuthCodeParameters @params, string authorizationCode)
         {
-            string responseMessage = CreateRedirectUri("", @params.ResponseMode.Value, @params.State.Value, authorizationCode, @params.Scope.Value, @params.Prompt.Value);
+            string responseMessage = await CreateRedirectUriAsync("", @params.ResponseMode.Value, @params.State.Value, authorizationCode, @params.Scope.Value, @params.Prompt.Value);
 
             // TODO: need to send another request to redirect uri, contain fragment or query
             ACF_I_HttpClientOnDuty(@params, responseMessage);
@@ -177,7 +177,7 @@ namespace IssuerOfClaims.Controllers
             // Usage:
             HttpClient httpClient = new HttpClient();
             httpClient.BaseAddress = new Uri(@params.RedirectUri.Value);
-            httpClient.Timeout = TimeSpan.FromMilliseconds(50);
+            httpClient.Timeout = TimeSpan.FromMilliseconds(10);
             httpClient.GetAsync(redirectUri);
         }
 
@@ -207,7 +207,7 @@ namespace IssuerOfClaims.Controllers
             }
         }
 
-        private static string CreateRedirectUri(string redirectUri, string responseMode, string state, string authorizationCode, string scope, string prompt)
+        private static async Task<string> CreateRedirectUriAsync(string redirectUri, string responseMode, string state, string authorizationCode, string scope, string prompt)
         {
             string seprate = responseMode switch
             {
@@ -224,7 +224,7 @@ namespace IssuerOfClaims.Controllers
             return builder.ToString();
         }
 
-        private void ACF_I_AddClientToRequestSesstion(Client client, int id)
+        private async Task ACF_I_AddClientToRequestSesstionAsync(Client client, int id)
         {
             var requestSession = _tokenManager.FindRequestSessionById(id);
             requestSession.Client = client;
@@ -341,7 +341,7 @@ namespace IssuerOfClaims.Controllers
             var client = _clientDbServices.Find(parameters.ClientId.Value);
 
             // TODO: will check again
-            string id_token = _tokenManager.GenerateIdTokenAndRsaSha256PublicKey(user, string.Empty, parameters.Nonce.Value, client.ClientId).IdToken;
+            string id_token = await _tokenManager.GenerateIdTokenAsync(user, string.Empty, parameters.Nonce.Value, client.ClientId);
 
             if (parameters.Email.HasValue)
                 await _emailServices.SendVerifyingEmailAsync(user, "ConfirmEmail", client, Request.Scheme, Request.Host.ToString());
@@ -406,7 +406,7 @@ namespace IssuerOfClaims.Controllers
 
             // TODO: scope is used for getting claims to send to client,
             //     : for example, if scope is missing email, then in id_token which will be sent to client will not contain email's information 
-            var idToken = _tokenManager.GenerateIdTokenAndRsaSha256PublicKey(user, parameters.Scope.Value, parameters.Nonce.Value, client.ClientId).IdToken;
+            var idToken = await _tokenManager.GenerateIdTokenAsync(user, parameters.Scope.Value, parameters.Nonce.Value, client.ClientId);
 
             //var tokenResponse = _tokenManager.GenerateIdToken();
 
@@ -559,7 +559,7 @@ namespace IssuerOfClaims.Controllers
             //     : send back access_token when have request refresh 
 
             string requestBody = await GetRequestBodyAsQueryFormAsync(HttpContext.Request.Body);
-            string grantType = TokenEndpoint_GetGrantType(requestBody);
+            string grantType = await TokenEndpoint_GetGrantTypeAsync(requestBody);
 
             switch (grantType)
             {
@@ -579,7 +579,7 @@ namespace IssuerOfClaims.Controllers
             }
         }
 
-        private static string TokenEndpoint_GetGrantType(string requestBody)
+        private static async Task<string> TokenEndpoint_GetGrantTypeAsync(string requestBody)
         {
             return requestBody.Remove(0, 1).Split("&")
                 .First(t => t.StartsWith("grant_type"))
@@ -655,7 +655,7 @@ namespace IssuerOfClaims.Controllers
             ACF_II_VerifyCodeChallenger(parameters.CodeVerifier.Value, tokenRequestHandler);
 
             // TODO: issue token from TokenManager
-            var tokenResponses = _tokenManager.ACF_IssueToken(user, client, tokenRequestHandler.Id);
+            var tokenResponses = _tokenManager.ACF_IssueToken(user.Id, client.Id, client.ClientId, tokenRequestHandler.Id);
 
             ACF_II_SuccessfulRequestHandle(tokenRequestHandler);
 

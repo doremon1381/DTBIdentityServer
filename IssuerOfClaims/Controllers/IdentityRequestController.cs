@@ -23,6 +23,7 @@ using Google.Apis.Auth;
 using IssuerOfClaims.Models.Request;
 using Google.Apis.Auth.OAuth2.Requests;
 using System.Net.Sockets;
+using System.Net.WebSockets;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -146,7 +147,7 @@ namespace IssuerOfClaims.Controllers
             #endregion
 
             // TODO: will check again
-            ACF_I_SendResponseFollowingResponseMode(@params, authorizationCode);
+            await ACF_I_SendResponseFollowingResponseMode(@params, authorizationCode);
 
             // WRONG IMPLEMENT!
             // TODO: if following openid specs, I will need to return responseBody as query or fragment inside uri
@@ -156,34 +157,52 @@ namespace IssuerOfClaims.Controllers
             return new EmptyResult();
         }
 
-        private static void ACF_I_SendResponseFollowingResponseMode(AuthCodeParameters @params, string authorizationCode)
+        private static async Task ACF_I_SendResponseFollowingResponseMode(AuthCodeParameters @params, string authorizationCode)
         {
-            string redirectUri = CreateRedirectUri("", @params.ResponseMode.Value, @params.State.Value, authorizationCode, @params.Scope.Value, @params.Prompt.Value);
+            string responseMessage = CreateRedirectUri("", @params.ResponseMode.Value, @params.State.Value, authorizationCode, @params.Scope.Value, @params.Prompt.Value);
 
             // TODO: need to send another request to redirect uri, contain fragment or query
-            ACF_I_HttpClientOnDuty(@params, redirectUri);
+            ACF_I_HttpClientOnDuty(@params, responseMessage);
             // TODO: will trying to use socket
+            //await ACF_SocketOnDuty(responseMessage, @params.RedirectUri.Value);
         }
 
+        /// <summary>
+        /// TODO: currently, I take advantage of fired and forget action, but will think about it later.
+        /// </summary>
+        /// <param name="params"></param>
+        /// <param name="redirectUri"></param>
         private static void ACF_I_HttpClientOnDuty(AuthCodeParameters @params, string redirectUri)
         {
             // Usage:
             HttpClient httpClient = new HttpClient();
             httpClient.BaseAddress = new Uri(@params.RedirectUri.Value);
-            // TODO: currently, I take advantage of fired and forget action, but will think about it later.
             httpClient.GetAsync(redirectUri);
         }
 
-        private static void SendHttpRequest(string message, Uri uri = null, int port = 80)
+        private static async Task ACF_SocketOnDuty(string message, string address = "", int port = 80)
         {
-            uri ??= new Uri("http://example.com");
-            byte[] requestBytes = Encoding.ASCII.GetBytes(message);
-
-            using (Socket socket = new Socket(SocketType.Stream, ProtocolType.Tcp))
+            ClientWebSocket webSocket = null;
+            try
             {
-                socket.Connect(uri.Host, port);
-                socket.Send(requestBytes);
-                // Handle the response here if needed
+                webSocket = new ClientWebSocket();
+                await webSocket.ConnectAsync(new Uri(address.Replace("http", "ws")), CancellationToken.None);
+                await Send(webSocket, message);
+            }
+            catch (Exception ex)
+            {
+                throw new CustomException(ex.Message, HttpStatusCode.InternalServerError);
+            }
+        }
+
+        private static async Task Send(ClientWebSocket webSocket, string responseMessage)
+        {
+            if (webSocket.State == WebSocketState.Open)
+            {
+                //string response = "";
+                byte[] buffer = UTF8Encoding.UTF8.GetBytes(responseMessage);
+
+                webSocket.SendAsync(buffer, WebSocketMessageType.Binary, false, CancellationToken.None);
             }
         }
 

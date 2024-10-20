@@ -138,7 +138,7 @@ namespace IssuerOfClaims.Services.Token
 
                     // latest access token can be used
                     // , by logic of creation token response, those two (access-refresh token) will go along as a pair
-                    if (latestAccessToken.TokenResponse.TokenExpiried > DateTime.Now)
+                    if (latestAccessToken != null && latestAccessToken.TokenResponse.TokenExpiried > DateTime.Now)
                     {
                         accessToken = latestAccessToken.TokenResponse;
                         accessTokenExpiredTime = (latestAccessToken.TokenResponse.TokenExpiried - DateTime.Now).Value.TotalSeconds;

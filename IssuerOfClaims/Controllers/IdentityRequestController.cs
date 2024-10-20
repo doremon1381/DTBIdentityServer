@@ -21,11 +21,9 @@ using Microsoft.IdentityModel.Tokens;
 using IssuerOfClaims.Models;
 using Google.Apis.Auth;
 using IssuerOfClaims.Models.Request;
-using Google.Apis.Auth.OAuth2.Requests;
-using System.Net.Sockets;
 using System.Net.WebSockets;
-using System.Text.Json.Nodes;
 using System.Text.Json;
+using static ServerUltilities.Identity.IdentityServerConstants;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -88,17 +86,26 @@ namespace IssuerOfClaims.Controllers
 
             ACF_VerifyRedirectUris(parameters, client);
 
-            switch (parameters.ResponseType.Value)
+            if (parameters.ResponseType.Value == ResponseTypes.Code)
             {
-                case ResponseTypes.Code:
-                    return await IssueAuthorizationCodeAsync(parameters);
-                case ResponseTypes.IdToken:
-                    return await ImplicitGrantWithFormPostAsync(parameters);
-                case ResponseTypes.IdTokenToken:
-                    throw new CustomException("Not yet implement!", HttpStatusCode.NotImplemented);
-                // TODO: will implement another flow if I have time
-                default:
-                    throw new CustomException("Not yet implement!", HttpStatusCode.NotImplemented);
+                return await IssueAuthorizationCodeAsync(parameters);
+            }
+            else if (parameters.ResponseType.Value == ResponseTypes.IdToken
+                || parameters.ResponseType.Value == ResponseTypes.IdTokenToken
+                || parameters.ResponseType.Value == ResponseTypes.Token)
+            {
+                return await ImplicitGrantAsync(parameters);
+            }
+            else if (parameters.ResponseType.Value == ResponseTypes.CodeIdToken
+                || parameters.ResponseType.Value == ResponseTypes.CodeToken
+                || parameters.ResponseType.Value == ResponseTypes.CodeIdTokenToken)
+            {
+                // TODO: will implement hybrid flow if I have time
+                throw new CustomException("Not yet implement!", HttpStatusCode.NotImplemented);
+            }
+            else
+            {
+                throw new CustomException("Not yet implement!", HttpStatusCode.NotImplemented);
             }
         }
 
@@ -141,16 +148,12 @@ namespace IssuerOfClaims.Controllers
             ACF_I_ValidateScopes(@params.Scope.Value, client);
 
             var requestHandler = ACF_I_CreateTokenRequestHandler(user, client);
-            var acfProcessSession = _tokenManager.CreateTokenRequestSession(requestHandler);
-            ACF_I_UpdateRequestSessionDetails(@params, acfProcessSession, out string authorizationCode);
-            //ACF_I_CreateTokenRequestHandler(user, client, acfProcessSession);
+            var acfProcessSession = _tokenManager.CreateTokenRequestSession(requestHandler.Id);
 
-            #region TODO: using these statements because has an error with tracking object, for now i dont know why 
-            //await ACF_I_AddClientToRequestSesstionAsync(client, acfProcessSession.Id);
-            #endregion
+            ACF_I_UpdateRequestSessionDetails(@params, acfProcessSession, out string authorizationCode);
 
             // TODO: will check again
-            await ACF_I_SendResponseFollowingResponseModeAsync(@params, authorizationCode);
+            await ACF_I_SendResponseBaseOnResponseModeAsync(@params, authorizationCode);
 
             // WRONG IMPLEMENT!
             // TODO: if following openid specs, I will need to return responseBody as query or fragment inside uri
@@ -160,12 +163,12 @@ namespace IssuerOfClaims.Controllers
             return new EmptyResult();
         }
 
-        private static async Task ACF_I_SendResponseFollowingResponseModeAsync(AuthCodeParameters @params, string authorizationCode)
+        private static async Task ACF_I_SendResponseBaseOnResponseModeAsync(AuthCodeParameters @params, string authorizationCode)
         {
-            string responseMessage = await CreateRedirectUriAsync("", @params.ResponseMode.Value, @params.State.Value, authorizationCode, @params.Scope.Value, @params.Prompt.Value);
+            string responseMessage = await ACF_I_CreateRedirectContentAsync("", @params.ResponseMode.Value, @params.State.Value, authorizationCode, @params.Scope.Value, @params.Prompt.Value);
 
             // TODO: need to send another request to redirect uri, contain fragment or query
-            ACF_I_HttpClientOnDuty(@params, responseMessage);
+            ACF_I_HttpClientOnDuty(@params.RedirectUri.Value, responseMessage);
             // TODO: will trying to use socket
             //await ACF_SocketOnDuty(responseMessage, @params.RedirectUri.Value);
         }
@@ -174,14 +177,14 @@ namespace IssuerOfClaims.Controllers
         /// TODO: currently, I take advantage of fired and forget action, but will think about it later.
         /// </summary>
         /// <param name="params"></param>
-        /// <param name="redirectUri"></param>
-        private static void ACF_I_HttpClientOnDuty(AuthCodeParameters @params, string redirectUri)
+        /// <param name="redirectContent"></param>
+        private static void ACF_I_HttpClientOnDuty(string redirectUri, string redirectContent)
         {
             // Usage:
             HttpClient httpClient = new HttpClient();
-            httpClient.BaseAddress = new Uri(@params.RedirectUri.Value);
+            httpClient.BaseAddress = new Uri(redirectUri);
             httpClient.Timeout = TimeSpan.FromMilliseconds(10);
-            httpClient.GetAsync(redirectUri);
+            httpClient.GetAsync(redirectContent);
         }
 
         private static async Task ACF_SocketOnDuty(string message, string address = "", int port = 80)
@@ -210,14 +213,9 @@ namespace IssuerOfClaims.Controllers
             }
         }
 
-        private static async Task<string> CreateRedirectUriAsync(string redirectUri, string responseMode, string state, string authorizationCode, string scope, string prompt)
+        private static async Task<string> ACF_I_CreateRedirectContentAsync(string redirectUri, string responseMode, string state, string authorizationCode, string scope, string prompt)
         {
-            string seprate = responseMode switch
-            {
-                ResponseModes.Query => "?",
-                ResponseModes.Fragment => "#",
-                _ => throw new CustomException("response mode is invalid!")
-            };
+            string seprate = GetSeparatorByResponseMode(responseMode);
 
             StringBuilder builder = new StringBuilder($"{redirectUri}{seprate}code={authorizationCode}");
             builder.Append(string.IsNullOrEmpty(state) ? "" : $"&state={state}");
@@ -253,12 +251,10 @@ namespace IssuerOfClaims.Controllers
         /// <param name="user"></param>
         /// <param name="ACFProcessSession"></param>
         private IdentityRequestHandler ACF_I_CreateTokenRequestHandler(UserIdentity user, Client client)
-            //, IdentityRequestSession ACFProcessSession)
+        //, IdentityRequestSession ACFProcessSession)
         {
             var tokenRequestHandler = _tokenManager.GetDraftTokenRequestHandler();
             tokenRequestHandler.User = user;
-            //tokenRequestHandler.RequestSession = ACFProcessSession;
-
             // TODO: will check again
             tokenRequestHandler.Client = client;
 
@@ -282,7 +278,7 @@ namespace IssuerOfClaims.Controllers
             tokenRequestSession.AuthorizationCode = authorizationCode;
             tokenRequestSession.Nonce = nonce;
             tokenRequestSession.Scope = scope;
-            tokenRequestSession.IsOfflineAccess = scope.Contains(StandardScopes.OfflineAccess);
+            tokenRequestSession.IsOfflineAccess = scope.Contains(OidcConstants.StandardScopes.OfflineAccess);
         }
 
         private static void ACF_I_ImportPKCERequestedParams(string codeChallenge, string codeChallengeMethod, bool codeChallenge_HasValue, IdentityRequestSession tokenRequestSession)
@@ -397,7 +393,7 @@ namespace IssuerOfClaims.Controllers
         /// <param name="clientId"></param>
         /// <param name="headers"></param>
         /// <returns></returns>
-        private async Task<ActionResult> ImplicitGrantWithFormPostAsync(AuthCodeParameters parameters)
+        private async Task<ActionResult> ImplicitGrantAsync(AuthCodeParameters parameters)
         {
             // TODO: for this situation, Thread and http context may not need
             var principal = HttpContext.User;
@@ -410,75 +406,92 @@ namespace IssuerOfClaims.Controllers
             var idToken = await _tokenManager.GenerateIdTokenAsync(user, parameters.Scope.Value, parameters.Nonce.Value, client.ClientId);
 
             // TODO: update must follow order, I will explain late
-            IGF_UpdateTokenRequestHandler(user, client, idToken);
+            var requestHandler = IGF_UpdateTokenRequestHandler(user, client, idToken);
+            IGF_CreateRequestSession(requestHandler.Id, client.AllowedScopes);
+
+            var accessToken = _tokenManager.IGF_IssueToken(parameters.State.Value, requestHandler);
 
             // Check response mode to know what kind of response is going to be used
             // return a form_post, url fragment or body of response
-            //string formPost = GetFormPostHtml(parameters.RedirectUri.Value, new Dictionary<string, string>() { { AuthorizeResponse.IdentityToken, idToken } });
+
+            HttpContext.Response.StatusCode = (int)HttpStatusCode.Redirect;
             if (parameters.ResponseMode.Value.Equals(ResponseModes.FormPost))
             {
                 string formPost = GetFormPostHtml(parameters.RedirectUri.Value, new Dictionary<string, string>()
                 {
+                    { AuthorizeResponse.AccessToken, accessToken },
+                    { AuthorizeResponse.TokenType, OidcConstants.TokenResponse.BearerTokenType },
                     { AuthorizeResponse.IdentityToken, idToken },
                     { AuthorizeResponse.State, parameters.State.Value }
                 });
 
                 // TODO: will learn how to use this function
                 await WriteHtmlAsync(HttpContext.Response, formPost);
+                //ACF_I_HttpClientOnDuty(parameters.RedirectUri.Value, formPost);
 
                 // TODO: will learn how to use it later
                 return new EmptyResult();
             }
-            else if (parameters.ResponseMode.Value.Equals(ResponseModes.Fragment))
+            else if (parameters.ResponseMode.Value.Equals(ResponseModes.Fragment)
+                || parameters.ResponseMode.Value.Equals(ResponseModes.Query))
             {
-                // TODO:
-                return StatusCode((int)HttpStatusCode.NotImplemented);
-            }
-            else if (parameters.ResponseMode.Value.Equals(ResponseModes.Query))
-            {
-                // TODO: will need to add state into response, return this form for now
-                return StatusCode((int)HttpStatusCode.NotImplemented);
+                int expiredIn = 3600;
+                string responseMessage = await IGF_CreateRedirectContentAsync(accessToken, OidcConstants.TokenResponse.BearerTokenType, parameters.State.Value, idToken, expiredIn, parameters.ResponseMode.Value, parameters.RedirectUri.Value);
+
+                await WriteHtmlAsync(HttpContext.Response, responseMessage);
+
+                return new EmptyResult();
             }
             else
-                return StatusCode((int)HttpStatusCode.BadRequest, "Response mode is not allowed!");
+                return StatusCode((int)HttpStatusCode.NotImplemented, Utilities.ResponseMessages[DefaultResponseMessage.ResponseModeNotAllowed].Value);
         }
 
-        private void IGF_UpdateTokenRequestHandler(UserIdentity user, Client client, string idToken)
+        private async Task<string> IGF_CreateRedirectContentAsync(string accessToken, string bearerTokenType, string state, string idToken, int expiredIn, string responseMode, string redirectUri)
         {
-            var tokenRequestHandler = _tokenManager.GetDraftTokenRequestHandler();
-            tokenRequestHandler.User = user;
-            tokenRequestHandler.Client = client;
+            string seprate = GetSeparatorByResponseMode(responseMode);
+
+            StringBuilder builder = new StringBuilder($"{redirectUri}{seprate}{AuthorizeResponse.AccessToken}={accessToken}");
+            builder.Append($"&{AuthorizeResponse.TokenType}={bearerTokenType}");
+            builder.Append($"&{AuthorizeResponse.ExpiresIn}={expiredIn}");
+            builder.Append($"&{AuthorizeResponse.IdentityToken}={idToken}");
+            builder.Append(string.IsNullOrEmpty(state) ? "" : $"&state={state}");
+
+            return builder.ToString();
+        }
+
+        private static string GetSeparatorByResponseMode(string responseMode)
+        {
+            return responseMode switch
+            {
+                ResponseModes.Query => "?",
+                ResponseModes.Fragment => "#",
+                _ => throw new CustomException("response mode is invalid!")
+            };
+        }
+
+        private IdentityRequestHandler IGF_UpdateTokenRequestHandler(UserIdentity user, Client client, string idToken)
+        {
+            var requestHandler = _tokenManager.GetDraftTokenRequestHandler();
+            requestHandler.User = user;
+            requestHandler.Client = client;
             //
-            _tokenManager.UpdateTokenRequestHandler(tokenRequestHandler);
+            _tokenManager.UpdateTokenRequestHandler(requestHandler);
 
-            var tokenRequestSession = IGF_CreateRequestSession(client, tokenRequestHandler);
-            //tokenRequestHandler.RequestSession = tokenRequestSession;
-            // TODO: need to add id token to tokenRequestHandler
-
-
-        }
-
-        private void IGF_UpdateTokenResponse(string idToken, ServerDbModels.TokenResponse tokenResponse)
-        {
-            // TODO
-            //tokenResponse.IdToken = idToken;
-
-            //_tokenResponseDbServices.Update(tokenResponse);
+            return requestHandler;
         }
 
         // TODO: will test again
-        private IdentityRequestSession IGF_CreateRequestSession(Client client, IdentityRequestHandler tokenRequestHandler)
+        private void IGF_CreateRequestSession(Guid tokenRequestHandlerId, string allowedScopes)
         {
-            var tokenRequestSession = _tokenManager.CreateTokenRequestSession(tokenRequestHandler);
+            var tokenRequestSession = _tokenManager.CreateTokenRequestSession(tokenRequestHandlerId);
 
-            //tokenRequestSession.Client = client;
-            tokenRequestSession.Scope = client.AllowedScopes;
+            tokenRequestSession.Scope = allowedScopes;
             tokenRequestSession.IsInLoginSession = false;
             tokenRequestSession.IsOfflineAccess = false;
 
             _tokenManager.UpdateTokenRequestSession(tokenRequestSession);
 
-            return tokenRequestSession;
+            //return tokenRequestSession;
         }
 
         /// <summary>
@@ -574,7 +587,7 @@ namespace IssuerOfClaims.Controllers
                 case OidcConstants.GrantTypes.AuthorizationCode:
                     return await IssueTokenForAuthorizationCodeAsync(requestBody);
                 default:
-                    return StatusCode((int)HttpStatusCode.InternalServerError, "Unknown error!");
+                    return StatusCode((int)HttpStatusCode.NotImplemented, ExceptionMessage.NOT_IMPLEMENTED);
             }
         }
 
@@ -616,24 +629,29 @@ namespace IssuerOfClaims.Controllers
             OfflineAccessTokenParameters parameters = new OfflineAccessTokenParameters(requestBody);
 
             var refreshToken = _tokenManager.FindRefreshToken(parameters.RefreshToken.Value);
+            ValidateRefreshToken(refreshToken.TokenExpiried.Value);
 
             string tokenResponses = string.Empty;
             // Token from external source
             if (!string.IsNullOrEmpty(refreshToken.ExternalSource))
             {
                 // TODO: will update this part later
-                var token = refreshToken.ExternalSource switch
-                {
-                    ExternalSources.Google => _tokenManager.RefreshAccessTokenFromExternalSource(refreshToken),
-                    _ => throw new NullReferenceException()
-                };
+                tokenResponses = await _tokenManager.RefreshAccessTokenFromExternalSourceAsync(refreshToken.Token, refreshToken.ExternalSource);
             }
             else
             {
-                tokenResponses = _tokenManager.IssueTokenForRefreshToken(refreshToken);
+                tokenResponses = await _tokenManager.IssueTokenForRefreshToken(refreshToken);
             }
 
             return StatusCode((int)HttpStatusCode.OK, tokenResponses);
+        }
+
+        private static bool ValidateRefreshToken(DateTime expiredTime)
+        {
+            if (expiredTime <= DateTime.Now)
+                throw new CustomException(ExceptionMessage.REFRESH_TOKEN_EXPIRED, HttpStatusCode.Unauthorized);
+
+            return true;
         }
 
         private async Task<ActionResult> IssueTokenForAuthorizationCodeAsync(string requestBody)
@@ -656,16 +674,9 @@ namespace IssuerOfClaims.Controllers
             // TODO: issue token from TokenManager
             var tokenResponses = _tokenManager.ACF_IssueToken(user.Id, client.Id, client.ClientId, tokenRequestHandler.Id);
 
-            ACF_II_SuccessfulRequestHandle(tokenRequestHandler);
+            SuccessfulRequestHandle(tokenRequestHandler);
 
             return StatusCode((int)HttpStatusCode.OK, tokenResponses);
-        }
-
-        private void ACF_II_SuccessfulRequestHandle(IdentityRequestHandler tokenRequestHandler)
-        {
-            // TODO: will test again
-            tokenRequestHandler.SuccessAt = DateTime.Now;
-            _tokenManager.UpdateTokenRequestHandler(tokenRequestHandler);
         }
 
         // TODO: will test again
@@ -718,7 +729,9 @@ namespace IssuerOfClaims.Controllers
 
             return client;
         }
+        #endregion
 
+        #region UserInfo
         [HttpGet("userinfo")]
         [Authorize]
         public async Task<ActionResult> GetUserInfoAsync()
@@ -733,21 +746,27 @@ namespace IssuerOfClaims.Controllers
             if (user == null)
                 throw new InvalidOperationException(ExceptionMessage.OBJECT_NOT_FOUND);
 
-            object responseBody = ResponseForUserInfoRequest(user);
+            string responseBody = await ResponseForUserInfoRequest(user);
 
-            return StatusCode((int)HttpStatusCode.OK, JsonConvert.SerializeObject(responseBody));
+            return StatusCode((int)HttpStatusCode.OK, responseBody);
         }
 
-        private static object ResponseForUserInfoRequest(UserIdentity user)
+        private static async Task<string> ResponseForUserInfoRequest(UserIdentity user)
         {
-            return new
-            {
-                sub = user.UserName,
-                name = user.FullName,
-                email = user.Email,
-                email_confirmed = user.EmailConfirmed,
-                picture = user.Avatar
-            };
+            var stream = new MemoryStream();
+            var writer = new Utf8JsonWriter(stream);
+
+            writer.WriteStartObject();
+            writer.WriteString(JsonEncodedText.Encode(UserInforResponse.Sub), JsonEncodedText.Encode(user.UserName));
+            writer.WriteString(JsonEncodedText.Encode(UserInforResponse.Name), JsonEncodedText.Encode(user.FullName));
+            writer.WriteString(JsonEncodedText.Encode(UserInforResponse.Email), JsonEncodedText.Encode(user.Email));
+            writer.WriteString(JsonEncodedText.Encode(UserInforResponse.EmailConfirmed), JsonEncodedText.Encode(user.EmailConfirmed.ToString()));
+            writer.WriteString(JsonEncodedText.Encode(UserInforResponse.Picture), JsonEncodedText.Encode(user.Avatar));
+            writer.WriteEndObject();
+
+            await stream.FlushAsync();
+
+            return Encoding.UTF8.GetString(stream.ToArray());
         }
 
         [HttpGet("userinfo.email")]
@@ -768,7 +787,7 @@ namespace IssuerOfClaims.Controllers
         /// <returns></returns>
         [HttpGet("ConfirmEmail")]
         [AllowAnonymous]
-        public ActionResult CreatingUserConfirm()
+        public async Task<ActionResult> CreatingUserConfirmAsync()
         {
             if (!HttpContext.Request.QueryString.HasValue)
                 return StatusCode(400, "query_string_is_mismatch!");
@@ -779,23 +798,30 @@ namespace IssuerOfClaims.Controllers
 
             // TODO:
             var user = _applicationUserManager.Current.Users.Include(u => u.ConfirmEmails).FirstOrDefault(u => u.Id == userId);
-            var createUserConfirmEmail = user.ConfirmEmails.First(e => e.Purpose == ConfirmEmailPurpose.CreateIdentity);
+            var confirmEmail = user.ConfirmEmails.First(e => e.Purpose == ConfirmEmailPurpose.CreateIdentity);
 
-            if (!createUserConfirmEmail.ConfirmCode.Equals(code))
-                return StatusCode(404, "Confirm code is not match!");
-            if (!(createUserConfirmEmail.ExpiryTime > DateTime.Now))
-                return StatusCode(400, "Confirm code is expired!");
-            if (createUserConfirmEmail.IsConfirmed == true)
-                return StatusCode(200, "Email is confirmed!");
-            else
+            if (confirmEmail.IsConfirmed == true)
+                return Ok(Utilities.ResponseMessages[DefaultResponseMessage.EmailIsConfirmed].Value);
+
+            if (ValidateConfirmEmail(confirmEmail, code))
             {
                 user.EmailConfirmed = true;
-                createUserConfirmEmail.IsConfirmed = true;
+                confirmEmail.IsConfirmed = true;
             }
 
-            var temp = _applicationUserManager.Current.UpdateAsync(user).Result;
+            await _applicationUserManager.Current.UpdateAsync(user);
 
-            return StatusCode(200, "Email is confirmed!");
+            return Ok(Utilities.ResponseMessages[DefaultResponseMessage.EmailIsConfirmed].Value);
+        }
+
+        private static bool ValidateConfirmEmail(ConfirmEmail confirmEmail, string code)
+        {
+            if (!confirmEmail.ConfirmCode.Equals(code))
+                throw new CustomException("Confirm code is not match!", HttpStatusCode.NotFound);
+            if (!(confirmEmail.ExpiryTime > DateTime.Now))
+                throw new CustomException("Confirm code is expired!", HttpStatusCode.BadRequest);
+
+            return true;
         }
         #endregion
 
@@ -834,19 +860,12 @@ namespace IssuerOfClaims.Controllers
             GoogleAuth_SaveToken(result.AccessToken, result.RefreshToken, result.IdToken, payload.IssuedAtTimeSeconds.Value, payload.ExpirationTimeSeconds.Value
                 , result.AccessTokenIssueAt, payload, requestHandler);
 
-            GoogleAuth_SuccessfulRequestHandle(requestHandler);
+            SuccessfulRequestHandle(requestHandler);
             var response = await Utilities.CreateTokenResponseStringAsync(result.AccessToken, result.IdToken, payload.ExpirationTimeSeconds.Value, string.IsNullOrEmpty(result.RefreshToken) ? "" : result.RefreshToken);
-
             // TODO: will need to create new user if current user with this email is not have
             //     : after that, create login session object and save to db
             //     : after create login session, authentication then will perform
-            return Ok(JsonConvert.SerializeObject(response));
-        }
-
-        private void GoogleAuth_SuccessfulRequestHandle(IdentityRequestHandler requestHandler)
-        {
-            requestHandler.SuccessAt = DateTime.UtcNow;
-            _tokenManager.UpdateTokenRequestHandler(requestHandler);
+            return Ok(response);
         }
 
         private bool GoogleAuth_SaveToken(string accessToken, string refreshToken, string idToken, long issuedAtTimeSeconds, long expirationTimeSeconds, DateTime accessTokenIssueAt, GoogleJsonWebSignature.Payload payload, IdentityRequestHandler requestHandler)
@@ -857,26 +876,23 @@ namespace IssuerOfClaims.Controllers
         private IdentityRequestHandler GoogleAuth_ImportRequestHandlerData(string codeVerifier, string refreshToken, Client client, UserIdentity user)
         {
             var requestHandler = _tokenManager.GetDraftTokenRequestHandler();
-
-            //requestHandler.RequestSession = session;
             requestHandler.User = user;
             requestHandler.Client = client;
 
             _tokenManager.UpdateTokenRequestHandler(requestHandler);
 
-            IdentityRequestSession session = GoogleAuth_CreateRequestSession(codeVerifier, refreshToken, requestHandler);
+            GoogleAuth_CreateRequestSession(codeVerifier, refreshToken, requestHandler);
 
             return requestHandler;
         }
 
-        private IdentityRequestSession GoogleAuth_CreateRequestSession(string codeVerifier, string refreshToken, IdentityRequestHandler requestHandler)
+        private void GoogleAuth_CreateRequestSession(string codeVerifier, string refreshToken, IdentityRequestHandler requestHandler)
         {
-            var session = _tokenManager.CreateTokenRequestSession(requestHandler);
+            var session = _tokenManager.CreateTokenRequestSession(requestHandler.Id);
             session.CodeVerifier = codeVerifier;
             session.IsOfflineAccess = string.IsNullOrEmpty(refreshToken) ? false : true;
 
             _tokenManager.UpdateTokenRequestSession(session);
-            return session;
         }
 
         private async Task<(string AccessToken, string IdToken, string RefreshToken, DateTime AccessTokenIssueAt)> GetGoogleInfo(SignInGoogleParameters parameters, GoogleSettings config)
@@ -1060,19 +1076,19 @@ namespace IssuerOfClaims.Controllers
         {
             var queryString = HttpContext.Request.QueryString.Value;
             if (queryString == null)
-                return StatusCode(400, "query is missing!");
+                return StatusCode((int)HttpStatusCode.BadRequest, ExceptionMessage.QUERYSTRING_NOT_NULL_OR_EMPTY);
             var queryBody = queryString.Remove(0, 1).Split("&");
 
             string clientId = queryBody.GetFromQueryString(JwtClaimTypes.ClientId);
             if (string.IsNullOrEmpty(clientId))
-                return StatusCode(400, "client id is missing!");
+                return StatusCode((int)HttpStatusCode.BadRequest, ExceptionMessage.CLIENTID_IS_REQUIRED);
             string email = queryBody.GetFromQueryString(JwtClaimTypes.Email);
             if (string.IsNullOrEmpty(email))
-                return StatusCode(400, "email is missing!");
+                return StatusCode((int)HttpStatusCode.BadRequest, ExceptionMessage.EMAIL_IS_MISSING);
 
             var client = _clientDbServices.Find(clientId);
             if (client == null)
-                return StatusCode(404, "client id may wrong!");
+                return StatusCode((int)HttpStatusCode.BadRequest, ExceptionMessage.CLIENTID_NOT_FOUND);
 
             // TODO: get user by email, by logic, username + email is unique for an user that is stored in db, but fow now, email may be duplicated for test
             var user = _applicationUserManager.Current.Users.FirstOrDefault(u => u.Email.Equals(email));
@@ -1090,6 +1106,14 @@ namespace IssuerOfClaims.Controllers
             var publicKey = _tokenManager.GetPublicKeyJson();
 
             return StatusCode((int)HttpStatusCode.OK, JsonConvert.SerializeObject(publicKey, Formatting.Indented));
+        }
+        #endregion
+
+        #region sharing functions
+        private void SuccessfulRequestHandle(IdentityRequestHandler requestHandler)
+        {
+            requestHandler.SuccessAt = DateTime.UtcNow;
+            _tokenManager.UpdateTokenRequestHandler(requestHandler);
         }
         #endregion
     }

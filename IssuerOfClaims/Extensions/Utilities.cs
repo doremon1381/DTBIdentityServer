@@ -159,5 +159,17 @@ namespace IssuerOfClaims.Extensions
             KeyValuePair<JsonEncodedText, JsonEncodedText> TokenTypePair,
             KeyValuePair<JsonEncodedText, JsonEncodedText> IdTokenPair);
 
+
+        public static Dictionary<DefaultResponseMessage, JsonEncodedText> ResponseMessages = new Dictionary<DefaultResponseMessage, JsonEncodedText>()
+        {
+            { DefaultResponseMessage.EmailIsConfirmed, JsonEncodedText.Encode("Email is confirmed!") },
+            { DefaultResponseMessage.ResponseModeNotAllowed, JsonEncodedText.Encode(ExceptionMessage.RESPONSE_MODE_NOT_ALLOWED) }
+        };
+    }
+
+    public enum DefaultResponseMessage
+    {
+        EmailIsConfirmed,
+        ResponseModeNotAllowed,
     }
 }

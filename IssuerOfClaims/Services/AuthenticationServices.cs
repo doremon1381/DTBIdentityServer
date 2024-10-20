@@ -1,4 +1,5 @@
 ﻿using Google.Apis.Auth.OAuth2.Responses;
+using IssuerOfClaims.Models;
 using IssuerOfClaims.Services.Database;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -20,11 +21,11 @@ namespace IssuerOfClaims.Services
     /// </summary>
     public class AuthenticationServices : AuthenticationHandler<JwtBearerOptions>
     {
-        private ITokenResponsePerHandlerDbServices _tokenResponsePerHandlerDbServices;
+        private ITokenForRequestHandlerDbServices _tokenResponsePerHandlerDbServices;
         private IApplicationUserManager _userManager;
 
         public AuthenticationServices(IOptionsMonitor<JwtBearerOptions> options, ILoggerFactory logger, UrlEncoder encoder,
-            ITokenResponsePerHandlerDbServices tokenResponsePerHandlerDbServices, IApplicationUserManager userManager)
+            ITokenForRequestHandlerDbServices tokenResponsePerHandlerDbServices, IApplicationUserManager userManager)
             : base(options, logger, encoder)
         {
             _tokenResponsePerHandlerDbServices = tokenResponsePerHandlerDbServices;
@@ -33,23 +34,30 @@ namespace IssuerOfClaims.Services
 
         protected async override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
-            var endpoint = this.Context.GetEndpoint();
-            if (endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() is object)
-                return AuthenticateResult.NoResult();
+            try
+            {
+                var endpoint = this.Context.GetEndpoint();
+                if (endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() is object)
+                    return AuthenticateResult.NoResult();
 
-            // user login
-            var authenticateInfor = this.Request.Headers.Authorization.ToString();
-            ValidateAuthenticateInfo(authenticateInfor);
+                // user login
+                var authenticateInfor = this.Request.Headers.Authorization.ToString();
+                ValidateAuthenticateInfo(authenticateInfor);
 
-            // WRONG_IMPLEMENT!
-            // TODO: need to change from get user by auth code to verify authcode and get user from username or password
-            UserIdentity user = GetUserUsingAuthenticationScheme(authenticateInfor);
-            ClaimsPrincipal claimsPrincipal = CreateClaimPrincipal(user);
+                // WRONG_IMPLEMENT!
+                // TODO: need to change from get user by auth code to verify authcode and get user from username or password
+                UserIdentity user = GetUserUsingAuthenticationScheme(authenticateInfor);
+                ClaimsPrincipal claimsPrincipal = CreateClaimPrincipal(user);
 
-            ValidateClaimsPrincipal(claimsPrincipal);
-            var ticket = IssueAuthenticationTicket(claimsPrincipal);
+                ValidateClaimsPrincipal(claimsPrincipal);
+                var ticket = IssueAuthenticationTicket(claimsPrincipal);
 
-            return AuthenticateResult.Success(ticket);
+                return AuthenticateResult.Success(ticket);
+            }
+            catch (Exception ex)
+            {
+                return AuthenticateResult.Fail(ex);
+            }
         }
 
         /// <summary>
@@ -108,15 +116,15 @@ namespace IssuerOfClaims.Services
         private void ValidateUser(UserIdentity user, string password)
         {
             if (user == null)
-                throw new InvalidOperationException("user is null!");
+                throw new CustomException("user is null!", System.Net.HttpStatusCode.BadRequest);
 
             if (string.IsNullOrEmpty(user.PasswordHash))
-                throw new InvalidOperationException("try another login method, because this user's password is not set!");
+                throw new CustomException("try another login method, because this user's password is not set!", System.Net.HttpStatusCode.BadRequest);
 
             var valid = _userManager.Current.PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
 
             if (valid == PasswordVerificationResult.Failed)
-                throw new Exception("wrong password!");
+                throw new CustomException("wrong password!", System.Net.HttpStatusCode.BadRequest);
         }
 
         private AuthenticationTicket IssueAuthenticationTicket(ClaimsPrincipal claimPrincipal)

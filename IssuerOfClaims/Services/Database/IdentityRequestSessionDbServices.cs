@@ -5,9 +5,9 @@ using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class TokenRequestSessionDbServices : DbTableServicesBase<IdentityRequestSession>, ITokenRequestSessionDbServices
+    public class IdentityRequestSessionDbServices : DbTableServicesBase<IdentityRequestSession>, IIdentityRequestSessionDbServices
     {
-        public TokenRequestSessionDbServices() 
+        public IdentityRequestSessionDbServices() 
         {
         }
 
@@ -16,11 +16,11 @@ namespace IssuerOfClaims.Services.Database
             throw new NotImplementedException();
         }
 
-        public IdentityRequestSession CreateTokenRequestSession(IdentityRequestHandler requestHandler)
+        public IdentityRequestSession CreateTokenRequestSession(Guid requestHandlerId)
         {
             IdentityRequestSession obj = new IdentityRequestSession()
             {
-                IdentityRequestHandlerId = requestHandler.Id
+                IdentityRequestHandlerId = requestHandlerId
             };
 
             UsingDbSetWithSaveChanges(dbSet => 
@@ -51,10 +51,10 @@ namespace IssuerOfClaims.Services.Database
         //}
     }
 
-    public interface ITokenRequestSessionDbServices : IDbContextBase<IdentityRequestSession>
+    public interface IIdentityRequestSessionDbServices : IDbContextBase<IdentityRequestSession>
     {
         IdentityRequestSession FindByAccessToken(string accessToken);
-        IdentityRequestSession CreateTokenRequestSession(IdentityRequestHandler requestHandler);
+        IdentityRequestSession CreateTokenRequestSession(Guid requestHandlerId);
         IdentityRequestSession FindById(int id);
         //bool Update(TokenRequestSession aCFProcessSession);
     }

@@ -213,6 +213,15 @@ namespace ServerUltilities.Identity
         //    public static readonly string ServiceVersion = IssuerOfClaims.Tracing.ServiceVersion;
         //}
 
+        public static class UserInforResponse
+        {
+            public const string Sub = "sub";
+            public const string Name = "name";
+            public const string Email = "email";
+            public const string EmailConfirmed = "email_confirmed";
+            public const string Picture = "picture";
+        }
+
         public static class ContentSecurityPolicyHashes
         {
             /// <summary>

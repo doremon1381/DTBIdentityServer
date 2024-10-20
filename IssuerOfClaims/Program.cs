@@ -34,11 +34,10 @@ namespace IssuerOfClaims
             builder.Services.AddTransient<IRoleDbServices, RoleDbServices>();
             builder.Services.AddTransient<IConfirmEmailDbServices, ConfirmEmailDbServices>();
             builder.Services.AddTransient<ITokenResponseDbServices, TokenResponseDbServices>();
-            builder.Services.AddTransient<ITokenRequestSessionDbServices, TokenRequestSessionDbServices>();
-            builder.Services.AddTransient<ITokenResponsePerHandlerDbServices, TokenResponsePerHandlerDbServices>();
-            builder.Services.AddTransient<ITokenRequestHandlerDbServices, TokenRequestHandlerDbServices>();
+            builder.Services.AddTransient<IIdentityRequestSessionDbServices, IdentityRequestSessionDbServices>();
+            builder.Services.AddTransient<ITokenForRequestHandlerDbServices, TokenForRequestHandlerDbServices>();
+            builder.Services.AddTransient<IIdentityRequestHandlerDbServices, IdentityRequestHandlerDbServices>();
             builder.Services.AddTransient<IEmailServices, EmailServices>();
-            //builder.Services.AddTransient<IRsaSh256KeyPairDbServices, RsaSh256KeyPairDbServices>();
             builder.Services.AddTransient<ITokenManager, TokenManager>();
 
             // TODO: will add later

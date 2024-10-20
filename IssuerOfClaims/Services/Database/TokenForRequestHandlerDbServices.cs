@@ -4,12 +4,13 @@ using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
 using System.Net;
+using static ServerUltilities.Identity.OidcConstants;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class TokenResponsePerHandlerDbServices : DbTableServicesBase<TokenForRequestHandler>, ITokenResponsePerHandlerDbServices
+    public class TokenForRequestHandlerDbServices : DbTableServicesBase<TokenForRequestHandler>, ITokenForRequestHandlerDbServices
     {
-        public TokenResponsePerHandlerDbServices() 
+        public TokenForRequestHandlerDbServices() 
         {
         }
 
@@ -40,11 +41,11 @@ namespace IssuerOfClaims.Services.Database
                 obj = _tokenResponses
                     .Include(t => t.TokenResponse)
                     .Include(t => t.IdentityRequestHandler).ThenInclude(h => h.User)
-                    .Where(t => t.TokenResponse.TokenType.Equals(TokenType.AccessToken))
+                    .Where(t => t.TokenResponse.TokenType.Equals(TokenTypes.AccessToken))
                     .First(r => r.TokenResponse.Token.Equals(accessToken));
             });
 
-            ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(TokenResponsePerHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
+            ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(TokenForRequestHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
 
             return obj;
         }
@@ -61,8 +62,8 @@ namespace IssuerOfClaims.Services.Database
         {
             var filter = needAccessToken switch
             {
-                true => new Func<TokenForRequestHandler, bool>((t) => t.TokenResponse.TokenType.Equals(TokenType.AccessToken) && t.TokenResponse.ExternalSource == string.Empty),
-                false => new Func<TokenForRequestHandler, bool>((t) => t.TokenResponse.TokenType.Equals(TokenType.RefreshToken) && t.TokenResponse.ExternalSource == string.Empty)
+                true => new Func<TokenForRequestHandler, bool>((t) => t.TokenResponse.TokenType.Equals(TokenTypes.AccessToken) && t.TokenResponse.ExternalSource == string.Empty),
+                false => new Func<TokenForRequestHandler, bool>((t) => t.TokenResponse.TokenType.Equals(TokenTypes.RefreshToken) && t.TokenResponse.ExternalSource == string.Empty)
             };
 
             TokenForRequestHandler? obj = null;
@@ -82,7 +83,7 @@ namespace IssuerOfClaims.Services.Database
         }
     }
 
-    public interface ITokenResponsePerHandlerDbServices : IDbContextBase<TokenForRequestHandler>
+    public interface ITokenForRequestHandlerDbServices : IDbContextBase<TokenForRequestHandler>
     {
         TokenForRequestHandler GetDraftObject();
         TokenForRequestHandler FindByAccessToken(string accessToken);

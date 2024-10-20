@@ -22,13 +22,6 @@ namespace ServerDbModels
         public List<TokenForRequestHandler> TokensPerIdentityRequests { get; set; } = new List<TokenForRequestHandler>();
     }
 
-    public static class TokenType
-    {
-        public const string AccessToken = "access_token";
-        public const string IdToken = "id_token";
-        public const string RefreshToken = "refresh_token";
-    }
-
     public static class ExternalSources
     {
         public const string Google = "Google";

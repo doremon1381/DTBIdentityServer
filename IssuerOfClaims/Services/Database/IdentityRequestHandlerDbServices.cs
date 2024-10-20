@@ -7,11 +7,11 @@ using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class TokenRequestHandlerDbServices : DbTableServicesBase<IdentityRequestHandler>, ITokenRequestHandlerDbServices
+    public class IdentityRequestHandlerDbServices : DbTableServicesBase<IdentityRequestHandler>, IIdentityRequestHandlerDbServices
     {
         //private readonly ILogger _logger;
 
-        public TokenRequestHandlerDbServices(ILoggerFactory logger)
+        public IdentityRequestHandlerDbServices(ILoggerFactory logger)
         {
         }
 
@@ -28,7 +28,7 @@ namespace IssuerOfClaims.Services.Database
                 obj = obj1.First(l => l.RequestSession != null && l.RequestSession.AuthorizationCode != null && l.RequestSession.AuthorizationCode.Equals(authorizationCode));
             });
 
-            ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(TokenRequestHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
+            ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(IdentityRequestHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
             //_logger.LogInformation($"current thread id is {Thread.CurrentThread.ManagedThreadId}");
 
             return obj;
@@ -48,7 +48,7 @@ namespace IssuerOfClaims.Services.Database
                 .First(t => t.Id.Equals(currentRequestHandlerId));
             });
 
-            ValidateEntity(obj, HttpStatusCode.NotFound, $"{nameof(TokenRequestHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
+            ValidateEntity(obj, HttpStatusCode.NotFound, $"{nameof(IdentityRequestHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
 
             return obj;
         }
@@ -75,7 +75,7 @@ namespace IssuerOfClaims.Services.Database
         //       : instead of search from db, save 100 session in used, and get it from memory (from authorization code, or id_token) is easier than query 100 object from 100.000 object table...
     }
 
-    public interface ITokenRequestHandlerDbServices : IDbContextBase<IdentityRequestHandler>
+    public interface IIdentityRequestHandlerDbServices : IDbContextBase<IdentityRequestHandler>
     {
         IdentityRequestHandler FindByAuthorizationCode(string authorizationCode);
         IdentityRequestHandler FindById(Guid currentRequestHandlerId);

@@ -2,6 +2,7 @@
 using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
+using ServerUltilities.Identity;
 using System.Net;
 
 namespace IssuerOfClaims.Services.Database
@@ -16,7 +17,7 @@ namespace IssuerOfClaims.Services.Database
         {
             var obj = new TokenResponse() 
             {
-                TokenType = TokenType.AccessToken
+                TokenType = OidcConstants.TokenTypes.AccessToken
             };
 
             UsingDbSetWithSaveChanges((tokenResponses) =>
@@ -31,7 +32,7 @@ namespace IssuerOfClaims.Services.Database
         {
             var obj = new TokenResponse()
             {
-                TokenType = TokenType.IdToken
+                TokenType = OidcConstants.TokenTypes.IdentityToken
             };
 
             UsingDbSetWithSaveChanges((tokenResponses) =>
@@ -46,7 +47,7 @@ namespace IssuerOfClaims.Services.Database
         {
             var obj = new TokenResponse()
             {
-                TokenType = TokenType.RefreshToken
+                TokenType = OidcConstants.TokenTypes.RefreshToken
             };
 
             UsingDbSetWithSaveChanges((tokenResponses) =>

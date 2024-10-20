@@ -25,23 +25,26 @@ namespace IssuerOfClaims.Services.Token
     public class TokenManager : ITokenManager
     {
         private readonly ITokenResponseDbServices _tokenResponseDbServices;
-        private readonly ITokenResponsePerHandlerDbServices _tokensPerIdentityRequestDbServices;
-        private readonly ITokenRequestSessionDbServices _tokenRequestSessionDbServices;
-        private readonly ITokenRequestHandlerDbServices _tokenRequestHandlerDbServices;
+        private readonly ITokenForRequestHandlerDbServices _tokensPerIdentityRequestDbServices;
+        private readonly IIdentityRequestSessionDbServices _tokenRequestSessionDbServices;
+        private readonly IIdentityRequestHandlerDbServices _tokenRequestHandlerDbServices;
+        private readonly GoogleSettings _googleClientSettings;
 
         public TokenManager(ITokenResponseDbServices tokenResponseDbServices
-            , ITokenResponsePerHandlerDbServices tokenResponsePerHandlerDbServices, ITokenRequestSessionDbServices tokenRequestSessionDbServices
-            , ITokenRequestHandlerDbServices tokenRequestHandlerDbServices)
+            , ITokenForRequestHandlerDbServices tokenResponsePerHandlerDbServices, IIdentityRequestSessionDbServices tokenRequestSessionDbServices
+            , IIdentityRequestHandlerDbServices tokenRequestHandlerDbServices, IConfigurationManager configuration)
         {
             _tokenResponseDbServices = tokenResponseDbServices;
             _tokensPerIdentityRequestDbServices = tokenResponsePerHandlerDbServices;
             _tokenRequestSessionDbServices = tokenRequestSessionDbServices;
 
             _tokenRequestHandlerDbServices = tokenRequestHandlerDbServices;
+
+            _googleClientSettings = configuration.GetSection("GoogleClient").Get<GoogleSettings>();
         }
 
         // TODO: will check again
-        public string IssueTokenForRefreshToken(TokenResponse currentRefreshToken)
+        public async Task<string> IssueTokenForRefreshToken(TokenResponse currentRefreshToken)
         {
             ValidateRefreshToken(currentRefreshToken);
 
@@ -52,10 +55,10 @@ namespace IssuerOfClaims.Services.Token
             // create new access token if it's expired, if access token is created new, remove the old, add the new one into previous authenticate session
             // create new refresh token if it's expired, if refresh token is created new, remove the old, add the new one into previous authenticate session
 
-            var accessToken = RefreshAccessToken_IssuseToken(tokenRequestHandler, tokenRequestHandler.TokensPerRequestHandlers.First(t => t.TokenResponse.TokenType.Equals(TokenType.AccessToken)), TokenType.AccessToken);
-            var idToken = UsingRefreshToken_IssuseIdToken(tokenRequestHandler, tokenRequestHandler.TokensPerRequestHandlers.First(t => t.TokenResponse.TokenType.Equals(TokenType.IdToken)));
+            var accessToken = RefreshAccessToken_IssuseToken(tokenRequestHandler, tokenRequestHandler.TokensPerRequestHandlers.First(t => t.TokenResponse.TokenType.Equals(OidcConstants.TokenTypes.AccessToken)), OidcConstants.TokenTypes.AccessToken);
+            var idToken = UsingRefreshToken_IssuseIdToken(tokenRequestHandler, tokenRequestHandler.TokensPerRequestHandlers.First(t => t.TokenResponse.TokenType.Equals(OidcConstants.TokenTypes.IdentityToken)));
 
-            var responseBody = Utilities.CreateTokenResponseStringAsync(accessToken.Token, idToken.Token, (long)(accessToken.TokenExpiried - DateTime.Now).Value.TotalSeconds).Result;
+            var responseBody = await Utilities.CreateTokenResponseStringAsync(accessToken.Token, idToken.Token, (long)(accessToken.TokenExpiried - DateTime.Now).Value.TotalSeconds);
 
             return responseBody;
         }
@@ -63,7 +66,7 @@ namespace IssuerOfClaims.Services.Token
         private void ValidateRefreshToken(TokenResponse currentRefreshToken)
         {
             if (currentRefreshToken.TokenExpiried <= DateTime.Now)
-                throw new CustomException("Refresh token is expired!", HttpStatusCode.Unauthorized);
+                throw new CustomException(ExceptionMessage.REFRESH_TOKEN_EXPIRED, HttpStatusCode.Unauthorized);
         }
 
         /// <summary>
@@ -73,7 +76,7 @@ namespace IssuerOfClaims.Services.Token
         /// <returns></returns>
         private TokenResponse UsingRefreshToken_IssuseIdToken(IdentityRequestHandler currentRequestHandler, TokenForRequestHandler tokenResponsePerIdentityRequest)
         {
-            TokenResponse idToken = CreateToken(TokenType.IdToken);
+            TokenResponse idToken = CreateToken(OidcConstants.TokenTypes.IdentityToken);
             var idTokenValue = GenerateIdTokenAsync(currentRequestHandler.User, currentRequestHandler.RequestSession.Scope, ""
                 , currentRequestHandler.Client.ClientId, currentRequestHandler.SuccessAt.Value.ToString()).Result;
 
@@ -131,11 +134,11 @@ namespace IssuerOfClaims.Services.Token
                 if (latestRefreshToken == null
                     || latestRefreshToken.TokenResponse == null)
                 {
-                    refreshToken = CreateToken(TokenType.RefreshToken);
+                    refreshToken = CreateToken(OidcConstants.TokenTypes.RefreshToken);
 
                     // latest access token can be used
                     // , by logic of creation token response, those two (access-refresh token) will go along as a pair
-                    if (latestAccessToken != null && latestAccessToken.TokenResponse.TokenExpiried >= DateTime.Now)
+                    if (latestAccessToken.TokenResponse.TokenExpiried > DateTime.Now)
                     {
                         accessToken = latestAccessToken.TokenResponse;
                         accessTokenExpiredTime = (latestAccessToken.TokenResponse.TokenExpiried - DateTime.Now).Value.TotalSeconds;
@@ -144,15 +147,15 @@ namespace IssuerOfClaims.Services.Token
                     else
                     {
                         // if expired, create new
-                        accessToken = CreateToken(TokenType.AccessToken);
+                        accessToken = CreateToken(OidcConstants.TokenTypes.AccessToken);
                     }
                 }
                 // latest token response has refresh token
                 else if (latestRefreshToken != null && latestRefreshToken.TokenResponse != null)
                 {
                     // access token and refresh token can be re-used 
-                    if (latestAccessToken.TokenResponse.TokenExpiried >= DateTime.Now
-                        && latestRefreshToken.TokenResponse.TokenExpiried >= DateTime.Now)
+                    if (latestAccessToken.TokenResponse.TokenExpiried > DateTime.Now
+                        && latestRefreshToken.TokenResponse.TokenExpiried > DateTime.Now)
                     {
                         accessToken = latestAccessToken.TokenResponse;
                         refreshToken = latestRefreshToken.TokenResponse;
@@ -160,23 +163,23 @@ namespace IssuerOfClaims.Services.Token
                         accessTokenExpiredTime = (accessToken.TokenExpiried - DateTime.Now).Value.TotalSeconds;
                     }
                     // refresh token can be re-used, but not access token
-                    else if (latestAccessToken.TokenResponse.TokenExpiried < DateTime.Now
-                            && latestRefreshToken.TokenResponse.TokenExpiried >= DateTime.Now)
+                    else if (latestAccessToken.TokenResponse.TokenExpiried <= DateTime.Now
+                            && latestRefreshToken.TokenResponse.TokenExpiried > DateTime.Now)
                     {
                         // access token expired time may over the refresh token expired time
                         TimeSpan diff = (TimeSpan)(latestRefreshToken.TokenResponse.TokenExpiried - DateTime.Now);
                         var expiredTime = diff.TotalSeconds < 3600 ? DateTime.Now.AddSeconds(diff.TotalSeconds)
                             : DateTime.Now.AddHours(1);
 
-                        accessToken = CreateToken(TokenType.AccessToken, expiredTime);
+                        accessToken = CreateToken(OidcConstants.TokenTypes.AccessToken, expiredTime);
                         refreshToken = latestRefreshToken.TokenResponse;
                     }
                     // neither access token and refresh token cant be re-used
-                    else if (latestAccessToken.TokenResponse.TokenExpiried < DateTime.Now
-                        && latestRefreshToken.TokenResponse.TokenExpiried < DateTime.Now)
+                    else if (latestAccessToken.TokenResponse.TokenExpiried <= DateTime.Now
+                        && latestRefreshToken.TokenResponse.TokenExpiried <= DateTime.Now)
                     {
-                        accessToken = CreateToken(TokenType.AccessToken);
-                        refreshToken = CreateToken(TokenType.RefreshToken);
+                        accessToken = CreateToken(OidcConstants.TokenTypes.AccessToken);
+                        refreshToken = CreateToken(OidcConstants.TokenTypes.RefreshToken);
                     }
                     #region for test
                     //else if (latestAccessToken.TokenResponse.TokenExpiried > DateTime.Now
@@ -202,14 +205,12 @@ namespace IssuerOfClaims.Services.Token
             else if (!isOfflineAccess)
             {
                 // latest access token can be used
-                if (latestAccessToken != null && latestAccessToken.TokenResponse.TokenExpiried >= DateTime.Now)
-                {
+                if (latestAccessToken != null && latestAccessToken.TokenResponse.TokenExpiried > DateTime.Now)
                     accessToken = latestAccessToken.TokenResponse;
-                }
                 else
                 {
                     // create new 
-                    accessToken = CreateToken(TokenType.AccessToken);
+                    accessToken = CreateToken(OidcConstants.TokenTypes.AccessToken);
                 }
             }
 
@@ -234,7 +235,7 @@ namespace IssuerOfClaims.Services.Token
         //     : ID Token value associated with the authenticated session.
         private TokenResponse ACF_CreateIdToken(IdentityRequestHandler currentRequestHandler, string clientId)
         {
-            TokenResponse tokenResponse = CreateToken(TokenType.IdToken);
+            TokenResponse tokenResponse = CreateToken(OidcConstants.TokenTypes.IdentityToken);
             var idToken = GenerateIdTokenAsync(currentRequestHandler.User, currentRequestHandler.RequestSession.Scope, currentRequestHandler.RequestSession.Nonce, clientId).Result;
             tokenResponse.Token = idToken;
 
@@ -257,25 +258,25 @@ namespace IssuerOfClaims.Services.Token
 
             var tokenResponse = tokenType switch
             {
-                TokenType.AccessToken => _tokenResponseDbServices.CreateAccessToken(),
-                TokenType.RefreshToken => _tokenResponseDbServices.CreateRefreshToken(),
-                TokenType.IdToken => _tokenResponseDbServices.CreateIdToken(),
+                OidcConstants.TokenTypes.AccessToken => _tokenResponseDbServices.CreateAccessToken(),
+                OidcConstants.TokenTypes.RefreshToken => _tokenResponseDbServices.CreateRefreshToken(),
+                OidcConstants.TokenTypes.IdentityToken => _tokenResponseDbServices.CreateIdToken(),
                 _ => throw new InvalidOperationException($"{this.GetType().Name}: Something is wrong!")
             };
 
             tokenResponse.Token = tokenType switch
             {
-                TokenType.AccessToken => token,
-                TokenType.RefreshToken => token,
-                TokenType.IdToken => string.Empty,
+                OidcConstants.TokenTypes.AccessToken => token,
+                OidcConstants.TokenTypes.RefreshToken => token,
+                OidcConstants.TokenTypes.IdentityToken => string.Empty,
                 _ => throw new InvalidOperationException($"{this.GetType().Name}: Something is wrong!")
             };
 
             tokenResponse.TokenExpiried = tokenType switch
             {
-                TokenType.AccessToken => expiredTime == null ? DateTime.Now.AddHours(1) : expiredTime,
-                TokenType.RefreshToken => expiredTime == null ? DateTime.Now.AddHours(4) : expiredTime,
-                TokenType.IdToken => expiredTime == null ? DateTime.Now.AddHours(1) : expiredTime,
+                OidcConstants.TokenTypes.AccessToken => expiredTime == null ? DateTime.Now.AddHours(1) : expiredTime,
+                OidcConstants.TokenTypes.RefreshToken => expiredTime == null ? DateTime.Now.AddHours(4) : expiredTime,
+                OidcConstants.TokenTypes.IdentityToken => expiredTime == null ? DateTime.Now.AddHours(1) : expiredTime,
                 _ => throw new InvalidOperationException($"{this.GetType().Name}: Something is wrong!")
             };
 
@@ -550,9 +551,9 @@ namespace IssuerOfClaims.Services.Token
         }
         #endregion
 
-        public IdentityRequestSession CreateTokenRequestSession(IdentityRequestHandler requestHandler)
+        public IdentityRequestSession CreateTokenRequestSession(Guid requestHandlerId)
         {
-            return _tokenRequestSessionDbServices.CreateTokenRequestSession(requestHandler);
+            return _tokenRequestSessionDbServices.CreateTokenRequestSession(requestHandlerId);
         }
 
         public IdentityRequestHandler GetDraftTokenRequestHandler()
@@ -582,7 +583,7 @@ namespace IssuerOfClaims.Services.Token
 
         public TokenResponse FindRefreshToken(string refreshToken)
         {
-            return _tokenResponseDbServices.Find(refreshToken, TokenType.RefreshToken);
+            return _tokenResponseDbServices.Find(refreshToken, OidcConstants.TokenTypes.RefreshToken);
         }
 
         public RSAParameters GetPublicKeyJson()
@@ -593,12 +594,12 @@ namespace IssuerOfClaims.Services.Token
         public bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken, long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt
             , IdentityRequestHandler requestHandler, string externalSource)
         {
-            var _accessToken = SaveExternalSourceToken(accessToken, accessTokenIssueAt, accessTokenIssueAt.AddSeconds(3600), externalSource, TokenType.AccessToken);
-            var _idToken = SaveExternalSourceToken(idToken, Utilities.TimeSecondsToDateTime(idToken_issuedAtTimeSeconds), Utilities.TimeSecondsToDateTime(idToken_expirationTimeSeconds), externalSource, TokenType.IdToken);
+            var _accessToken = SaveExternalSourceToken(accessToken, accessTokenIssueAt, accessTokenIssueAt.AddSeconds(3600), externalSource, OidcConstants.TokenTypes.AccessToken);
+            var _idToken = SaveExternalSourceToken(idToken, Utilities.TimeSecondsToDateTime(idToken_issuedAtTimeSeconds), Utilities.TimeSecondsToDateTime(idToken_expirationTimeSeconds), externalSource, OidcConstants.TokenTypes.IdentityToken);
 
             if (refreshToken != null)
             {
-                var _refreshToken = SaveExternalSourceToken(accessToken, null, null, externalSource, TokenType.RefreshToken);
+                var _refreshToken = SaveExternalSourceToken(accessToken, null, null, externalSource, OidcConstants.TokenTypes.RefreshToken);
                 CreateTokenResponsePerIdentityRequest(requestHandler, _refreshToken);
             }
 
@@ -618,10 +619,60 @@ namespace IssuerOfClaims.Services.Token
             return token;
         }
 
-        public string RefreshAccessTokenFromExternalSource(TokenResponse refreshToken)
+        public async Task<string> RefreshAccessTokenFromExternalSourceAsync(string refreshToken, string externalSource)
         {
-            //HttpWebRequest refreshAccessToken = ()WebRequest.Create();
-            return "";
+            ValidateRefreshToken(refreshToken);
+            // send request to google to refresh access token 
+            var token = externalSource switch
+            {
+                ExternalSources.Google => await Google_RefershAccessToken(refreshToken),
+                _ => throw new CustomException("Other external source is not implemented!", HttpStatusCode.NotImplemented)
+            };
+            return token;
+        }
+
+        private static bool ValidateRefreshToken(string refreshToken)
+        {
+            if (string.IsNullOrEmpty(refreshToken))
+                throw new CustomException("Refresh Token is null or empty", HttpStatusCode.NotAcceptable);
+
+            return true;
+        }
+
+        private async Task<string> Google_RefershAccessToken(string refreshToken)
+        {
+            var content = string.Format("client_id={0}&client_secret={1}&refresh_token={2}&grant_type=refresh_token"
+                , _googleClientSettings.ClientId
+                , _googleClientSettings.ClientSecret
+                , refreshToken);
+
+            HttpWebRequest refreshRequest = (HttpWebRequest)WebRequest.Create(_googleClientSettings.TokenUri);
+            refreshRequest.Method = "POST";
+            refreshRequest.ContentType = "application/x-www-form-urlencoded";
+            refreshRequest.Accept = "Accept=text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
+            byte[] bytes = Encoding.ASCII.GetBytes(content);
+            refreshRequest.ContentLength = bytes.Length;
+            var stream = refreshRequest.GetRequestStream();
+            await stream.WriteAsync(bytes, 0, bytes.Length);
+            stream.Close();
+
+            string responseText = "";
+
+            WebResponse response = await refreshRequest.GetResponseAsync();
+            using(StreamReader reader = new StreamReader(response.GetResponseStream()))
+            {
+                responseText = await reader.ReadToEndAsync();
+            }
+
+            return responseText;
+        }
+
+        public string IGF_IssueToken(string state, IdentityRequestHandler requestHandler)
+        {
+            var accessToken = CreateToken(OidcConstants.TokenTypes.AccessToken);
+            CreateTokenResponsePerIdentityRequest(requestHandler, accessToken);
+
+            return accessToken.Token;
         }
     }
 
@@ -629,9 +680,9 @@ namespace IssuerOfClaims.Services.Token
     {
         string ACF_IssueToken(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId);
         bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken, long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt, IdentityRequestHandler requestHandler, string externalSource);
-        string IssueTokenForRefreshToken(TokenResponse previousRefreshResponse);
+        Task<string> IssueTokenForRefreshToken(TokenResponse previousRefreshResponse);
         Task<string> GenerateIdTokenAsync(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "");
-        IdentityRequestSession CreateTokenRequestSession(IdentityRequestHandler requestHandler);
+        IdentityRequestSession CreateTokenRequestSession(Guid requestHandlerId);
         IdentityRequestHandler GetDraftTokenRequestHandler();
         bool UpdateTokenRequestHandler(IdentityRequestHandler tokenRequestHandler);
         bool UpdateTokenRequestSession(IdentityRequestSession aCFProcessSession);
@@ -639,6 +690,7 @@ namespace IssuerOfClaims.Services.Token
         IdentityRequestSession FindRequestSessionById(int id);
         TokenResponse FindRefreshToken(string refreshToken);
         RSAParameters GetPublicKeyJson();
-        string RefreshAccessTokenFromExternalSource(TokenResponse refreshToken);
+        Task<string> RefreshAccessTokenFromExternalSourceAsync(string refreshToken, string externalSource);
+        string IGF_IssueToken(string state, IdentityRequestHandler requestHandler);
     }
 }

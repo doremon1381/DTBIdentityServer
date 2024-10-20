@@ -28,7 +28,7 @@ namespace IssuerOfClaims.Models.Request
         // TODO: because in implicit grant flow, redirectUri is use to redirect to user-agent, 
         //     : in logically, client does not know it before user-agent send a redirect_uri to client
         //     : with browser's work, I think many browser can be user-agent, so it will be safe when client asks for redirect_uri from user-agent
-        public Parameter RedirectUri { get; private set; }
+        //public Parameter RedirectUri { get; private set; }
 
         // TODO: need to compare with existing client in memory or database
         public Parameter ClientId { get; private set; }

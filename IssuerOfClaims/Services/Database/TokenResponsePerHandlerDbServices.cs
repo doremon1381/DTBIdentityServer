@@ -7,15 +7,15 @@ using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class TokenResponsePerHandlerDbServices : DbTableBase<TokenResponsePerIdentityRequest>, ITokenResponsePerHandlerDbServices
+    public class TokenResponsePerHandlerDbServices : DbTableServicesBase<TokenForRequestHandler>, ITokenResponsePerHandlerDbServices
     {
         public TokenResponsePerHandlerDbServices() 
         {
         }
 
-        public TokenResponsePerIdentityRequest CreatNew()
+        public TokenForRequestHandler CreatNew()
         {
-            var obj = new TokenResponsePerIdentityRequest();
+            var obj = new TokenForRequestHandler();
 
             UsingDbSetWithSaveChanges(_tokenResponses => 
             {
@@ -25,21 +25,21 @@ namespace IssuerOfClaims.Services.Database
             return obj;
         }
 
-        public TokenResponsePerIdentityRequest GetDraftObject()
+        public TokenForRequestHandler GetDraftObject()
         {
-            var obj = new TokenResponsePerIdentityRequest();
+            var obj = new TokenForRequestHandler();
             return obj;
         }
 
-        public TokenResponsePerIdentityRequest FindByAccessToken(string accessToken)
+        public TokenForRequestHandler FindByAccessToken(string accessToken)
         {
-            TokenResponsePerIdentityRequest obj = null;
+            TokenForRequestHandler obj = null;
 
             UsingDbSet(_tokenResponses => 
             {
                 obj = _tokenResponses
                     .Include(t => t.TokenResponse)
-                    .Include(t => t.TokenRequestHandler).ThenInclude(h => h.User)
+                    .Include(t => t.IdentityRequestHandler).ThenInclude(h => h.User)
                     .Where(t => t.TokenResponse.TokenType.Equals(TokenType.AccessToken))
                     .First(r => r.TokenResponse.Token.Equals(accessToken));
             });
@@ -49,22 +49,30 @@ namespace IssuerOfClaims.Services.Database
             return obj;
         }
 
-        public TokenResponsePerIdentityRequest? FindLast(int userId, int clientId, bool needAccessToken = true, bool issuedByLocal = true)
+        /// <summary>
+        /// TODO: local authentication will not use token from external source
+        /// </summary>
+        /// <param name="userId"></param>
+        /// <param name="clientId"></param>
+        /// <param name="needAccessToken"></param>
+        /// <param name="issuedByLocal"></param>
+        /// <returns></returns>
+        public TokenForRequestHandler? FindLast(Guid userId, Guid clientId, bool needAccessToken = true, bool issuedByLocal = true)
         {
             var filter = needAccessToken switch
             {
-                true => new Func<TokenResponsePerIdentityRequest, bool>((t) => t.TokenResponse.TokenType.Equals(TokenType.AccessToken)),
-                false => new Func<TokenResponsePerIdentityRequest, bool>((t) => t.TokenResponse.TokenType.Equals(TokenType.RefreshToken))
+                true => new Func<TokenForRequestHandler, bool>((t) => t.TokenResponse.TokenType.Equals(TokenType.AccessToken) && t.TokenResponse.ExternalSource == string.Empty),
+                false => new Func<TokenForRequestHandler, bool>((t) => t.TokenResponse.TokenType.Equals(TokenType.RefreshToken) && t.TokenResponse.ExternalSource == string.Empty)
             };
 
-            TokenResponsePerIdentityRequest? obj = null;
+            TokenForRequestHandler? obj = null;
             UsingDbSet(_tokenResponses => 
             {
                 obj = _tokenResponses
                         .Include(t => t.TokenResponse)
-                        .Include(t => t.TokenRequestHandler).ThenInclude(h => h.TokenRequestSession)
+                        .Include(t => t.IdentityRequestHandler).ThenInclude(h => h.RequestSession)
                         .Where(filter)
-                        .LastOrDefault(t => t.TokenRequestHandler.UserId == userId && t.TokenRequestHandler.TokenRequestSession.ClientId == clientId);
+                        .LastOrDefault(t => t.IdentityRequestHandler.UserId == userId && t.IdentityRequestHandler.ClientId == clientId);
             });
 
             // TODO:
@@ -74,11 +82,11 @@ namespace IssuerOfClaims.Services.Database
         }
     }
 
-    public interface ITokenResponsePerHandlerDbServices : IDbContextBase<TokenResponsePerIdentityRequest>
+    public interface ITokenResponsePerHandlerDbServices : IDbContextBase<TokenForRequestHandler>
     {
-        TokenResponsePerIdentityRequest GetDraftObject();
-        TokenResponsePerIdentityRequest FindByAccessToken(string accessToken);
-        TokenResponsePerIdentityRequest CreatNew();
-        TokenResponsePerIdentityRequest? FindLast(int userId, int clientId, bool needAccessToken = true, bool issuedByLocal = true);
+        TokenForRequestHandler GetDraftObject();
+        TokenForRequestHandler FindByAccessToken(string accessToken);
+        TokenForRequestHandler CreatNew();
+        TokenForRequestHandler? FindLast(Guid userId, Guid clientId, bool needAccessToken = true, bool issuedByLocal = true);
     }
 }

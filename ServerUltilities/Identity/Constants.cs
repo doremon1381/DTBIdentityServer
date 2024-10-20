@@ -387,8 +387,9 @@ namespace ServerUltilities.Identity
         {
             // TODO: by now, register user need client_id, I think only accept a register request from client, but will create another website for user register
             public const string ClientId = "client_id";
-            public const string RedirectUri = "redirect_uri";
+            //public const string RedirectUri = "redirect_uri";
             public const string State = "state";
+            // TODO: allow nonce for now
             public const string Nonce = "nonce";
 
             public const string UserName = "UserName";

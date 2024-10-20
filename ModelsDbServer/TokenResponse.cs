@@ -3,9 +3,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ServerDbModels
 {
-    [Table("TokenResponses")]
+    [Table($"{nameof(TokenResponse)}s")]
     [PrimaryKey(nameof(Id))]
-    public class TokenResponse : DbTableBase
+    public class TokenResponse : DbTableBase<Guid>
     {
         public string Token { get; set; } = string.Empty;
 
@@ -19,7 +19,7 @@ namespace ServerDbModels
         public DateTime? TokenExpiried { get; set; }
         public DateTime? IssueAt { get; set; }
 
-        public List<TokenResponsePerIdentityRequest> TokenResponsePerHandler { get; set; } = new List<TokenResponsePerIdentityRequest>();
+        public List<TokenForRequestHandler> TokensPerIdentityRequests { get; set; } = new List<TokenForRequestHandler>();
     }
 
     public static class TokenType

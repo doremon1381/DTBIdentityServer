@@ -7,10 +7,10 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace ServerDbModels
 {
 #if IdentityServer
-    [Table("Clients")]
+    [Table($"{nameof(Client)}s")]
     [PrimaryKey(nameof(Id))]
 #endif
-    public class Client : DbTableBase
+    public class Client : DbTableBase<Guid>
     {
 #if IdentityServer
         [Required]
@@ -33,7 +33,7 @@ namespace ServerDbModels
         public string FrontChannelLogoutUri { get; set; }
         public string AllowedScopes { get; set; }
         public string AuthProviderX509CertUrl { get; set; }
-        public List<TokenRequestSession> TokenRequestSession { get; set; } = new List<TokenRequestSession>();
+        public List<IdentityRequestHandler> TokenRequestHandlers { get; set; } = new List<IdentityRequestHandler>();
 
         public Client()
         {

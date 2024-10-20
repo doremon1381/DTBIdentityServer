@@ -19,7 +19,7 @@
 
         public const string RESPONSE_TYPE_NOT_SUPPORTED = "Response type is not supported!";
 
-        public const string USER_ALREADY_EXISTS = "user with this username is already exist!";
+        public const string USER_ALREADY_EXISTS = "username or email is already exist!";
 
         public const string OBJECT_IS_NULL = "Object is null!";
         public const string OBJECT_NOT_FOUND = "Object is not found!";

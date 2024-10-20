@@ -11,20 +11,28 @@ namespace ServerDbModels
     /// <summary>
     /// Use TokenRequestHandler for receiving request data, storing requested parameter for issuing token and assembling response's value
     /// </summary>
-    [Table("TokenRequestHandlers")]
+    [Table($"{nameof(IdentityRequestHandler)}s")]
     [PrimaryKey(nameof(Id))]
-    public class TokenRequestHandler : DbTableBase
+    public class IdentityRequestHandler : DbTableBase<Guid>
     {
-        public TokenRequestSession TokenRequestSession { get; set; }
+        public IdentityRequestSession? RequestSession { get; set; }
 
         [ForeignKey(nameof(UserId))]
-        public int UserId { get; set; }
+        public Guid UserId { get; set; }
         public UserIdentity User { get; set; }
+
+        /// <summary>
+        /// TODO: intend to use this login session with client, cause 
+        /// </summary>
+        [ForeignKey(nameof(ClientId))]
+        public Guid ClientId { get; set; }
+        public Client Client { get; set; }
+
         /// <summary>
         /// Update when everything is done
         /// </summary>
         public DateTime? SuccessAt { get; set; } = null;
 
-        public List<TokenResponsePerIdentityRequest> TokenResponsePerHandlers { get; set; } = new List<TokenResponsePerIdentityRequest>();
+        public List<TokenForRequestHandler> TokensPerRequestHandlers { get; set; } = new List<TokenForRequestHandler>();
     }
 }

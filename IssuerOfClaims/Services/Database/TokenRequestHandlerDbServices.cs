@@ -7,7 +7,7 @@ using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class TokenRequestHandlerDbServices : DbTableBase<TokenRequestHandler>, ITokenRequestHandlerDbServices
+    public class TokenRequestHandlerDbServices : DbTableServicesBase<IdentityRequestHandler>, ITokenRequestHandlerDbServices
     {
         //private readonly ILogger _logger;
 
@@ -15,16 +15,17 @@ namespace IssuerOfClaims.Services.Database
         {
         }
 
-        public TokenRequestHandler FindByAuthorizationCode(string authorizationCode)
+        public IdentityRequestHandler FindByAuthorizationCode(string authorizationCode)
         {
-            TokenRequestHandler obj = null;
+            IdentityRequestHandler obj = null;
             UsingDbSet((_tokenRequestHandlers) =>
             {
                 var obj1 = _tokenRequestHandlers
                     .Include(l => l.User)
-                    .Include(l => l.TokenResponsePerHandlers).ThenInclude(t => t.TokenResponse)
-                    .Include(l => l.TokenRequestSession).ThenInclude(t => t.Client).ToList();
-                obj = obj1.First(l => l.TokenRequestSession != null && l.TokenRequestSession.AuthorizationCode != null && l.TokenRequestSession.AuthorizationCode.Equals(authorizationCode));
+                    .Include(t => t.Client)
+                    .Include(l => l.TokensPerRequestHandlers).ThenInclude(t => t.TokenResponse)
+                    .Include(l => l.RequestSession);
+                obj = obj1.First(l => l.RequestSession != null && l.RequestSession.AuthorizationCode != null && l.RequestSession.AuthorizationCode.Equals(authorizationCode));
             });
 
             ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(TokenRequestHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
@@ -33,15 +34,17 @@ namespace IssuerOfClaims.Services.Database
             return obj;
         }
 
-        public TokenRequestHandler FindById(int currentRequestHandlerId)
+        // TODO:
+        public IdentityRequestHandler FindById(Guid currentRequestHandlerId)
         {
-            TokenRequestHandler obj = null;
+            IdentityRequestHandler obj = null;
             UsingDbSet((_tokenRequestHandlers) =>
             {
                 obj = _tokenRequestHandlers
                 .Include(t => t.User)
-                .Include(t => t.TokenRequestSession).ThenInclude(t => t.Client)
-                .Include(t => t.TokenResponsePerHandlers).ThenInclude(t => t.TokenResponse)
+                .Include(t => t.Client)
+                .Include(t => t.RequestSession)
+                .Include(t => t.TokensPerRequestHandlers).ThenInclude(t => t.TokenResponse)
                 .First(t => t.Id.Equals(currentRequestHandlerId));
             });
 
@@ -50,9 +53,9 @@ namespace IssuerOfClaims.Services.Database
             return obj;
         }
 
-        public TokenRequestHandler GetDraftObject()
+        public IdentityRequestHandler GetDraftObject()
         {
-            return new TokenRequestHandler();
+            return new IdentityRequestHandler();
         }
 
         //public TokenRequestHandler FindByRefreshToken(string refreshToken)
@@ -72,10 +75,10 @@ namespace IssuerOfClaims.Services.Database
         //       : instead of search from db, save 100 session in used, and get it from memory (from authorization code, or id_token) is easier than query 100 object from 100.000 object table...
     }
 
-    public interface ITokenRequestHandlerDbServices : IDbContextBase<TokenRequestHandler>
+    public interface ITokenRequestHandlerDbServices : IDbContextBase<IdentityRequestHandler>
     {
-        TokenRequestHandler FindByAuthorizationCode(string authorizationCode);
-        TokenRequestHandler FindById(int currentRequestHandlerId);
-        TokenRequestHandler GetDraftObject();
+        IdentityRequestHandler FindByAuthorizationCode(string authorizationCode);
+        IdentityRequestHandler FindById(Guid currentRequestHandlerId);
+        IdentityRequestHandler GetDraftObject();
     }
 }

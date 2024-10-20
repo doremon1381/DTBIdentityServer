@@ -75,19 +75,19 @@ namespace IssuerOfClaims.Database
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Client>()
-                .HasMany(c => c.TokenRequestSession)
+                .HasMany(c => c.TokenRequestHandlers)
                 .WithOne(l => l.Client)
                 .HasForeignKey(c => c.ClientId);
 
-            modelBuilder.Entity<TokenRequestHandler>()
-                .HasOne(c => c.TokenRequestSession)
-                .WithOne(l => l.TokenRequestHandler)
-                .HasForeignKey<TokenRequestSession>(l => l.TokenRequestHandlerId);
+            modelBuilder.Entity<IdentityRequestHandler>()
+                .HasOne(c => c.RequestSession)
+                .WithOne(l => l.IdentityRequestHandler)
+                .HasForeignKey<IdentityRequestSession>(l => l.IdentityRequestHandlerId);
 
-            modelBuilder.Entity<TokenRequestHandler>()
-                .HasMany(c => c.TokenResponsePerHandlers)
-                .WithOne(t => t.TokenRequestHandler)
-                .HasForeignKey(c => c.TokenRequestHandlerId);
+            modelBuilder.Entity<IdentityRequestHandler>()
+                .HasMany(c => c.TokensPerRequestHandlers)
+                .WithOne(t => t.IdentityRequestHandler)
+                .HasForeignKey(c => c.IdentityRequestHandlerId);
 
             base.OnModelCreating(modelBuilder);
         }

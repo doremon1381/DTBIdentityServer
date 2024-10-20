@@ -5,7 +5,7 @@ using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class RoleDbServices : DbTableBase<Role>, IRoleDbServices
+    public class RoleDbServices : DbTableServicesBase<Role>, IRoleDbServices
     {
 
         public RoleDbServices() 

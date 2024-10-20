@@ -38,7 +38,7 @@ namespace IssuerOfClaims
             builder.Services.AddTransient<ITokenResponsePerHandlerDbServices, TokenResponsePerHandlerDbServices>();
             builder.Services.AddTransient<ITokenRequestHandlerDbServices, TokenRequestHandlerDbServices>();
             builder.Services.AddTransient<IEmailServices, EmailServices>();
-            builder.Services.AddTransient<IRsaSh256KeyPairDbServices, RsaSh256KeyPairDbServices>();
+            //builder.Services.AddTransient<IRsaSh256KeyPairDbServices, RsaSh256KeyPairDbServices>();
             builder.Services.AddTransient<ITokenManager, TokenManager>();
 
             // TODO: will add later

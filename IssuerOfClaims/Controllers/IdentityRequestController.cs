@@ -24,6 +24,8 @@ using IssuerOfClaims.Models.Request;
 using Google.Apis.Auth.OAuth2.Requests;
 using System.Net.Sockets;
 using System.Net.WebSockets;
+using System.Text.Json.Nodes;
+using System.Text.Json;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -138,12 +140,13 @@ namespace IssuerOfClaims.Controllers
 
             ACF_I_ValidateScopes(@params.Scope.Value, client);
 
-            var acfProcessSession = _tokenManager.CreateTokenRequestSession();
+            var requestHandler = ACF_I_CreateTokenRequestHandler(user, client);
+            var acfProcessSession = _tokenManager.CreateTokenRequestSession(requestHandler);
             ACF_I_UpdateRequestSessionDetails(@params, acfProcessSession, out string authorizationCode);
-            ACF_I_CreateTokenRequestHandler(user, acfProcessSession);
+            //ACF_I_CreateTokenRequestHandler(user, client, acfProcessSession);
 
             #region TODO: using these statements because has an error with tracking object, for now i dont know why 
-            await ACF_I_AddClientToRequestSesstionAsync(client, acfProcessSession.Id);
+            //await ACF_I_AddClientToRequestSesstionAsync(client, acfProcessSession.Id);
             #endregion
 
             // TODO: will check again
@@ -224,13 +227,6 @@ namespace IssuerOfClaims.Controllers
             return builder.ToString();
         }
 
-        private async Task ACF_I_AddClientToRequestSesstionAsync(Client client, int id)
-        {
-            var requestSession = _tokenManager.FindRequestSessionById(id);
-            requestSession.Client = client;
-            _tokenManager.UpdateTokenRequestSession(requestSession);
-        }
-
         private async Task<UserIdentity> ACF_I_GetResourceOwnerIdentity()
         {
             var obj = await _applicationUserManager.Current.GetUserAsync(HttpContext.User);
@@ -256,25 +252,29 @@ namespace IssuerOfClaims.Controllers
         /// </summary>
         /// <param name="user"></param>
         /// <param name="ACFProcessSession"></param>
-        private TokenRequestHandler ACF_I_CreateTokenRequestHandler(UserIdentity user, TokenRequestSession ACFProcessSession)
+        private IdentityRequestHandler ACF_I_CreateTokenRequestHandler(UserIdentity user, Client client)
+            //, IdentityRequestSession ACFProcessSession)
         {
             var tokenRequestHandler = _tokenManager.GetDraftTokenRequestHandler();
             tokenRequestHandler.User = user;
-            tokenRequestHandler.TokenRequestSession = ACFProcessSession;
+            //tokenRequestHandler.RequestSession = ACFProcessSession;
+
+            // TODO: will check again
+            tokenRequestHandler.Client = client;
 
             // TODO: will check again
             _tokenManager.UpdateTokenRequestHandler(tokenRequestHandler);
 
             return tokenRequestHandler;
         }
-        private void ACF_I_UpdateRequestSessionDetails(AuthCodeParameters parameters, TokenRequestSession ACFProcessSession, out string authorizationCode)
+        private void ACF_I_UpdateRequestSessionDetails(AuthCodeParameters parameters, IdentityRequestSession ACFProcessSession, out string authorizationCode)
         {
             ACF_I_ImportPKCERequestedParams(parameters.CodeChallenge.Value, parameters.CodeChallengeMethod.Value, parameters.CodeChallenge.HasValue, ACFProcessSession);
             ACF_I_ImportRequestSessionData(parameters.Scope.Value, parameters.Nonce.Value, ACFProcessSession, out authorizationCode);
 
             _tokenManager.UpdateTokenRequestSession(ACFProcessSession);
         }
-        private static void ACF_I_ImportRequestSessionData(string scope, string nonce, TokenRequestSession tokenRequestSession, out string authorizationCode)
+        private static void ACF_I_ImportRequestSessionData(string scope, string nonce, IdentityRequestSession tokenRequestSession, out string authorizationCode)
         {
             // TODO: create authorization code
             authorizationCode = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(32);
@@ -285,7 +285,7 @@ namespace IssuerOfClaims.Controllers
             tokenRequestSession.IsOfflineAccess = scope.Contains(StandardScopes.OfflineAccess);
         }
 
-        private static void ACF_I_ImportPKCERequestedParams(string codeChallenge, string codeChallengeMethod, bool codeChallenge_HasValue, TokenRequestSession tokenRequestSession)
+        private static void ACF_I_ImportPKCERequestedParams(string codeChallenge, string codeChallengeMethod, bool codeChallenge_HasValue, IdentityRequestSession tokenRequestSession)
         {
             if (codeChallenge_HasValue)
             {
@@ -299,33 +299,35 @@ namespace IssuerOfClaims.Controllers
         // TODO: by default, I seperate the need of creating identity of someone with the flow of oauth2's authorization code flow 
         //     : but following specs, my implement maybe wrong, but I know it is optional or "more guideline" than "actual rules"
         [HttpPost("register")]
+        [AllowAnonymous]
         //[Authorize]
         public async Task<ActionResult> RegisterIdentity()
         {
             RegisterParameters parameters = new RegisterParameters(HttpContext.Request.QueryString.Value, HttpContext.Request.Headers);
 
-            ValidateRedirectUri(parameters);
+            //ValidateRedirectUri(parameters);
 
             return await RegisterUserAsync(parameters);
         }
 
+        // TODO: will check again
         private Client GetClient(string clientId)
         {
             var client = _clientDbServices.Find(clientId);
-            if (client == null || client.Id == 0)
+            if (client == null || client.Id.Equals(Guid.Empty))
                 throw new InvalidDataException("client id is wrong!");
 
             return client;
         }
 
-        private void ValidateRedirectUri(RegisterParameters parameters)
-        {
-            Client client = GetClient(parameters.ClientId.Value);
+        //private void ValidateRedirectUri(RegisterParameters parameters)
+        //{
+        //    Client client = GetClient(parameters.ClientId.Value);
 
-            string[] redirectUris = client.RedirectUris.Split(",");
-            if (!redirectUris.Contains(parameters.RedirectUri.Value))
-                throw new InvalidDataException("redirectUri is mismatch!");
-        }
+        //    string[] redirectUris = client.RedirectUris.Split(",");
+        //    if (!redirectUris.Contains(parameters.RedirectUri.Value))
+        //        throw new InvalidDataException("redirectUri is mismatch!");
+        //}
 
         public async Task<ActionResult> RegisterUserAsync(RegisterParameters parameters)
         {
@@ -398,7 +400,6 @@ namespace IssuerOfClaims.Controllers
         private async Task<ActionResult> ImplicitGrantWithFormPostAsync(AuthCodeParameters parameters)
         {
             // TODO: for this situation, Thread and http context may not need
-            //var principal = Thread.CurrentPrincipal;
             var principal = HttpContext.User;
 
             var user = await _applicationUserManager.Current.GetUserAsync(principal);
@@ -408,23 +409,19 @@ namespace IssuerOfClaims.Controllers
             //     : for example, if scope is missing email, then in id_token which will be sent to client will not contain email's information 
             var idToken = await _tokenManager.GenerateIdTokenAsync(user, parameters.Scope.Value, parameters.Nonce.Value, client.ClientId);
 
-            //var tokenResponse = _tokenManager.GenerateIdToken();
-
             // TODO: update must follow order, I will explain late
-            //IGF_UpdateTokenResponse(idToken, tokenResponse);
             IGF_UpdateTokenRequestHandler(user, client, idToken);
 
             // Check response mode to know what kind of response is going to be used
             // return a form_post, url fragment or body of response
+            //string formPost = GetFormPostHtml(parameters.RedirectUri.Value, new Dictionary<string, string>() { { AuthorizeResponse.IdentityToken, idToken } });
             if (parameters.ResponseMode.Value.Equals(ResponseModes.FormPost))
             {
-                Dictionary<string, string> inputBody = new Dictionary<string, string>();
-                inputBody.Add(AuthorizeResponse.IdentityToken, idToken);
-
-                //string formPost = GetFormPostHtml(webServerConfiguration["redirect_uris:0"], inputBody);
-                string formPost = GetFormPostHtml(parameters.RedirectUri.Value, inputBody);
-
-                HttpContext.Response.Headers.Append("state", parameters.State.Value);
+                string formPost = GetFormPostHtml(parameters.RedirectUri.Value, new Dictionary<string, string>()
+                {
+                    { AuthorizeResponse.IdentityToken, idToken },
+                    { AuthorizeResponse.State, parameters.State.Value }
+                });
 
                 // TODO: will learn how to use this function
                 await WriteHtmlAsync(HttpContext.Response, formPost);
@@ -435,29 +432,30 @@ namespace IssuerOfClaims.Controllers
             else if (parameters.ResponseMode.Value.Equals(ResponseModes.Fragment))
             {
                 // TODO:
+                return StatusCode((int)HttpStatusCode.NotImplemented);
             }
             else if (parameters.ResponseMode.Value.Equals(ResponseModes.Query))
             {
                 // TODO: will need to add state into response, return this form for now
-                return StatusCode((int)HttpStatusCode.OK, idToken);
+                return StatusCode((int)HttpStatusCode.NotImplemented);
             }
             else
                 return StatusCode((int)HttpStatusCode.BadRequest, "Response mode is not allowed!");
-
-            return StatusCode((int)HttpStatusCode.OK, "every thing is done!");
         }
 
         private void IGF_UpdateTokenRequestHandler(UserIdentity user, Client client, string idToken)
         {
-            //var tokenRequestHandler = _tokenRequestHandlerDbServices.GetDraftObject();
-            //var tokenRequestSession = IGF_CreateRequestSession(client);
+            var tokenRequestHandler = _tokenManager.GetDraftTokenRequestHandler();
+            tokenRequestHandler.User = user;
+            tokenRequestHandler.Client = client;
+            //
+            _tokenManager.UpdateTokenRequestHandler(tokenRequestHandler);
 
-            //tokenRequestHandler.User = user;
-            //tokenRequestHandler.TokenRequestSession = tokenRequestSession;
+            var tokenRequestSession = IGF_CreateRequestSession(client, tokenRequestHandler);
+            //tokenRequestHandler.RequestSession = tokenRequestSession;
+            // TODO: need to add id token to tokenRequestHandler
 
-            //// TODO: need to add id token to this part
 
-            //_tokenRequestHandlerDbServices.Update(tokenRequestHandler);
         }
 
         private void IGF_UpdateTokenResponse(string idToken, ServerDbModels.TokenResponse tokenResponse)
@@ -468,19 +466,20 @@ namespace IssuerOfClaims.Controllers
             //_tokenResponseDbServices.Update(tokenResponse);
         }
 
-        //private TokenRequestSession IGF_CreateRequestSession(Client client)
-        //{
-        //    var tokenRequestSession = _tokenRequestSessionDbServices.CreateTokenRequestSession();
+        // TODO: will test again
+        private IdentityRequestSession IGF_CreateRequestSession(Client client, IdentityRequestHandler tokenRequestHandler)
+        {
+            var tokenRequestSession = _tokenManager.CreateTokenRequestSession(tokenRequestHandler);
 
-        //    tokenRequestSession.Client = client;
-        //    tokenRequestSession.Scope = client.AllowedScopes;
-        //    tokenRequestSession.IsInLoginSession = false;
-        //    tokenRequestSession.IsOfflineAccess = false;
+            //tokenRequestSession.Client = client;
+            tokenRequestSession.Scope = client.AllowedScopes;
+            tokenRequestSession.IsInLoginSession = false;
+            tokenRequestSession.IsOfflineAccess = false;
 
-        //    _tokenRequestSessionDbServices.Update(tokenRequestSession);
+            _tokenManager.UpdateTokenRequestSession(tokenRequestSession);
 
-        //    return tokenRequestSession;
-        //}
+            return tokenRequestSession;
+        }
 
         /// <summary>
         /// TODO: from duende
@@ -618,23 +617,23 @@ namespace IssuerOfClaims.Controllers
 
             var refreshToken = _tokenManager.FindRefreshToken(parameters.RefreshToken.Value);
 
-            object tokenResponses = new object();
+            string tokenResponses = string.Empty;
             // Token from external source
-            if (string.IsNullOrEmpty(refreshToken.ExternalSource))
+            if (!string.IsNullOrEmpty(refreshToken.ExternalSource))
             {
                 // TODO: will update this part later
-                //var token = refreshToken.ExternalSource switch
-                //{
-                //    ExternalSources.Google => 
-                //    _ => throw new NullReferenceException()
-                //};
+                var token = refreshToken.ExternalSource switch
+                {
+                    ExternalSources.Google => _tokenManager.RefreshAccessTokenFromExternalSource(refreshToken),
+                    _ => throw new NullReferenceException()
+                };
             }
             else
             {
                 tokenResponses = _tokenManager.IssueTokenForRefreshToken(refreshToken);
             }
 
-            return StatusCode((int)HttpStatusCode.OK, System.Text.Json.JsonSerializer.Serialize(tokenResponses));
+            return StatusCode((int)HttpStatusCode.OK, tokenResponses);
         }
 
         private async Task<ActionResult> IssueTokenForAuthorizationCodeAsync(string requestBody)
@@ -659,21 +658,23 @@ namespace IssuerOfClaims.Controllers
 
             ACF_II_SuccessfulRequestHandle(tokenRequestHandler);
 
-            return StatusCode((int)HttpStatusCode.OK, System.Text.Json.JsonSerializer.Serialize(tokenResponses));
+            return StatusCode((int)HttpStatusCode.OK, tokenResponses);
         }
 
-        private void ACF_II_SuccessfulRequestHandle(TokenRequestHandler tokenRequestHandler)
+        private void ACF_II_SuccessfulRequestHandle(IdentityRequestHandler tokenRequestHandler)
         {
             // TODO: will test again
             tokenRequestHandler.SuccessAt = DateTime.Now;
             _tokenManager.UpdateTokenRequestHandler(tokenRequestHandler);
         }
 
+        // TODO: will test again
         private UserIdentity ACF_II_GetResourceOwnerIdentity(string userName)
         {
             var obj = _applicationUserManager.Current.Users
-                    .Include(u => u.TokenRequestHandlers)
-                    .Include(u => u.TokenRequestHandlers).ThenInclude(l => l.TokenRequestSession).ThenInclude(s => s.Client)
+                    .Include(u => u.IdentityRequestHandlers)
+                    .Include(u => u.IdentityRequestHandlers).ThenInclude(s => s.Client)
+                    .Include(u => u.IdentityRequestHandlers).ThenInclude(l => l.RequestSession)
                     .FirstOrDefault(u => u.UserName == userName);
             if (obj == null)
                 throw new InvalidDataException(ExceptionMessage.USER_NULL);
@@ -693,24 +694,25 @@ namespace IssuerOfClaims.Controllers
                 throw new CustomException("redirect_uri is mismatch!", HttpStatusCode.BadRequest);
         }
 
-        private static void ACF_II_VerifyCodeChallenger(string codeVerifier, TokenRequestHandler tokenRequestHandler)
+        private static void ACF_II_VerifyCodeChallenger(string codeVerifier, IdentityRequestHandler tokenRequestHandler)
         {
             // TODO: by default, those two go along together, it may wrong in future coding
-            if (tokenRequestHandler.TokenRequestSession.CodeChallenge != null
-                && tokenRequestHandler.TokenRequestSession.CodeChallengeMethod != null)
+            if (tokenRequestHandler.RequestSession.CodeChallenge != null
+                && tokenRequestHandler.RequestSession.CodeChallengeMethod != null)
             {
                 var code_challenge = RNGCryptoServicesUltilities.Base64urlencodeNoPadding(codeVerifier.EncodingWithSHA265());
-                if (!code_challenge.Equals(tokenRequestHandler.TokenRequestSession.CodeChallenge))
+                if (!code_challenge.Equals(tokenRequestHandler.RequestSession.CodeChallenge))
                     throw new InvalidOperationException("code verifier is wrong!");
             }
         }
 
-        private Client ACF_II_VerifyAndGetClient(string clientId, string clientSecret, TokenRequestHandler tokenRequestHandler)
+        // TODO: will test again
+        private Client ACF_II_VerifyAndGetClient(string clientId, string clientSecret, IdentityRequestHandler tokenRequestHandler)
         {
             Client client = _clientDbServices.Find(clientId, clientSecret);
 
-            if (tokenRequestHandler.TokenRequestSession != null
-                && !tokenRequestHandler.TokenRequestSession.Client.Id.Equals(client.Id))
+            if (tokenRequestHandler.RequestSession != null
+                && !tokenRequestHandler.Client.Id.Equals(client.Id))
                 // TODO: status code may wrong
                 throw new InvalidOperationException("something wrong with client which Authorization Code was issued to!");
 
@@ -772,12 +774,12 @@ namespace IssuerOfClaims.Controllers
                 return StatusCode(400, "query_string_is_mismatch!");
 
             var query = HttpContext.Request.Query;
-            var userId = int.Parse(query["userId"]);
+            var userId = Guid.Parse(query["userId"]);
             var code = query["code"];
 
             // TODO:
             var user = _applicationUserManager.Current.Users.Include(u => u.ConfirmEmails).FirstOrDefault(u => u.Id == userId);
-            var createUserConfirmEmail = user.ConfirmEmails.First(e => e.Purpose == (int)ConfirmEmailPurpose.CreateIdentity);
+            var createUserConfirmEmail = user.ConfirmEmails.First(e => e.Purpose == ConfirmEmailPurpose.CreateIdentity);
 
             if (!createUserConfirmEmail.ConfirmCode.Equals(code))
                 return StatusCode(404, "Confirm code is not match!");
@@ -803,7 +805,6 @@ namespace IssuerOfClaims.Controllers
         [AllowAnonymous]
         // TODO: comment for now, but when everything is done, this policy must be used, 
         //     : only identityserver's clients can use this endpoint, not user-agent
-        //[Authorize(Roles = "Client")]
         public async Task<ActionResult> GoogleAuthenticating()
         {
             var googleClientConfig = _configuration.GetSection(IdentityServerConfiguration.GOOGLE_CLIENT).Get<GoogleSettings>();
@@ -834,42 +835,45 @@ namespace IssuerOfClaims.Controllers
                 , result.AccessTokenIssueAt, payload, requestHandler);
 
             GoogleAuth_SuccessfulRequestHandle(requestHandler);
+            var response = await Utilities.CreateTokenResponseStringAsync(result.AccessToken, result.IdToken, payload.ExpirationTimeSeconds.Value, string.IsNullOrEmpty(result.RefreshToken) ? "" : result.RefreshToken);
 
             // TODO: will need to create new user if current user with this email is not have
             //     : after that, create login session object and save to db
             //     : after create login session, authentication then will perform
-            return Ok(JsonConvert.SerializeObject(result.AccessToken));
+            return Ok(JsonConvert.SerializeObject(response));
         }
 
-        private void GoogleAuth_SuccessfulRequestHandle(TokenRequestHandler requestHandler)
+        private void GoogleAuth_SuccessfulRequestHandle(IdentityRequestHandler requestHandler)
         {
             requestHandler.SuccessAt = DateTime.UtcNow;
             _tokenManager.UpdateTokenRequestHandler(requestHandler);
         }
 
-        private bool GoogleAuth_SaveToken(string accessToken, string refreshToken, string idToken, long issuedAtTimeSeconds, long expirationTimeSeconds, DateTime accessTokenIssueAt, GoogleJsonWebSignature.Payload payload, TokenRequestHandler requestHandler)
+        private bool GoogleAuth_SaveToken(string accessToken, string refreshToken, string idToken, long issuedAtTimeSeconds, long expirationTimeSeconds, DateTime accessTokenIssueAt, GoogleJsonWebSignature.Payload payload, IdentityRequestHandler requestHandler)
         {
             return _tokenManager.SaveTokenFromExternalSource(accessToken, refreshToken, idToken, issuedAtTimeSeconds, expirationTimeSeconds, accessTokenIssueAt, requestHandler, ExternalSources.Google);
         }
 
-        private TokenRequestHandler GoogleAuth_ImportRequestHandlerData(string codeVerifier, string refreshToken, Client client, UserIdentity user)
+        private IdentityRequestHandler GoogleAuth_ImportRequestHandlerData(string codeVerifier, string refreshToken, Client client, UserIdentity user)
         {
             var requestHandler = _tokenManager.GetDraftTokenRequestHandler();
-            TokenRequestSession session = GoogleAuth_CreateRequestSession(codeVerifier, refreshToken, client);
 
-            requestHandler.TokenRequestSession = session;
+            //requestHandler.RequestSession = session;
             requestHandler.User = user;
+            requestHandler.Client = client;
+
             _tokenManager.UpdateTokenRequestHandler(requestHandler);
+
+            IdentityRequestSession session = GoogleAuth_CreateRequestSession(codeVerifier, refreshToken, requestHandler);
 
             return requestHandler;
         }
 
-        private TokenRequestSession GoogleAuth_CreateRequestSession(string codeVerifier, string refreshToken, Client client)
+        private IdentityRequestSession GoogleAuth_CreateRequestSession(string codeVerifier, string refreshToken, IdentityRequestHandler requestHandler)
         {
-            var session = _tokenManager.CreateTokenRequestSession();
+            var session = _tokenManager.CreateTokenRequestSession(requestHandler);
             session.CodeVerifier = codeVerifier;
             session.IsOfflineAccess = string.IsNullOrEmpty(refreshToken) ? false : true;
-            session.Client = client;
 
             _tokenManager.UpdateTokenRequestSession(session);
             return session;
@@ -913,7 +917,7 @@ namespace IssuerOfClaims.Controllers
 
                 access_token = result["access_token"];
                 id_token = result["id_token"];
-                result.TryGetValue("refreshToken", out refresh_token);
+                result.TryGetValue("refresh_token", out refresh_token);
                 result.TryGetValue("expires_in", out string expiredIn);
 
                 accessTokenIssueAt = DateTime.Now.AddSeconds(double.Parse($"-{expiredIn}"));

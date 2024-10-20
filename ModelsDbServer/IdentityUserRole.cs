@@ -7,17 +7,17 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace ServerDbModels
 {
 #if IdentityServer
-    [Table("IdentityUserRoles")]
+    [Table($"{nameof(IdentityUserRole)}s")]
     [PrimaryKey(nameof(Id))]
 #endif
-    public class IdentityUserRole : IdentityUserRole<int>, IDbTable
+    public class IdentityUserRole : IdentityUserRole<Guid>, IDbTable
     {
 #if IdentityServer
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
 #endif
-        public int Id { get; set; }
-        public override int RoleId { get; set; }
-        public override int UserId { get; set; }
+        public Guid Id { get; set; }
+        public override Guid RoleId { get; set; }
+        public override Guid UserId { get; set; }
 
         public Role Role { get; set; } = null;
         public UserIdentity User { get; set; } = null;

@@ -7,7 +7,7 @@ using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class ClientDbServices : DbTableBase<Client>, IClientDbServices
+    public class ClientDbServices : DbTableServicesBase<Client>, IClientDbServices
     {
         public ClientDbServices() 
         {
@@ -33,7 +33,8 @@ namespace IssuerOfClaims.Services.Database
 
             UsingDbSet(_Clients =>
             {
-                client = _Clients.Include(c => c.TokenRequestSession).First(c => c.ClientId.Equals(clientId));
+                client = _Clients.Include(c => c.TokenRequestHandlers).ThenInclude(c => c.RequestSession)
+                .First(c => c.ClientId.Equals(clientId));
             });
 
             ValidateEntity(client, HttpStatusCode.BadRequest, $"{nameof(ClientDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");

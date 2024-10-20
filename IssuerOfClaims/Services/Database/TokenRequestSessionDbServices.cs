@@ -5,20 +5,23 @@ using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class TokenRequestSessionDbServices : DbTableBase<TokenRequestSession>, ITokenRequestSessionDbServices
+    public class TokenRequestSessionDbServices : DbTableServicesBase<IdentityRequestSession>, ITokenRequestSessionDbServices
     {
         public TokenRequestSessionDbServices() 
         {
         }
 
-        public TokenRequestSession FindByAccessToken(string accessToken)
+        public IdentityRequestSession FindByAccessToken(string accessToken)
         {
             throw new NotImplementedException();
         }
 
-        public TokenRequestSession CreateTokenRequestSession()
+        public IdentityRequestSession CreateTokenRequestSession(IdentityRequestHandler requestHandler)
         {
-            TokenRequestSession obj = new TokenRequestSession();
+            IdentityRequestSession obj = new IdentityRequestSession()
+            {
+                IdentityRequestHandlerId = requestHandler.Id
+            };
 
             UsingDbSetWithSaveChanges(dbSet => 
             {
@@ -28,9 +31,9 @@ namespace IssuerOfClaims.Services.Database
             return obj;
         }
 
-        public TokenRequestSession FindById(int id)
+        public IdentityRequestSession FindById(int id)
         {
-            TokenRequestSession obj = null;
+            IdentityRequestSession obj = null;
 
             UsingDbSet(_loginSessions =>
             {
@@ -48,11 +51,11 @@ namespace IssuerOfClaims.Services.Database
         //}
     }
 
-    public interface ITokenRequestSessionDbServices : IDbContextBase<TokenRequestSession>
+    public interface ITokenRequestSessionDbServices : IDbContextBase<IdentityRequestSession>
     {
-        TokenRequestSession FindByAccessToken(string accessToken);
-        TokenRequestSession CreateTokenRequestSession();
-        TokenRequestSession FindById(int id);
+        IdentityRequestSession FindByAccessToken(string accessToken);
+        IdentityRequestSession CreateTokenRequestSession(IdentityRequestHandler requestHandler);
+        IdentityRequestSession FindById(int id);
         //bool Update(TokenRequestSession aCFProcessSession);
     }
 }

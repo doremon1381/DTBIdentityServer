@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Org.BouncyCastle.Crypto;
 using IssuerOfClaims.Models;
 using Google.Apis.Auth;
+using System.Text.Json;
 
 namespace IssuerOfClaims.Services.Token
 {
@@ -40,22 +41,29 @@ namespace IssuerOfClaims.Services.Token
         }
 
         // TODO: will check again
-        public object IssueTokenForRefreshToken(TokenResponse previousRefreshResponse)
+        public string IssueTokenForRefreshToken(TokenResponse currentRefreshToken)
         {
-            var lastestRefreshTokenBeUsed = previousRefreshResponse.TokenResponsePerHandler.Last();
-            var tokenRequestHandler = _tokenRequestHandlerDbServices.FindById(lastestRefreshTokenBeUsed.TokenRequestHandlerId);
+            ValidateRefreshToken(currentRefreshToken);
+
+            var lastestRefreshTokenBeUsed = currentRefreshToken.TokensPerIdentityRequests.Last();
+            var tokenRequestHandler = _tokenRequestHandlerDbServices.FindById(lastestRefreshTokenBeUsed.IdentityRequestHandlerId);
 
             // create new id token, remove the old, add the new into previous authenticate session
             // create new access token if it's expired, if access token is created new, remove the old, add the new one into previous authenticate session
             // create new refresh token if it's expired, if refresh token is created new, remove the old, add the new one into previous authenticate session
 
-            var accessToken = UsingRefreshToken_IssuseToken(tokenRequestHandler, tokenRequestHandler.TokenResponsePerHandlers.First(t => t.TokenResponse.TokenType.Equals(TokenType.AccessToken)), TokenType.AccessToken);
-            var refreshToken = UsingRefreshToken_IssuseToken(tokenRequestHandler, lastestRefreshTokenBeUsed, TokenType.RefreshToken);
-            var idToken = UsingRefreshToken_IssuseIdToken(tokenRequestHandler, tokenRequestHandler.TokenResponsePerHandlers.First(t => t.TokenResponse.TokenType.Equals(TokenType.IdToken)));
+            var accessToken = RefreshAccessToken_IssuseToken(tokenRequestHandler, tokenRequestHandler.TokensPerRequestHandlers.First(t => t.TokenResponse.TokenType.Equals(TokenType.AccessToken)), TokenType.AccessToken);
+            var idToken = UsingRefreshToken_IssuseIdToken(tokenRequestHandler, tokenRequestHandler.TokensPerRequestHandlers.First(t => t.TokenResponse.TokenType.Equals(TokenType.IdToken)));
 
-            var responseBody = CreateTokenResponseBody(accessToken.Token, idToken.Token, (accessToken.TokenExpiried - DateTime.Now).Value.TotalSeconds, refreshToken.Token);
+            var responseBody = Utilities.CreateTokenResponseStringAsync(accessToken.Token, idToken.Token, (long)(accessToken.TokenExpiried - DateTime.Now).Value.TotalSeconds).Result;
 
             return responseBody;
+        }
+
+        private void ValidateRefreshToken(TokenResponse currentRefreshToken)
+        {
+            if (currentRefreshToken.TokenExpiried <= DateTime.Now)
+                throw new CustomException("Refresh token is expired!", HttpStatusCode.Unauthorized);
         }
 
         /// <summary>
@@ -63,11 +71,11 @@ namespace IssuerOfClaims.Services.Token
         /// </summary>
         /// <param name="currentRequestHandler"></param>
         /// <returns></returns>
-        private TokenResponse UsingRefreshToken_IssuseIdToken(TokenRequestHandler currentRequestHandler, TokenResponsePerIdentityRequest tokenResponsePerIdentityRequest)
+        private TokenResponse UsingRefreshToken_IssuseIdToken(IdentityRequestHandler currentRequestHandler, TokenForRequestHandler tokenResponsePerIdentityRequest)
         {
             TokenResponse idToken = CreateToken(TokenType.IdToken);
-            var idTokenValue = GenerateIdTokenAsync(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, ""
-                , currentRequestHandler.TokenRequestSession.Client.ClientId, currentRequestHandler.SuccessAt.Value.ToString()).Result;
+            var idTokenValue = GenerateIdTokenAsync(currentRequestHandler.User, currentRequestHandler.RequestSession.Scope, ""
+                , currentRequestHandler.Client.ClientId, currentRequestHandler.SuccessAt.Value.ToString()).Result;
 
             idToken.Token = idTokenValue;
 
@@ -80,7 +88,7 @@ namespace IssuerOfClaims.Services.Token
             return idToken;
         }
 
-        private TokenResponse UsingRefreshToken_IssuseToken(TokenRequestHandler tokenRequestHandler, TokenResponsePerIdentityRequest tokenResponsePerIdentityRequest, string tokenType)
+        private TokenResponse RefreshAccessToken_IssuseToken(IdentityRequestHandler tokenRequestHandler, TokenForRequestHandler tokenResponsePerIdentityRequest, string tokenType)
         {
             TokenResponse token = tokenResponsePerIdentityRequest.TokenResponse;
 
@@ -97,14 +105,14 @@ namespace IssuerOfClaims.Services.Token
             return token;
         }
 
-        public object ACF_IssueToken(int userId, int idOfClient, string clientId, int currentRequestHandlerId)
+        public string ACF_IssueToken(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId)
         {
             var currentRequestHandler = _tokenRequestHandlerDbServices.FindById(currentRequestHandlerId);
 
             // TODO: use this temporary
             TokenResponse idToken = ACF_CreateIdToken(currentRequestHandler, clientId);
 
-            bool isOfflineAccess = currentRequestHandler.TokenRequestSession.IsOfflineAccess;
+            bool isOfflineAccess = currentRequestHandler.RequestSession.IsOfflineAccess;
 
             // I want to reuse token response if it is not expired
             var latestRefreshToken = _tokensPerIdentityRequestDbServices.FindLast(userId, idOfClient, needAccessToken: false);
@@ -207,7 +215,7 @@ namespace IssuerOfClaims.Services.Token
 
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
             // TODO: at this step, if accessToken is null, then something is wrong!
-            var responseBody = CreateTokenResponseBody(accessToken.Token, idToken.Token, accessTokenExpiredTime, refreshToken == null ? "" : refreshToken.Token);
+            var responseBody = Utilities.CreateTokenResponseStringAsync(accessToken.Token, idToken.Token, (long)accessTokenExpiredTime, refreshToken == null ? "" : refreshToken.Token).Result;
 #pragma warning restore CS8602 // Dereference of a possibly null reference.
 
             CreateTokenResponsePerIdentityRequest(currentRequestHandler, accessToken);
@@ -215,8 +223,8 @@ namespace IssuerOfClaims.Services.Token
             // TODO: will think about how to handle idtoken, create one for user, update when information of user is changed or sth else
             CreateTokenResponsePerIdentityRequest(currentRequestHandler, idToken);
 
-            currentRequestHandler.TokenRequestSession.IsInLoginSession = false;
-            _tokenRequestSessionDbServices.Update(currentRequestHandler.TokenRequestSession);
+            currentRequestHandler.RequestSession.IsInLoginSession = false;
+            _tokenRequestSessionDbServices.Update(currentRequestHandler.RequestSession);
 
             return responseBody;
         }
@@ -224,10 +232,10 @@ namespace IssuerOfClaims.Services.Token
         // TODO: https://openid.net/specs/openid-connect-core-1_0.html#TokenResponse
         //     : following 3.1.3.3.  Successful Token Response
         //     : ID Token value associated with the authenticated session.
-        private TokenResponse ACF_CreateIdToken(TokenRequestHandler currentRequestHandler, string clientId)
+        private TokenResponse ACF_CreateIdToken(IdentityRequestHandler currentRequestHandler, string clientId)
         {
             TokenResponse tokenResponse = CreateToken(TokenType.IdToken);
-            var idToken = GenerateIdTokenAsync(currentRequestHandler.User, currentRequestHandler.TokenRequestSession.Scope, currentRequestHandler.TokenRequestSession.Nonce, clientId).Result;
+            var idToken = GenerateIdTokenAsync(currentRequestHandler.User, currentRequestHandler.RequestSession.Scope, currentRequestHandler.RequestSession.Nonce, clientId).Result;
             tokenResponse.Token = idToken;
 
             _tokenResponseDbServices.Update(tokenResponse);
@@ -277,11 +285,11 @@ namespace IssuerOfClaims.Services.Token
             return tokenResponse;
         }
 
-        private void CreateTokenResponsePerIdentityRequest(TokenRequestHandler currentRequestHandler, TokenResponse tokenResponse)
+        private void CreateTokenResponsePerIdentityRequest(IdentityRequestHandler currentRequestHandler, TokenResponse tokenResponse)
         {
-            TokenResponsePerIdentityRequest tokensPerIdentityRequest = _tokensPerIdentityRequestDbServices.GetDraftObject();
+            TokenForRequestHandler tokensPerIdentityRequest = _tokensPerIdentityRequestDbServices.GetDraftObject();
             tokensPerIdentityRequest.TokenResponse = tokenResponse;
-            tokensPerIdentityRequest.TokenRequestHandler = currentRequestHandler;
+            tokensPerIdentityRequest.IdentityRequestHandler = currentRequestHandler;
 
             _tokensPerIdentityRequestDbServices.Update(tokensPerIdentityRequest);
         }
@@ -336,26 +344,25 @@ namespace IssuerOfClaims.Services.Token
             var claims = new List<Claim>();
             var scopeVariables = scope.Split(" ");
 
+            // TODO: will add more
             if (scopeVariables.Contains(IdentityServerConstants.StandardScopes.OpenId))
             {
                 claims.Add(new Claim(JwtClaimTypes.Subject, user.UserName));
                 claims.Add(new Claim(JwtClaimTypes.Audience, clientId));
-                //claims.Add(new Claim(JwtClaimTypes.IssuedAt, DateTime.Now.ToString()));
                 // TODO: hard code for now
-                claims.Add(new Claim(JwtClaimTypes.Issuer, System.Uri.EscapeDataString("https://localhost:7180")));
+                //claims.Add(new Claim(JwtClaimTypes.Issuer, System.Uri.EscapeDataString("https://localhost:7180")));
+                claims.Add(new Claim(JwtClaimTypes.Issuer, "https://localhost:7180"));
+                claims.Add(new Claim(JwtClaimTypes.AuthorizedParty, "https://localhost:7180"));
             }
             if (!string.IsNullOrEmpty(authTime))
                 claims.Add(new Claim(JwtClaimTypes.AuthenticationTime, authTime));
             if (scopeVariables.Contains(IdentityServerConstants.StandardScopes.Profile))
             {
-                // TODO: will add more
                 claims.Add(new Claim(JwtClaimTypes.Name, user.FullName));
-                //claims.Add(new Claim("username", user.UserName));
                 claims.Add(new Claim(JwtClaimTypes.Gender, user.Gender));
                 claims.Add(new Claim(JwtClaimTypes.UpdatedAt, user.UpdateTime.ToString()));
                 claims.Add(new Claim(JwtClaimTypes.Picture, user.Avatar));
                 claims.Add(new Claim(JwtClaimTypes.BirthDate, user.DateOfBirth.ToString()));
-                //claims.Add(new Claim(JwtClaimTypes.Locale, user.lo))
             }
             if (scopeVariables.Contains(IdentityServerConstants.StandardScopes.Email))
             {
@@ -365,6 +372,13 @@ namespace IssuerOfClaims.Services.Token
             if (scopeVariables.Contains(IdentityServerConstants.StandardScopes.Phone))
             {
                 claims.Add(new Claim(JwtClaimTypes.PhoneNumber, user.PhoneNumber));
+            }
+            // TODO: will check again
+            if (scopeVariables.Contains(IdentityServerConstants.StandardScopes.Address))
+            {
+                //claims.Add(new Claim(JwtClaimTypes.Address, user.AddressFormatted));
+                claims.Add(new Claim(JwtClaimTypes.Address, user.Address));
+                claims.Add(new Claim(JwtClaimTypes.Locale, user.Locality));
             }
             // TOOD: will add later
             if (scopeVariables.Contains(Constants.CustomScope.Role))
@@ -536,62 +550,32 @@ namespace IssuerOfClaims.Services.Token
         }
         #endregion
 
-        private static object CreateTokenResponseBody(string access_token, string id_token, double expired_in, string refresh_token = "")
+        public IdentityRequestSession CreateTokenRequestSession(IdentityRequestHandler requestHandler)
         {
-            object responseBody;
-            if (string.IsNullOrEmpty(refresh_token))
-            {
-                responseBody = new
-                {
-                    access_token = access_token,
-                    id_token = id_token,
-                    token_type = "Bearer",
-                    //public_key = publicKey,
-                    // TODO: set by seconds
-                    expires_in = expired_in
-                };
-            }
-            else
-                responseBody = new
-                {
-                    access_token = access_token,
-                    id_token = id_token,
-                    refresh_token = refresh_token,
-                    token_type = "Bearer",
-                    //public_key = publicKey,
-                    // TODO: set by seconds
-                    expires_in = expired_in
-                };
-
-            return responseBody;
+            return _tokenRequestSessionDbServices.CreateTokenRequestSession(requestHandler);
         }
 
-        public TokenRequestSession CreateTokenRequestSession()
-        {
-            return _tokenRequestSessionDbServices.CreateTokenRequestSession();
-        }
-
-        public TokenRequestHandler GetDraftTokenRequestHandler()
+        public IdentityRequestHandler GetDraftTokenRequestHandler()
         {
             return _tokenRequestHandlerDbServices.GetDraftObject();
         }
 
-        public bool UpdateTokenRequestHandler(TokenRequestHandler tokenRequestHandler)
+        public bool UpdateTokenRequestHandler(IdentityRequestHandler tokenRequestHandler)
         {
             return _tokenRequestHandlerDbServices.Update(tokenRequestHandler);
         }
 
-        public bool UpdateTokenRequestSession(TokenRequestSession tokenRequestSession)
+        public bool UpdateTokenRequestSession(IdentityRequestSession tokenRequestSession)
         {
             return _tokenRequestSessionDbServices.Update(tokenRequestSession);
         }
 
-        public TokenRequestHandler FindTokenRequestHandlerByAuthorizationCode(string authCode)
+        public IdentityRequestHandler FindTokenRequestHandlerByAuthorizationCode(string authCode)
         {
             return _tokenRequestHandlerDbServices.FindByAuthorizationCode(authCode);
         }
 
-        public TokenRequestSession FindRequestSessionById(int id)
+        public IdentityRequestSession FindRequestSessionById(int id)
         {
             return _tokenRequestSessionDbServices.FindById(id);
         }
@@ -607,10 +591,10 @@ namespace IssuerOfClaims.Services.Token
         }
 
         public bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken, long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt
-            , TokenRequestHandler requestHandler, string externalSource)
+            , IdentityRequestHandler requestHandler, string externalSource)
         {
             var _accessToken = SaveExternalSourceToken(accessToken, accessTokenIssueAt, accessTokenIssueAt.AddSeconds(3600), externalSource, TokenType.AccessToken);
-            var _idToken = SaveExternalSourceToken(idToken, TimeSecondsToDateTime(idToken_issuedAtTimeSeconds), TimeSecondsToDateTime(idToken_expirationTimeSeconds), externalSource, TokenType.IdToken);
+            var _idToken = SaveExternalSourceToken(idToken, Utilities.TimeSecondsToDateTime(idToken_issuedAtTimeSeconds), Utilities.TimeSecondsToDateTime(idToken_expirationTimeSeconds), externalSource, TokenType.IdToken);
 
             if (refreshToken != null)
             {
@@ -634,27 +618,27 @@ namespace IssuerOfClaims.Services.Token
             return token;
         }
 
-        private static DateTime TimeSecondsToDateTime(long timeSeconds)
+        public string RefreshAccessTokenFromExternalSource(TokenResponse refreshToken)
         {
-            DateTime start = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
-            return start.AddSeconds(timeSeconds).ToLocalTime();
+            //HttpWebRequest refreshAccessToken = ()WebRequest.Create();
+            return "";
         }
     }
 
     public interface ITokenManager
     {
-        object ACF_IssueToken(int userId, int idOfClient, string clientId, int currentRequestHandlerId);
-        bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken, long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt, TokenRequestHandler requestHandler, string externalSource);
-        object IssueTokenForRefreshToken(TokenResponse previousRefreshResponse);
+        string ACF_IssueToken(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId);
+        bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken, long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt, IdentityRequestHandler requestHandler, string externalSource);
+        string IssueTokenForRefreshToken(TokenResponse previousRefreshResponse);
         Task<string> GenerateIdTokenAsync(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "");
-        TokenRequestSession CreateTokenRequestSession();
-        TokenRequestHandler GetDraftTokenRequestHandler();
-        bool UpdateTokenRequestHandler(TokenRequestHandler tokenRequestHandler);
-        bool UpdateTokenRequestSession(TokenRequestSession aCFProcessSession);
-        TokenRequestHandler FindTokenRequestHandlerByAuthorizationCode(string authCode);
-        TokenRequestSession FindRequestSessionById(int id);
+        IdentityRequestSession CreateTokenRequestSession(IdentityRequestHandler requestHandler);
+        IdentityRequestHandler GetDraftTokenRequestHandler();
+        bool UpdateTokenRequestHandler(IdentityRequestHandler tokenRequestHandler);
+        bool UpdateTokenRequestSession(IdentityRequestSession aCFProcessSession);
+        IdentityRequestHandler FindTokenRequestHandlerByAuthorizationCode(string authCode);
+        IdentityRequestSession FindRequestSessionById(int id);
         TokenResponse FindRefreshToken(string refreshToken);
         RSAParameters GetPublicKeyJson();
+        string RefreshAccessTokenFromExternalSource(TokenResponse refreshToken);
     }
 }

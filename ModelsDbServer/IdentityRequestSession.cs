@@ -11,10 +11,10 @@ namespace ServerDbModels
     ///  Store requested parameter for issuing token
     /// </summary>
 #if IdentityServer
-    [Table("TokenRequestSessions")]
+    [Table($"{nameof(IdentityRequestSession)}s")]
     [PrimaryKey(nameof(Id))]
 #endif
-    public class TokenRequestSession: DbTableBase
+    public class IdentityRequestSession: DbTableBase<Guid>
     {
         /// <summary>
         /// One time use only, for "Authorization code flow" or "hybrid flow"
@@ -36,7 +36,6 @@ namespace ServerDbModels
         /// From client
         /// </summary>
         public string? Nonce { get; set; } = string.Empty;
-        //public string? ClientState { get; set; } = string.Empty;
         public string? Scope { get; set; } = string.Empty;
         /// <summary>
         /// Value of this property is from TokenValidationPrinciples
@@ -51,18 +50,9 @@ namespace ServerDbModels
 
         public bool IsOfflineAccess { get; set; } = false;
 
-        [ForeignKey("TokenRequestHandlerId")]
-        public int? TokenRequestHandlerId { get; set; }
-        public TokenRequestHandler? TokenRequestHandler { get; set; }
-
-#if IdentityServer
-        /// <summary>
-        /// TODO: intend to use this login session with client, cause 
-        /// </summary>
-        [ForeignKey("ClientId")]
-        public int? ClientId { get; set; }
-        public Client? Client { get; set; }
-#endif
+        [ForeignKey(nameof(IdentityRequestHandlerId))]
+        public Guid IdentityRequestHandlerId { get; set; }
+        public IdentityRequestHandler IdentityRequestHandler { get; set; }
     }
 
 

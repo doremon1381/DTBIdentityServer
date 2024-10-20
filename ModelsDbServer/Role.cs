@@ -7,10 +7,10 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace ServerDbModels
 {
 #if IdentityServer
-    [Table("Roles")]
+    [Table($"{nameof(Role)}s")]
     [PrimaryKey(nameof(Id))]
 #endif
-    public class Role: IdentityRole<int>, IDbTable
+    public class Role: IdentityRole<Guid>, IDbTable
     {
         public string RoleCode { get; set; }
         public string RoleName { get; set; }
@@ -24,6 +24,6 @@ namespace ServerDbModels
         public override string? NormalizedName { get; set; }
         public override string? ConcurrencyStamp { get; set; }
 
-        public List<IdentityUserRole> Permissions { get; set; }
+        public List<IdentityUserRole> IdentityUserRoles { get; set; }
     }
 }

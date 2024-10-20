@@ -33,30 +33,31 @@ namespace IssuerOfClaims.Services
 
         protected async override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
-            try
-            {
-                var endpoint = this.Context.GetEndpoint();
-                if (endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() is object)
-                    return AuthenticateResult.NoResult();
+            var endpoint = this.Context.GetEndpoint();
+            if (endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() is object)
+                return AuthenticateResult.NoResult();
 
-                // user login
-                var authenticateInfor = this.Request.Headers.Authorization.ToString();
-                ValidateAuthenticateInfo(authenticateInfor);
+            // user login
+            var authenticateInfor = this.Request.Headers.Authorization.ToString();
+            ValidateAuthenticateInfo(authenticateInfor);
 
-                UserIdentity user = GetUserUsingAuthenticationScheme(authenticateInfor);
-                ClaimsPrincipal claimsPrincipal = CreateClaimPrincipal(user);
+            // WRONG_IMPLEMENT!
+            // TODO: need to change from get user by auth code to verify authcode and get user from username or password
+            UserIdentity user = GetUserUsingAuthenticationScheme(authenticateInfor);
+            ClaimsPrincipal claimsPrincipal = CreateClaimPrincipal(user);
 
-                ValidateClaimsPrincipal(claimsPrincipal);
-                var ticket = IssueAuthenticationTicket(claimsPrincipal);
+            ValidateClaimsPrincipal(claimsPrincipal);
+            var ticket = IssueAuthenticationTicket(claimsPrincipal);
 
-                return AuthenticateResult.Success(ticket);
-            }
-            catch (Exception ex)
-            {
-                return AuthenticateResult.Fail(ex.Message);
-            }
+            return AuthenticateResult.Success(ticket);
         }
 
+        /// <summary>
+        /// WRONG_IMPLEMENT!: will replace this function 
+        /// </summary>
+        /// <param name="authenticateInfor"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException"></exception>
         private UserIdentity GetUserUsingAuthenticationScheme(string authenticateInfor)
         {
             // authentication with "Basic access" - username + password
@@ -75,7 +76,7 @@ namespace IssuerOfClaims.Services
             var accessToken = authenticateInfor.Replace(AuthenticationSchemes.AuthorizationHeaderBearer, "").Trim();
             var tokenResponse = _tokenResponsePerHandlerDbServices.FindByAccessToken(accessToken);
 
-            return tokenResponse.TokenRequestHandler.User;
+            return tokenResponse.IdentityRequestHandler.User;
         }
 
         private UserIdentity BasicAccess_FindUser(string authenticateInfor)

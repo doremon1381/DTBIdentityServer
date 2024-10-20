@@ -6,7 +6,7 @@ using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class ConfirmEmailDbServices : DbTableBase<ConfirmEmail>, IConfirmEmailDbServices
+    public class ConfirmEmailDbServices : DbTableServicesBase<ConfirmEmail>, IConfirmEmailDbServices
     {
         public ConfirmEmailDbServices() 
         {

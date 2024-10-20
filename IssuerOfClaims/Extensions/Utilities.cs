@@ -1,5 +1,8 @@
 ﻿using System.Drawing.Imaging;
 using System.Drawing;
+using static ServerUltilities.Identity.OidcConstants;
+using System.Text.Json;
+using System.Text;
 
 namespace IssuerOfClaims.Extensions
 {
@@ -70,5 +73,91 @@ namespace IssuerOfClaims.Extensions
             imgPhoto.Dispose();
             return bmPhoto;
         }
+
+        public static DateTime TimeSecondsToDateTime(long timeSeconds)
+        {
+            DateTime start = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+            return start.AddSeconds(timeSeconds).ToLocalTime();
+        }
+
+
+
+        /// <summary>
+        /// To achieve optimal performance, write JSON payloads that are already encoded as UTF-8 text rather than as UTF-16 strings. 
+        /// <para> Use JsonEncodedText to cache and pre-encode known property names and values as statics.</para>
+        /// <para> Powered by Copilot </para>
+        /// </summary>
+        /// <param name="accessToken"></param>
+        /// <param name="idToken"></param>
+        /// <param name="expiredTimeSeconds"></param>
+        /// <param name="refreshToken"></param>
+        public static async Task<string> CreateTokenResponseStringAsync(string accessToken, string idToken, long expiredTimeSeconds, string refreshToken = "", string tokenType = TokenResponse.BearerTokenType)
+        {
+            var propertyValuePairs = await ConvertResponseStringToUTF8Async(accessToken, idToken, refreshToken, expiredTimeSeconds, tokenType);
+
+            var json = await CreateJsonStringAsync(propertyValuePairs);
+
+            return json;
+        }
+
+        private static async Task<string> CreateJsonStringAsync(ParameterValuePairs propertyValuePairs)
+        {
+            var stream = new MemoryStream();
+            var writer = new Utf8JsonWriter(stream);
+
+            writer.WriteStartObject();
+            writer.WriteString(propertyValuePairs.AccessTokenPair.Key, propertyValuePairs.AccessTokenPair.Value);
+            if (!string.IsNullOrEmpty(propertyValuePairs.RefreshTokenPair.Value.Value))
+                writer.WriteString(propertyValuePairs.RefreshTokenPair.Key, propertyValuePairs.RefreshTokenPair.Value);
+            writer.WriteString(propertyValuePairs.ExpiredTimePair.Key, propertyValuePairs.ExpiredTimePair.Value);
+            if (!string.IsNullOrEmpty(propertyValuePairs.TokenTypePair.Value.Value))
+                writer.WriteString(propertyValuePairs.TokenTypePair.Key, propertyValuePairs.TokenTypePair.Value);
+            writer.WriteString(propertyValuePairs.IdTokenPair.Key, propertyValuePairs.IdTokenPair.Value);
+            writer.WriteEndObject();
+
+            writer.Flush();
+
+            string json = Encoding.UTF8.GetString(stream.ToArray());
+            return json;
+        }
+
+        private static async Task<ParameterValuePairs>ConvertResponseStringToUTF8Async(string accessToken, string idToken, string refreshToken, long expiredTimeSeconds, string tokenType)
+        {
+            var accessTokenPair =
+            new KeyValuePair<JsonEncodedText, JsonEncodedText>(
+                JsonEncodedText.Encode(AuthorizeResponse.AccessToken),
+                JsonEncodedText.Encode(accessToken)
+            );
+            var idTokenPair =
+            new KeyValuePair<JsonEncodedText, JsonEncodedText>(
+                JsonEncodedText.Encode(AuthorizeResponse.IdentityToken),
+                JsonEncodedText.Encode(idToken)
+            );
+            var refreshTokenPair =
+            new KeyValuePair<JsonEncodedText, JsonEncodedText>(
+                JsonEncodedText.Encode(AuthorizeResponse.RefreshToken),
+                JsonEncodedText.Encode(refreshToken)
+            );
+            var tokenTypePair =
+            new KeyValuePair<JsonEncodedText, JsonEncodedText>(
+                JsonEncodedText.Encode(AuthorizeResponse.TokenType),
+                JsonEncodedText.Encode(tokenType)
+            );
+            var expiredTimePair = new KeyValuePair<JsonEncodedText, JsonEncodedText>(
+                JsonEncodedText.Encode(AuthorizeResponse.ExpiresIn),
+                JsonEncodedText.Encode(TimeSecondsToDateTime(expiredTimeSeconds).ToString())
+            );
+
+            return new ParameterValuePairs(accessTokenPair, refreshTokenPair, expiredTimePair, tokenTypePair, idTokenPair);
+        }
+
+        private record ParameterValuePairs(
+            KeyValuePair<JsonEncodedText, JsonEncodedText> AccessTokenPair, 
+            KeyValuePair<JsonEncodedText, JsonEncodedText> RefreshTokenPair, 
+            KeyValuePair<JsonEncodedText, JsonEncodedText> ExpiredTimePair,
+            KeyValuePair<JsonEncodedText, JsonEncodedText> TokenTypePair,
+            KeyValuePair<JsonEncodedText, JsonEncodedText> IdTokenPair);
+
     }
 }

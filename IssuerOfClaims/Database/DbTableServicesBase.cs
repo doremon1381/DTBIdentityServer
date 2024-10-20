@@ -5,11 +5,11 @@ using System.Net;
 
 namespace IssuerOfClaims.Database
 {
-    public abstract class DbTableBase<TEntity> : IDbContextBase<TEntity> where TEntity : class, IDbTable
+    public abstract class DbTableServicesBase<TEntity> : IDbContextBase<TEntity> where TEntity : class, IDbTable
     {
         private static string? _ConnectionString;
 
-        static DbTableBase()
+        static DbTableServicesBase()
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(Environment.CurrentDirectory)
@@ -100,22 +100,6 @@ namespace IssuerOfClaims.Database
             return true;
         }
 
-        //public bool Add(TEntity model)
-        //{
-        //    try
-        //    {
-        //        this._DbModels.Add(model);
-        //        this.SaveChanges();
-        //    }
-        //    catch (Exception)
-        //    {
-        //        //return false;
-        //        throw;
-        //    }
-
-        //    return true;
-        //}
-
         public bool Update(TEntity model)
         {
             try
@@ -156,11 +140,10 @@ namespace IssuerOfClaims.Database
         {
             bool isEmpty = true;
 
-            using (var dbContext = CreateDbContext())
+            UsingDbSet((dbSet) =>
             {
-                var dbSet = dbContext.GetDbSet<TEntity>();
                 isEmpty = !(dbSet.Count() > 0);
-            }
+            });
 
             return isEmpty;
         }
@@ -170,13 +153,10 @@ namespace IssuerOfClaims.Database
             bool hasError = false;
             try
             {
-                using (var dbContext = CreateDbContext())
+                UsingDbSetWithSaveChanges((dbSet) =>
                 {
-                    var dbSet = dbContext.GetDbSet<TEntity>();
                     dbSet.AddRange(models);
-
-                    dbContext.SaveChanges();
-                }
+                });
             }
             catch (System.Exception ex)
             {

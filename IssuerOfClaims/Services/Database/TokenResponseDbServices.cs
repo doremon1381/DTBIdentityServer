@@ -6,7 +6,7 @@ using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class TokenResponseDbServices : DbTableBase<TokenResponse>, ITokenResponseDbServices
+    public class TokenResponseDbServices : DbTableServicesBase<TokenResponse>, ITokenResponseDbServices
     {
         public TokenResponseDbServices() 
         {
@@ -57,15 +57,15 @@ namespace IssuerOfClaims.Services.Database
             return obj;
         }
 
-        public TokenResponse Find(string accessToken, string tokenType)
+        public TokenResponse Find(string token, string tokenType)
         {
             TokenResponse obj = null;
 
             UsingDbSetWithSaveChanges((_TokenResponses) => 
             {
-                obj = _TokenResponses.Include(t => t.TokenResponsePerHandler)
+                obj = _TokenResponses.Include(t => t.TokensPerIdentityRequests)
                     .Where(t => t.TokenType.Equals(tokenType))
-                    .First(t => t.Token.Equals(accessToken)) ?? new TokenResponse();
+                    .First(t => t.Token.Equals(token)) ?? new TokenResponse();
             });
 
             ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(TokenResponseDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
@@ -80,7 +80,7 @@ namespace IssuerOfClaims.Services.Database
         TokenResponse CreateAccessToken();
         TokenResponse CreateIdToken();
         TokenResponse CreateRefreshToken();
-        TokenResponse Find(string accessToken, string tokenType);
+        TokenResponse Find(string token, string tokenType);
         //TokenResponse CreateTokenResponse(TokenRequestHandler session);
     }
 }

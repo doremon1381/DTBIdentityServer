@@ -2,11 +2,9 @@
 
 namespace ServerDbModels
 {
-    public class DbTableBase: IDbTable
+    public class DbTableBase<TIdentityKeyType>: IDbTable
     {
-#if IdentityServer
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-#endif
-        public int Id { get; set; }
+        public TIdentityKeyType Id { get; set; }
     }
 }

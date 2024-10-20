@@ -4,34 +4,28 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ServerDbModels
 {
-    [Table("ConfirmEmails")]
+    [Table($"{nameof(ConfirmEmail)}s")]
     [PrimaryKey(nameof(Id))]
-    public class ConfirmEmail : DbTableBase
+    public class ConfirmEmail : DbTableBase<Guid>
     {
-#if IdentityServer
         [Required]
-#endif
         public string ConfirmCode { get; set; } = string.Empty;
         public DateTime? ExpiryTime { get; set; } = null;
         public DateTime CreatedTime { get; set; } = DateTime.Now;
         public bool IsConfirmed { get; set; } = false;
         // TODO: use confirm code for changing password or ...
-        public int Purpose { get; set; } = 0;
+        public string Purpose { get; set; } = ConfirmEmailPurpose.None;
 
-        public int? UserId { get; set; } = null;
-#if IdentityServer
-        public int? ClientId { get; set;} = null;
+        public Guid? UserId { get; set; } = null;
+        public Guid? ClientId { get; set;} = null;
         public Client? Client { get; set; } = null;
         public UserIdentity? User { get; set; } = null;
-#else
-        public UserToken? User { get; set; }
-#endif
     }
 
-    public enum ConfirmEmailPurpose
+    public static class ConfirmEmailPurpose
     {
-        None,
-        CreateIdentity,
-        ChangePassword
+        public const string None = "none";
+        public const string CreateIdentity = "create_identity";
+        public const string ChangePassword = "change_password";
     }
 }

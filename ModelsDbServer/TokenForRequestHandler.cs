@@ -11,16 +11,16 @@ namespace ServerDbModels
     /// <summary>
     /// ID token or access token
     /// </summary>
-    [Table($"{nameof(TokenResponsePerIdentityRequest)}s")]
+    [Table($"{nameof(TokenForRequestHandler)}s")]
     [PrimaryKey(nameof(Id))]
-    public class TokenResponsePerIdentityRequest: DbTableBase
+    public class TokenForRequestHandler: DbTableBase<Guid>
     {
         [ForeignKey(nameof(TokenResponseId))]
-        public int TokenResponseId { get; set; }
+        public Guid TokenResponseId { get; set; }
         public TokenResponse TokenResponse { get; set; }
 
-        [ForeignKey(nameof(TokenRequestHandlerId))]
-        public int TokenRequestHandlerId { get; set; }
-        public TokenRequestHandler TokenRequestHandler { get; set; }
+        [ForeignKey(nameof(IdentityRequestHandlerId))]
+        public Guid IdentityRequestHandlerId { get; set; }
+        public IdentityRequestHandler IdentityRequestHandler { get; set; }
     }
 }

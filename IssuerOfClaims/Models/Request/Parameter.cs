@@ -89,8 +89,12 @@ namespace IssuerOfClaims.Models.Request
             { AuthorizeRequest.IdTokenHint, ParameterPriority.OPTIONAL }
         };
 
+        // TODO: will check again
         internal static Dictionary<string, ParameterPriority> RegisterParamterPriority = new Dictionary<string, ParameterPriority>()
         {
+            { RegisterRequest.State, ParameterPriority.OPTIONAL },
+            { RegisterRequest.ClientId, ParameterPriority.OPTIONAL },
+            { RegisterRequest.Nonce, ParameterPriority.OPTIONAL },
             { RegisterRequest.UserName, ParameterPriority.REQRUIRED },
             { RegisterRequest.Password, ParameterPriority.REQRUIRED },
             { RegisterRequest.FirstName, ParameterPriority.OPTIONAL },

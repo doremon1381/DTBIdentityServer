@@ -81,13 +81,13 @@ namespace IssuerOfClaims.Services
             }
         }
 
-        private async Task CreateConfirmEmailAsync(UserIdentity user, string code, Client client, ConfirmEmailPurpose purpose, int expiredTimeInMinutes)
+        private async Task CreateConfirmEmailAsync(UserIdentity user, string code, Client client, string purpose, int expiredTimeInMinutes)
         {
             try
             {
                 var nw = _emailDbServices.GetDraft();
                 nw.ConfirmCode = code;
-                nw.Purpose = (int)purpose;
+                nw.Purpose = purpose;
                 nw.IsConfirmed = false;
                 nw.ExpiryTime = DateTime.Now.AddMinutes(expiredTimeInMinutes);
                 nw.CreatedTime = DateTime.Now;
@@ -111,7 +111,7 @@ namespace IssuerOfClaims.Services
         {
             var changePasswordEmail = _emailDbServices.GetByCode(code);
 
-            if (!changePasswordEmail.Purpose.Equals((int)ConfirmEmailPurpose.ChangePassword))
+            if (!changePasswordEmail.Purpose.Equals(ConfirmEmailPurpose.ChangePassword))
                 throw new InvalidOperationException("something inside this process is wrong!");
             if (!changePasswordEmail.ExpiryTime.HasValue || changePasswordEmail.ExpiryTime < DateTime.Now)
                 throw new InvalidOperationException("error with email's expired time!");

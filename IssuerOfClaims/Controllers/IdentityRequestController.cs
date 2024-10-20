@@ -746,28 +746,41 @@ namespace IssuerOfClaims.Controllers
             if (user == null)
                 throw new InvalidOperationException(ExceptionMessage.OBJECT_NOT_FOUND);
 
-            string responseBody = await ResponseForUserInfoRequest(user);
+            object responseBody = await ResponseForUserInfoRequestAsync(user);
 
             return StatusCode((int)HttpStatusCode.OK, responseBody);
         }
 
-        private static async Task<string> ResponseForUserInfoRequest(UserIdentity user)
+        private static async Task<object> ResponseForUserInfoRequestAsync(UserIdentity user)
         {
-            var stream = new MemoryStream();
-            var writer = new Utf8JsonWriter(stream);
-
-            writer.WriteStartObject();
-            writer.WriteString(JsonEncodedText.Encode(UserInforResponse.Sub), JsonEncodedText.Encode(user.UserName));
-            writer.WriteString(JsonEncodedText.Encode(UserInforResponse.Name), JsonEncodedText.Encode(user.FullName));
-            writer.WriteString(JsonEncodedText.Encode(UserInforResponse.Email), JsonEncodedText.Encode(user.Email));
-            writer.WriteString(JsonEncodedText.Encode(UserInforResponse.EmailConfirmed), JsonEncodedText.Encode(user.EmailConfirmed.ToString()));
-            writer.WriteString(JsonEncodedText.Encode(UserInforResponse.Picture), JsonEncodedText.Encode(user.Avatar));
-            writer.WriteEndObject();
-
-            await stream.FlushAsync();
-
-            return Encoding.UTF8.GetString(stream.ToArray());
+            return new
+            {
+                sub = user.UserName,
+                name = user.FullName,
+                email = user.Email,
+                email_confirmed = user.EmailConfirmed,
+                picture = user.Avatar
+            };
         }
+        //private static async Task<string> ResponseForUserInfoRequest(UserIdentity user)
+        //{
+        //    using var stream = new MemoryStream();
+        //    using var writer = new Utf8JsonWriter(stream);
+        //    {
+        //        writer.WriteStartObject();
+        //        writer.WriteString(JsonEncodedText.Encode(UserInforResponse.Sub), JsonEncodedText.Encode(user.UserName));
+        //        writer.WriteString(JsonEncodedText.Encode(UserInforResponse.Name), JsonEncodedText.Encode(user.FullName));
+        //        writer.WriteString(JsonEncodedText.Encode(UserInforResponse.Email), JsonEncodedText.Encode(user.Email));
+        //        writer.WriteString(JsonEncodedText.Encode(UserInforResponse.EmailConfirmed), JsonEncodedText.Encode(user.EmailConfirmed.ToString()));
+        //        writer.WriteString(JsonEncodedText.Encode(UserInforResponse.Picture), JsonEncodedText.Encode(user.Avatar));
+        //        writer.WriteEndObject();
+
+        //        stream.Flush();
+        //    }
+
+        //    var json =  Encoding.UTF8.GetString(stream.ToArray());
+        //    return json;
+        //}
 
         [HttpGet("userinfo.email")]
         [Authorize]

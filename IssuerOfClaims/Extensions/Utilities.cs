@@ -103,20 +103,21 @@ namespace IssuerOfClaims.Extensions
 
         private static async Task<string> CreateJsonStringAsync(ParameterValuePairs propertyValuePairs)
         {
-            var stream = new MemoryStream();
-            var writer = new Utf8JsonWriter(stream);
+            using var stream = new MemoryStream();
+            using var writer = new Utf8JsonWriter(stream);
+            {
+                writer.WriteStartObject();
+                writer.WriteString(propertyValuePairs.AccessTokenPair.Key, propertyValuePairs.AccessTokenPair.Value);
+                if (!string.IsNullOrEmpty(propertyValuePairs.RefreshTokenPair.Value.Value))
+                    writer.WriteString(propertyValuePairs.RefreshTokenPair.Key, propertyValuePairs.RefreshTokenPair.Value);
+                writer.WriteString(propertyValuePairs.ExpiredTimePair.Key, propertyValuePairs.ExpiredTimePair.Value);
+                if (!string.IsNullOrEmpty(propertyValuePairs.TokenTypePair.Value.Value))
+                    writer.WriteString(propertyValuePairs.TokenTypePair.Key, propertyValuePairs.TokenTypePair.Value);
+                writer.WriteString(propertyValuePairs.IdTokenPair.Key, propertyValuePairs.IdTokenPair.Value);
+                writer.WriteEndObject();
 
-            writer.WriteStartObject();
-            writer.WriteString(propertyValuePairs.AccessTokenPair.Key, propertyValuePairs.AccessTokenPair.Value);
-            if (!string.IsNullOrEmpty(propertyValuePairs.RefreshTokenPair.Value.Value))
-                writer.WriteString(propertyValuePairs.RefreshTokenPair.Key, propertyValuePairs.RefreshTokenPair.Value);
-            writer.WriteString(propertyValuePairs.ExpiredTimePair.Key, propertyValuePairs.ExpiredTimePair.Value);
-            if (!string.IsNullOrEmpty(propertyValuePairs.TokenTypePair.Value.Value))
-                writer.WriteString(propertyValuePairs.TokenTypePair.Key, propertyValuePairs.TokenTypePair.Value);
-            writer.WriteString(propertyValuePairs.IdTokenPair.Key, propertyValuePairs.IdTokenPair.Value);
-            writer.WriteEndObject();
-
-            writer.Flush();
+                writer.Flush();
+            }
 
             string json = Encoding.UTF8.GetString(stream.ToArray());
             return json;

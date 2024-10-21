@@ -655,7 +655,7 @@ namespace IssuerOfClaims.Controllers
 
         #region Google authentication
         //[HttpPost("v{version:apiVersion}/authorize/google")]
-        [HttpPost(ProtocolRoutePaths.GoogleAuthorize)]
+        [HttpPost("authorize/google")]
         [AllowAnonymous]
         // TODO: comment for now, but when everything is done, this policy must be used, 
         //     : only identityserver's clients can use this endpoint, not user-agent

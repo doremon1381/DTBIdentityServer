@@ -21,6 +21,8 @@ namespace IssuerOfClaims.Models.Request
         private static readonly Type _changePasswordRequestType = typeof(ChangePasswordRequest);
         private static readonly Type _tokenRequestType = typeof(TokenRequest);
 
+        private static readonly string _responseTypeName = nameof(AuthorizeRequest.ResponseType);
+
         private static readonly FieldInfo[] _parameterNames = _currentType.Name switch
         {
             nameof(AuthCodeParameters) => _authorizeRequestType.GetFields(
@@ -55,8 +57,8 @@ namespace IssuerOfClaims.Models.Request
             // TODO: will check it later
             _ => throw new InvalidOperationException()
         };
-
         private static readonly PropertyInfo _responseType = _properties.FirstOrDefault(t => t.Name.Equals("ResponseType"));
+
 
         public AbstractRequestParamters(string? queryString)
         {
@@ -82,16 +84,16 @@ namespace IssuerOfClaims.Models.Request
 
         private void InitiateProperties()
         {
-            //Action<Parameter, string> setValueMethod = FunctionToInitiateValueOfProperty();
-
             // TODO: for currently logic, to ensure response mode is set before another properties, I run this function first
             if (_responseType != null)
-                Task.Run(async () => { await SetPropertyValueAsync(_responseType); }).Wait();
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                SetPropertyValueAsync(_responseType);
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 
             List<Task> tasks = new List<Task>();
             foreach (var property in _properties)
             {
-                if (property.Name.Equals("ResponseType"))
+                if (property.Name.Equals(_responseTypeName))
                     continue;
                 else
                     tasks.Add(Task.Run(async () =>
@@ -122,7 +124,7 @@ namespace IssuerOfClaims.Models.Request
 #pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
                     var responseType = (Parameter)_properties
-                        .FirstOrDefault(p => p.Name.Equals("ResponseType"))
+                        .FirstOrDefault(p => p.Name.Equals(_responseTypeName))
                         .GetValue(this, null);
 #pragma warning restore CS8602 // Dereference of a possibly null reference.
 #pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.

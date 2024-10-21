@@ -252,25 +252,27 @@ namespace ServerUltilities.Identity
         public static class ProtocolRoutePaths
         {
             //public const string ConnectPathPrefix = "connect";
-            public const string ConnectPathPrefix = "oauth2";
+            public const string OauthPathPrefix = "oauth2";
+            public const string AuthPathPrefix = "auth";
 
-            public const string Authorize = ConnectPathPrefix + "/authorize";
+            public const string Authorize = OauthPathPrefix + "/authorize";
             public const string AuthorizeCallback = Authorize + "/callback";
             public const string Discovery = ".well-known/openid-configuration";
             //public const string DiscoveryWebKeys = Discovery + "/jwks";
-            public const string Jwks = ConnectPathPrefix + "/jwks";
-            public const string Token = ConnectPathPrefix + "/token";
-            public const string Revocation = ConnectPathPrefix + "/revocation";
-            public const string UserInfo = ConnectPathPrefix + "/userinfo";
-            public const string Introspection = ConnectPathPrefix + "/introspect";
-            public const string EndSession = ConnectPathPrefix + "/endsession";
+            public const string Jwks = OauthPathPrefix + "/jwks";
+            public const string Token = OauthPathPrefix + "/token";
+            public const string Revocation = OauthPathPrefix + "/revocation";
+            public const string UserInfo = OauthPathPrefix + "/userinfo";
+            public const string Introspection = OauthPathPrefix + "/introspect";
+            public const string EndSession = OauthPathPrefix + "/endsession";
             public const string EndSessionCallback = EndSession + "/callback";
-            public const string CheckSession = ConnectPathPrefix + "/checksession";
-            public const string DeviceAuthorization = ConnectPathPrefix + "/deviceauthorization";
-            public const string Register = ConnectPathPrefix + "/register";
+            public const string CheckSession = OauthPathPrefix + "/checksession";
+            public const string DeviceAuthorization = OauthPathPrefix + "/deviceauthorization";
+            public const string Register = AuthPathPrefix + "/register";
             public const string GoogleAuthorize = Authorize + "/google";
+            //public const string ConfirmEmail = "confirmemail";
 
-            public const string MtlsPathPrefix = ConnectPathPrefix + "/mtls";
+            public const string MtlsPathPrefix = OauthPathPrefix + "/mtls";
             public const string MtlsToken = MtlsPathPrefix + "/token";
             public const string MtlsRevocation = MtlsPathPrefix + "/revocation";
             public const string MtlsIntrospection = MtlsPathPrefix + "/introspect";

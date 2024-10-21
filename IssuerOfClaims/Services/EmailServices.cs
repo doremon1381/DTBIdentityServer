@@ -17,7 +17,7 @@ namespace IssuerOfClaims.Services
         private readonly IApplicationUserManager _applicationUserManager;
         private readonly MailSettings _mailSettings = null;
 
-        public EmailServices(IConfirmEmailDbServices emailDbServices, IApplicationUserManager userManager, IConfigurationManager configuration) 
+        public EmailServices(IConfirmEmailDbServices emailDbServices, IApplicationUserManager userManager, IConfigurationManager configuration)
         {
             _emailDbServices = emailDbServices;
             _mailSettings = configuration.GetSection(IdentityServerConfiguration.MAILSETTINGS).Get<MailSettings>();
@@ -37,6 +37,23 @@ namespace IssuerOfClaims.Services
             SendEmail(user.UserName, user.Email, emailBody);
         }
 
+        private static string CreateCallbackUrl(string requestScheme, string requestHost, string callbackEndpoint, Guid userId, string code)
+        {
+            string callbackUrl = string.Format("{0}?area=Identity&userId={1}&code={2}",
+                   $"{requestScheme}://{requestHost}/auth/{callbackEndpoint}",
+                   userId,
+                   code);
+
+            return callbackUrl;
+        }
+
+        private static string CreateEmailBody(string callbackUrl)
+        {
+            var body = $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.";
+
+            return body;
+        }
+
         public async Task SendVerifyingEmailAsync(UserIdentity user, string callbackEndpoint, Client client, string requestScheme, string requestHost)
         {
             var code = await _applicationUserManager.Current.GenerateEmailConfirmationTokenAsync(user);
@@ -45,16 +62,13 @@ namespace IssuerOfClaims.Services
             int expiredTimeInMinutes = 60;
             await CreateConfirmEmailAsync(user, code, client, ConfirmEmailPurpose.CreateIdentity, expiredTimeInMinutes);
 
-            string callbackUrl = string.Format("{0}?area=Identity&userId={1}&code={2}",
-                   $"{requestScheme}://{requestHost}/oauth2/{callbackEndpoint}",
-                   user.Id,
-                   code);
-            string emailBody = $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.";
+            string callbackUrl = CreateCallbackUrl(requestScheme, requestHost, callbackEndpoint, user.Id, code);
+            string emailBody = CreateEmailBody(callbackUrl);
 
-            SendEmail(user.UserName, user.Email, emailBody);
+            await SendEmail(user.UserName, user.Email, emailBody);
         }
 
-        private void SendEmail(string userName, string emailAddress, string emailBody)
+        private async Task SendEmail(string userName, string emailAddress, string emailBody)
         {
             var email = new MimeMessage();
             email.From.Add(new MailboxAddress(_mailSettings.Name, _mailSettings.EmailId));

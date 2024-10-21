@@ -105,7 +105,7 @@ namespace IssuerOfClaims.Models.Request
         private void ValidateScope()
         {
             if (!Scope.Value.Contains(StandardScopes.OpenId))
-                throw new CustomException(ExceptionMessage.AUTHORIZE_SCOPES_MUST_HAVE_OPENID, HttpStatusCode.NotImplemented);
+                throw new CustomException(ExceptionMessage.AUTHORIZE_SCOPES_MUST_HAVE_OPENID, HttpStatusCode.BadRequest);
         }
 
         private void ValidatePKCEParameters()

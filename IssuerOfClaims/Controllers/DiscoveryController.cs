@@ -25,7 +25,7 @@ namespace IssuerOfClaims.Controllers
         private static readonly List<FieldInfo> _ProtocolRoutePaths = typeof(ProtocolRoutePaths).GetFields(BindingFlags.Public | BindingFlags.Static).ToList();
         private static readonly List<FieldInfo> _StandardScopes = typeof(StandardScopes).GetFields(BindingFlags.Public | BindingFlags.Static).ToList();
 
-        private static Dictionary<string, object> discovery = new Dictionary<string, object>();
+        private static string discoveryString = string.Empty;
         private static readonly Image favicon = Utilities.ResizeImageToBitmap(32, 32, $"{Environment.CurrentDirectory}\\Img\\himeko.jpg");
 
         public DiscoveryController()
@@ -53,15 +53,16 @@ namespace IssuerOfClaims.Controllers
         [HttpGet(".well-known/openid-configuration")]
         public ActionResult EndpointDiscovery()
         {
-            var issuer = $"{Request.Scheme}://{Request.Host.Value}/";
-
-            if (discovery.Count == 0)
+            if (string.IsNullOrEmpty(discoveryString))
             {
+                var serverHostUrl = $"{Request.Scheme}://{Request.Host.Value}/";
+                Dictionary<string, object> discovery = new Dictionary<string, object>();
+
                 // TODO: Discovery + ProtocolRoutePaths
-                discovery.Add(Discovery.Issuer, issuer);
+                discovery.Add(Discovery.Issuer, serverHostUrl);
 
                 // add metadata
-                AddDefaultEndpoint(discovery, issuer);
+                AddDefaultEndpoint(discovery, serverHostUrl);
                 AddSupportedResponseTypes(discovery);
                 //AddSupportedResponseModes(discovery);
                 AddScopesSupport(discovery);
@@ -75,9 +76,11 @@ namespace IssuerOfClaims.Controllers
                 AddClaimsParameterSupported(discovery);
                 AddRequestParameterSupported(discovery);
                 AddRequestUriParameterSupported(discovery);
+
+                discoveryString = JsonConvert.SerializeObject(discovery, Formatting.Indented);
             }
 
-            return StatusCode((int)HttpStatusCode.OK, JsonConvert.SerializeObject(discovery, Formatting.Indented));
+            return StatusCode((int)HttpStatusCode.OK, discoveryString);
         }
 
         private void AddCodeChallengeMethodsSupported(Dictionary<string, object> discovery)
@@ -156,12 +159,12 @@ namespace IssuerOfClaims.Controllers
             return new KeyValuePair<string, string>(endpoint, routePath);
         }
 
-        private static void AddDefaultEndpoint(Dictionary<string, object> discovery, string issuer)
+        private static void AddDefaultEndpoint(Dictionary<string, object> discovery, string serverHostUrl)
         {
             _EndpointNames.ForEach(endpoint =>
             {
-                var value = _ProtocolRoutePaths.Find(p => p.Name.Equals(endpoint.Name));
-                discovery.Add(DiscoveryToEndpointMapping[(string)endpoint.GetValue(_EndpointNames)], $"{issuer}{(string)value.GetValue(_ProtocolRoutePaths)}");
+                var routePathProperty = _ProtocolRoutePaths.Find(p => p.Name.Equals(endpoint.Name));
+                discovery.Add(DiscoveryToEndpointMapping[(string)endpoint.GetValue(_EndpointNames)], $"{serverHostUrl}{(string)routePathProperty.GetValue(_ProtocolRoutePaths)}");
             });
         }
 

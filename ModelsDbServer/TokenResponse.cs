@@ -16,17 +16,9 @@ namespace ServerDbModels
         /// <summary>
         /// TODO: set by seconds
         /// </summary>
-        public DateTime? TokenExpiried { get; set; }
+        public DateTime TokenExpiried { get; set; }
         public DateTime? IssueAt { get; set; }
 
         public List<TokenForRequestHandler> TokensPerIdentityRequests { get; set; } = new List<TokenForRequestHandler>();
-    }
-
-    public static class ExternalSources
-    {
-        public const string Google = "Google";
-        public const string FaceBook = "Facebook";
-        public const string Twitter = "Twitter";
-        //...
     }
 }

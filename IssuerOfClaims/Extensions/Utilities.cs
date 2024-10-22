@@ -6,8 +6,6 @@ using System.Text;
 using static ServerUltilities.Identity.IdentityServerConstants;
 using IssuerOfClaims.Models;
 using System.Net;
-using System.Runtime.InteropServices.Marshalling;
-using Newtonsoft.Json;
 using System.Web;
 
 namespace IssuerOfClaims.Extensions
@@ -80,7 +78,7 @@ namespace IssuerOfClaims.Extensions
             return bmPhoto;
         }
 
-        public static DateTime TimeSecondsToDateTime(long timeSeconds)
+        public static DateTime Google_TimeSecondsToDateTime(long timeSeconds)
         {
             DateTime start = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
@@ -118,9 +116,9 @@ namespace IssuerOfClaims.Extensions
         /// <param name="idToken"></param>
         /// <param name="expiredTimeSeconds"></param>
         /// <param name="refreshToken"></param>
-        public static async Task<string> CreateTokenResponseStringAsync(string accessToken, string idToken, long expiredTimeSeconds, string refreshToken = "", string tokenType = TokenResponse.BearerTokenType)
+        public static async Task<string> CreateTokenResponseStringAsync(string accessToken, string idToken, DateTime expiredInDateTime, string refreshToken = "", string tokenType = TokenResponse.BearerTokenType)
         {
-            var valuePairs = await ConvertResponseStringToUTF8Async(accessToken, idToken, refreshToken, expiredTimeSeconds, tokenType);
+            var valuePairs = await ConvertResponseStringToUTF8Async(accessToken, idToken, refreshToken, expiredInDateTime, tokenType);
             var json = await CreateTokenJsonStringAsync(valuePairs);
 
             return json;
@@ -238,7 +236,7 @@ namespace IssuerOfClaims.Extensions
             return json;
         }
 
-        private static async Task<TokenResponseValuePairs> ConvertResponseStringToUTF8Async(string accessToken, string idToken, string refreshToken, long expiredTimeSeconds, string tokenType)
+        private static async Task<TokenResponseValuePairs> ConvertResponseStringToUTF8Async(string accessToken, string idToken, string refreshToken, DateTime expiredTime, string tokenType)
         {
             var accessTokenPair =
             new KeyValuePair<JsonEncodedText, JsonEncodedText>(
@@ -262,7 +260,7 @@ namespace IssuerOfClaims.Extensions
             );
             var expiredTimePair = new KeyValuePair<JsonEncodedText, JsonEncodedText>(
                 JsonEncodedText.Encode(AuthorizeResponse.ExpiresIn),
-                JsonEncodedText.Encode(TimeSecondsToDateTime(expiredTimeSeconds).ToString())
+                JsonEncodedText.Encode(((long)(expiredTime - DateTime.Now).TotalSeconds).ToString())
             );
 
             return new TokenResponseValuePairs(accessTokenPair, refreshTokenPair, expiredTimePair, tokenTypePair, idTokenPair);
@@ -294,5 +292,13 @@ namespace IssuerOfClaims.Extensions
     {
         EmailIsConfirmed,
         ResponseModeNotAllowed,
+    }
+
+    public static class ExternalSources
+    {
+        public const string Google = "Google";
+        public const string FaceBook = "Facebook";
+        public const string Twitter = "Twitter";
+        //...
     }
 }

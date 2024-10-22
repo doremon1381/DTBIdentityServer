@@ -27,14 +27,13 @@ namespace IssuerOfClaims.Services
         public async Task SendForgotPasswordCodeToEmailAsync(UserIdentity user, Client client)
         {
             var code = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(8);
-            //var sr = _userManager.get
             code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
 
-            int expiredTimeInMinutes = 1;
+            int expiredTimeInMinutes = 2;
             await CreateConfirmEmailAsync(user, code, client, ConfirmEmailPurpose.ChangePassword, expiredTimeInMinutes);
 
             string emailBody = $"Your password reset's security code is <span style=\"font-weight:bold; font-size:25px\">{code}</span>.";
-            SendEmail(user.UserName, user.Email, emailBody);
+            await SendEmailAsync(user.UserName, user.Email, emailBody);
         }
 
         private static string CreateCallbackUrl(string requestScheme, string requestHost, string callbackEndpoint, Guid userId, string code)
@@ -65,10 +64,10 @@ namespace IssuerOfClaims.Services
             string callbackUrl = CreateCallbackUrl(requestScheme, requestHost, callbackEndpoint, user.Id, code);
             string emailBody = CreateEmailBody(callbackUrl);
 
-            await SendEmail(user.UserName, user.Email, emailBody);
+            await SendEmailAsync(user.UserName, user.Email, emailBody);
         }
 
-        private async Task SendEmail(string userName, string emailAddress, string emailBody)
+        private async Task SendEmailAsync(string userName, string emailAddress, string emailBody)
         {
             var email = new MimeMessage();
             email.From.Add(new MailboxAddress(_mailSettings.Name, _mailSettings.EmailId));

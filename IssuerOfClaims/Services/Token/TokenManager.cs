@@ -56,9 +56,9 @@ namespace IssuerOfClaims.Services.Token
             // create new refresh token if it's expired, if refresh token is created new, remove the old, add the new one into previous authenticate session
 
             var accessToken = RefreshAccessToken_IssuseToken(tokenRequestHandler, tokenRequestHandler.TokensPerRequestHandlers.First(t => t.TokenResponse.TokenType.Equals(OidcConstants.TokenTypes.AccessToken)), OidcConstants.TokenTypes.AccessToken);
-            var idToken = UsingRefreshToken_IssuseIdToken(tokenRequestHandler, tokenRequestHandler.TokensPerRequestHandlers.First(t => t.TokenResponse.TokenType.Equals(OidcConstants.TokenTypes.IdentityToken)));
+            var idToken = RefreshAccessToken_IssuseIdToken(tokenRequestHandler, tokenRequestHandler.TokensPerRequestHandlers.First(t => t.TokenResponse.TokenType.Equals(OidcConstants.TokenTypes.IdentityToken)));
 
-            var responseBody = await Utilities.CreateTokenResponseStringAsync(accessToken.Token, idToken.Token, (long)(accessToken.TokenExpiried - DateTime.Now).Value.TotalSeconds);
+            var responseBody = await Utilities.CreateTokenResponseStringAsync(accessToken.Token, idToken.Token, accessToken.TokenExpiried);
 
             return responseBody;
         }
@@ -74,7 +74,7 @@ namespace IssuerOfClaims.Services.Token
         /// </summary>
         /// <param name="currentRequestHandler"></param>
         /// <returns></returns>
-        private TokenResponse UsingRefreshToken_IssuseIdToken(IdentityRequestHandler currentRequestHandler, TokenForRequestHandler tokenResponsePerIdentityRequest)
+        private TokenResponse RefreshAccessToken_IssuseIdToken(IdentityRequestHandler currentRequestHandler, TokenForRequestHandler tokenResponsePerIdentityRequest)
         {
             TokenResponse idToken = CreateToken(OidcConstants.TokenTypes.IdentityToken);
             var idTokenValue = GenerateIdTokenAsync(currentRequestHandler.User, currentRequestHandler.RequestSession.Scope, ""
@@ -123,7 +123,6 @@ namespace IssuerOfClaims.Services.Token
 
             TokenResponse refreshToken = null;
             TokenResponse accessToken = null;
-            double accessTokenExpiredTime = 3600;
 
             // TODO: at this step, need to check offline_access is inside authrization login request is true or fault
             //     : if fault, then response will not include refresh token
@@ -141,7 +140,6 @@ namespace IssuerOfClaims.Services.Token
                     if (latestAccessToken != null && latestAccessToken.TokenResponse.TokenExpiried > DateTime.Now)
                     {
                         accessToken = latestAccessToken.TokenResponse;
-                        accessTokenExpiredTime = (latestAccessToken.TokenResponse.TokenExpiried - DateTime.Now).Value.TotalSeconds;
                     }
                     // latest access token can not be re-used, expired
                     else
@@ -159,8 +157,6 @@ namespace IssuerOfClaims.Services.Token
                     {
                         accessToken = latestAccessToken.TokenResponse;
                         refreshToken = latestRefreshToken.TokenResponse;
-
-                        accessTokenExpiredTime = (accessToken.TokenExpiried - DateTime.Now).Value.TotalSeconds;
                     }
                     // refresh token can be re-used, but not access token
                     else if (latestAccessToken.TokenResponse.TokenExpiried <= DateTime.Now
@@ -216,7 +212,7 @@ namespace IssuerOfClaims.Services.Token
 
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
             // TODO: at this step, if accessToken is null, then something is wrong!
-            var responseBody = Utilities.CreateTokenResponseStringAsync(accessToken.Token, idToken.Token, (long)accessTokenExpiredTime, refreshToken == null ? "" : refreshToken.Token).Result;
+            var responseBody = Utilities.CreateTokenResponseStringAsync(accessToken.Token, idToken.Token, accessToken.TokenExpiried, refreshToken == null ? "" : refreshToken.Token).Result;
 #pragma warning restore CS8602 // Dereference of a possibly null reference.
 
             CreateTokenResponsePerIdentityRequest(currentRequestHandler, accessToken);
@@ -274,9 +270,9 @@ namespace IssuerOfClaims.Services.Token
 
             tokenResponse.TokenExpiried = tokenType switch
             {
-                OidcConstants.TokenTypes.AccessToken => expiredTime == null ? DateTime.Now.AddHours(1) : expiredTime,
-                OidcConstants.TokenTypes.RefreshToken => expiredTime == null ? DateTime.Now.AddHours(4) : expiredTime,
-                OidcConstants.TokenTypes.IdentityToken => expiredTime == null ? DateTime.Now.AddHours(1) : expiredTime,
+                OidcConstants.TokenTypes.AccessToken => expiredTime == null ? DateTime.Now.AddHours(1) : expiredTime.Value,
+                OidcConstants.TokenTypes.RefreshToken => expiredTime == null ? DateTime.Now.AddHours(4) : expiredTime.Value,
+                OidcConstants.TokenTypes.IdentityToken => expiredTime == null ? DateTime.Now.AddHours(1) : expiredTime.Value,
                 _ => throw new InvalidOperationException($"{this.GetType().Name}: Something is wrong!")
             };
 
@@ -591,11 +587,12 @@ namespace IssuerOfClaims.Services.Token
             return ReadJsonKey(); // Public key
         }
 
-        public bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken, long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt
+        public bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken,
+            long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt, DateTime accessTokenExpiredIn
             , IdentityRequestHandler requestHandler, string externalSource)
         {
-            var _accessToken = SaveExternalSourceToken(accessToken, accessTokenIssueAt, accessTokenIssueAt.AddSeconds(3600), externalSource, OidcConstants.TokenTypes.AccessToken);
-            var _idToken = SaveExternalSourceToken(idToken, Utilities.TimeSecondsToDateTime(idToken_issuedAtTimeSeconds), Utilities.TimeSecondsToDateTime(idToken_expirationTimeSeconds), externalSource, OidcConstants.TokenTypes.IdentityToken);
+            var _accessToken = SaveExternalSourceToken(accessToken, accessTokenIssueAt, accessTokenExpiredIn, externalSource, OidcConstants.TokenTypes.AccessToken);
+            var _idToken = SaveExternalSourceToken(idToken, Utilities.Google_TimeSecondsToDateTime(idToken_issuedAtTimeSeconds), Utilities.Google_TimeSecondsToDateTime(idToken_expirationTimeSeconds), externalSource, OidcConstants.TokenTypes.IdentityToken);
 
             if (refreshToken != null)
             {
@@ -679,7 +676,7 @@ namespace IssuerOfClaims.Services.Token
     public interface ITokenManager
     {
         string ACF_IssueToken(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId);
-        bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken, long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt, IdentityRequestHandler requestHandler, string externalSource);
+        bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken, long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt, DateTime accessTokenExpiredIn, IdentityRequestHandler requestHandler, string externalSource);
         Task<string> IssueTokenForRefreshToken(TokenResponse previousRefreshResponse);
         Task<string> GenerateIdTokenAsync(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "");
         IdentityRequestSession CreateTokenRequestSession(Guid requestHandlerId);

@@ -83,7 +83,7 @@ namespace IssuerOfClaims.Controllers
 
             var client = _clientDbServices.Find(parameters.ClientId.Value);
 
-            ACF_VerifyRedirectUris(parameters, client);
+            ACF_I_VerifyRedirectUris(parameters.RedirectUri.Value, client);
 
             switch (GetMappingGrantType(parameters.ResponseType.Value))
             {
@@ -105,10 +105,10 @@ namespace IssuerOfClaims.Controllers
             return Constants.ResponseTypeToGrantTypeMapping[responseType];
         }
 
-        private static void ACF_VerifyRedirectUris(AuthCodeParameters parameters, Client client)
+        private static void ACF_I_VerifyRedirectUris(string redirectUri, Client client)
         {
             IEnumerable<Uri> redirectUris = client.RedirectUris.Split(",").Select(r => new Uri(r));
-            Uri requestUri = new Uri(parameters.RedirectUri.Value);
+            Uri requestUri = new Uri(redirectUri);
 
             if (!ACF_RedirectUriIsRegistered(redirectUris, requestUri))
                 throw new CustomException(ExceptionMessage.REDIRECTURI_IS_MISMATCH, HttpStatusCode.BadRequest);
@@ -116,7 +116,7 @@ namespace IssuerOfClaims.Controllers
 
         private static bool ACF_RedirectUriIsRegistered(IEnumerable<Uri> redirectUris, Uri requestUri)
         {
-            return redirectUris.FirstOrDefault(r => r.Host.Equals(requestUri.Host)) != null;
+            return redirectUris.FirstOrDefault(r => r.Host.Equals(requestUri.Host) && r.AbsolutePath.Equals(requestUri.AbsolutePath)) != null;
         }
         #endregion
 
@@ -262,17 +262,18 @@ namespace IssuerOfClaims.Controllers
         private void ACF_I_UpdateRequestSessionDetails(AuthCodeParameters parameters, IdentityRequestSession ACFProcessSession, out string authorizationCode)
         {
             ACF_I_ImportPKCERequestedParams(parameters.CodeChallenge.Value, parameters.CodeChallengeMethod.Value, parameters.CodeChallenge.HasValue, ACFProcessSession);
-            ACF_I_ImportRequestSessionData(parameters.Scope.Value, parameters.Nonce.Value, ACFProcessSession, out authorizationCode);
+            ACF_I_ImportRequestSessionData(parameters.Scope.Value, parameters.Nonce.Value, ACFProcessSession, parameters.RedirectUri.Value, out authorizationCode);
 
             _tokenManager.UpdateTokenRequestSession(ACFProcessSession);
         }
-        private static void ACF_I_ImportRequestSessionData(string scope, string nonce, IdentityRequestSession tokenRequestSession, out string authorizationCode)
+        private static void ACF_I_ImportRequestSessionData(string scope, string nonce, IdentityRequestSession tokenRequestSession, string redirectUri, out string authorizationCode)
         {
             // TODO: create authorization code
             authorizationCode = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(32);
 
             tokenRequestSession.AuthorizationCode = authorizationCode;
             tokenRequestSession.Nonce = nonce;
+            tokenRequestSession.RedirectUri = redirectUri;
             tokenRequestSession.Scope = scope;
             tokenRequestSession.IsOfflineAccess = scope.Contains(OidcConstants.StandardScopes.OfflineAccess);
         }
@@ -506,7 +507,7 @@ namespace IssuerOfClaims.Controllers
             OfflineAccessTokenParameters parameters = new OfflineAccessTokenParameters(requestBody);
 
             var refreshToken = _tokenManager.FindRefreshToken(parameters.RefreshToken.Value);
-            ValidateRefreshToken(refreshToken.TokenExpiried.Value);
+            ValidateRefreshToken(refreshToken.TokenExpiried);
 
             string tokenResponses = string.Empty;
             // Token from external source
@@ -545,7 +546,7 @@ namespace IssuerOfClaims.Controllers
             UserIdentity user = ACF_II_GetResourceOwnerIdentity(tokenRequestHandler.User.UserName);
             var client = ACF_II_VerifyAndGetClient(parameters.ClientId.Value, parameters.ClientSecret.Value, tokenRequestHandler);
 
-            ACF_II_VerifyRedirectUris(parameters.RedirectUri.Value, client);
+            ACF_II_VerifyRedirectUris(parameters.RedirectUri.Value, tokenRequestHandler.RequestSession.RedirectUri);
             ACF_II_VerifyCodeChallenger(parameters.CodeVerifier.Value, tokenRequestHandler);
 
             // TODO: issue token from TokenManager
@@ -570,16 +571,24 @@ namespace IssuerOfClaims.Controllers
             return obj;
         }
 
-        private static void ACF_II_VerifyRedirectUris(string redirectUri, Client client)
+        private static void ACF_II_VerifyRedirectUris(string redirectUri, string authRequestRedirectUri)
         {
             //Ensure that the redirect_uri parameter value is identical to the redirect_uri parameter value that was included in the initial Authorization Request.
             //If the redirect_uri parameter value is not present when there is only one registered redirect_uri value,
             //the Authorization Server MAY return an error(since the Client should have included the parameter) or MAY proceed without an error(since OAuth 2.0 permits the parameter to be omitted in this case).
 
-            string[] redirectUris = client.RedirectUris.Split(",");
+            Uri token_redirectUri = new Uri(redirectUri);
+            Uri authCode_redirectUri = new Uri(authRequestRedirectUri);
 
-            if (!redirectUris.Contains(redirectUri))
-                throw new CustomException("redirect_uri is mismatch!", HttpStatusCode.BadRequest);
+            if (!ACF_II_RedirectUriIsRegistered(token_redirectUri, authCode_redirectUri))
+                throw new CustomException(ExceptionMessage.REDIRECTURI_IS_MISMATCH, HttpStatusCode.BadRequest);
+        }
+
+        private static bool ACF_II_RedirectUriIsRegistered(Uri redirectUri, Uri authRequestRedirectUri)
+        {
+            if (redirectUri.Equals(authRequestRedirectUri))
+                return true;
+            return false;
         }
 
         private static void ACF_II_VerifyCodeChallenger(string codeVerifier, IdentityRequestHandler tokenRequestHandler)
@@ -685,20 +694,25 @@ namespace IssuerOfClaims.Controllers
             var requestHandler = GoogleAuth_ImportRequestHandlerData(parameters.CodeVerifier.Value, result.RefreshToken, client, user);
 
             // at this step, token request session is used for storing data
-            GoogleAuth_SaveToken(result.AccessToken, result.RefreshToken, result.IdToken, payload.IssuedAtTimeSeconds.Value, payload.ExpirationTimeSeconds.Value
-                , result.AccessTokenIssueAt, payload, requestHandler);
+            GoogleAuth_SaveToken(result.AccessToken, result.RefreshToken, result.IdToken, 
+                payload.IssuedAtTimeSeconds.Value, payload.ExpirationTimeSeconds.Value , result.AccessTokenIssueAt, result.AccessTokenIssueAt.AddSeconds(result.ExpiredIn),
+                payload, requestHandler);
 
             SuccessfulRequestHandle(requestHandler);
-            var response = await Utilities.CreateTokenResponseStringAsync(result.AccessToken, result.IdToken, payload.ExpirationTimeSeconds.Value, string.IsNullOrEmpty(result.RefreshToken) ? "" : result.RefreshToken);
+            var response = await Utilities.CreateTokenResponseStringAsync(result.AccessToken, result.IdToken, Utilities.Google_TimeSecondsToDateTime(payload.ExpirationTimeSeconds.Value), ExternalSources.Google, string.IsNullOrEmpty(result.RefreshToken) ? "" : result.RefreshToken);
             // TODO: will need to create new user if current user with this email is not have
             //     : after that, create login session object and save to db
             //     : after create login session, authentication then will perform
             return Ok(response);
         }
 
-        private bool GoogleAuth_SaveToken(string accessToken, string refreshToken, string idToken, long issuedAtTimeSeconds, long expirationTimeSeconds, DateTime accessTokenIssueAt, GoogleJsonWebSignature.Payload payload, IdentityRequestHandler requestHandler)
+        private bool GoogleAuth_SaveToken(string accessToken, string refreshToken, string idToken, 
+            long issuedAtTimeSeconds, long expirationTimeSeconds, DateTime accessTokenIssueAt, DateTime accessTokenExpiredIn,
+            GoogleJsonWebSignature.Payload payload, IdentityRequestHandler requestHandler)
         {
-            return _tokenManager.SaveTokenFromExternalSource(accessToken, refreshToken, idToken, issuedAtTimeSeconds, expirationTimeSeconds, accessTokenIssueAt, requestHandler, ExternalSources.Google);
+            return _tokenManager.SaveTokenFromExternalSource(accessToken, refreshToken, idToken, 
+                issuedAtTimeSeconds, expirationTimeSeconds, accessTokenIssueAt, accessTokenExpiredIn,
+                requestHandler, ExternalSources.Google);
         }
 
         private IdentityRequestHandler GoogleAuth_ImportRequestHandlerData(string codeVerifier, string refreshToken, Client client, UserIdentity user)
@@ -723,7 +737,7 @@ namespace IssuerOfClaims.Controllers
             _tokenManager.UpdateTokenRequestSession(session);
         }
 
-        private async Task<(string AccessToken, string IdToken, string RefreshToken, DateTime AccessTokenIssueAt)> GetGoogleInfo(SignInGoogleParameters parameters, GoogleSettings config)
+        private async Task<(string AccessToken, string IdToken, string RefreshToken, DateTime AccessTokenIssueAt, double ExpiredIn)> GetGoogleInfo(SignInGoogleParameters parameters, GoogleSettings config)
         {
             // builds the request
             string tokenRequestBody = string.Format("code={0}&redirect_uri={1}&client_id={2}&code_verifier={3}&client_secret={4}&scope=&grant_type=authorization_code",
@@ -747,6 +761,7 @@ namespace IssuerOfClaims.Controllers
             string id_token = "";
             string access_token = "";
             string refresh_token = "";
+            double expired_in = default;
             DateTime accessTokenIssueAt;
 
             // gets the response
@@ -762,16 +777,17 @@ namespace IssuerOfClaims.Controllers
                 access_token = result["access_token"];
                 id_token = result["id_token"];
                 result.TryGetValue("refresh_token", out refresh_token);
-                result.TryGetValue("expires_in", out string expiredIn);
+                result.TryGetValue("expires_in", out string temp);
 
-                accessTokenIssueAt = DateTime.Now.AddSeconds(double.Parse($"-{expiredIn}"));
+                expired_in = double.Parse($"{temp}");
+                accessTokenIssueAt = DateTime.Now;
                 // TODO: validate at_hash from id_token is OPTIONAL in some flows (hybrid flow,...),
                 //     : I will check when to implement it later, now, better it has than it doesn't
                 //     : comment for now
                 //ValidateAtHash(id_token, access_token);
             }
 
-            return new(access_token, id_token, refresh_token, accessTokenIssueAt);
+            return new(access_token, id_token, refresh_token, accessTokenIssueAt, expired_in);
         }
 
         private static void ValidateGoogleSettings(GoogleSettings? googleClientConfig)

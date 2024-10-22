@@ -50,7 +50,8 @@ namespace ServerUltilities.Identity
 
         public static readonly List<string> SupportedCodeChallengeMethods = new List<string>
         {
-            OidcConstants.CodeChallengeMethods.Plain,
+            // TODO: comment for now
+            //OidcConstants.CodeChallengeMethods.Plain,
             OidcConstants.CodeChallengeMethods.Sha256
         };
 

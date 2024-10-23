@@ -96,10 +96,10 @@ namespace IssuerOfClaims.Models.Request
                 if (property.Name.Equals(_responseTypeName))
                     continue;
                 else
-                    tasks.Add(Task.Run(async () =>
+                    tasks.Add(Task.Factory.StartNew(async () =>
                     {
                         await SetPropertyValueAsync(property);
-                    }));
+                    }, TaskCreationOptions.AttachedToParent));
             }
             Task.WaitAll(tasks.ToArray());
         }

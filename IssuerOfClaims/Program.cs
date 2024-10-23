@@ -1,5 +1,6 @@
 using IssuerOfClaims.Controllers.Ultility;
 using IssuerOfClaims.Database;
+using IssuerOfClaims.Extensions;
 using IssuerOfClaims.Models;
 using IssuerOfClaims.Services;
 using IssuerOfClaims.Services.Database;
@@ -8,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
+using ServerUltilities.Identity;
 
 namespace IssuerOfClaims
 {
@@ -29,6 +31,7 @@ namespace IssuerOfClaims
             });
 
             builder.Services.AddSingleton<IConfigurationManager>(builder.Configuration);
+            builder.Services.AddSingleton<GoogleClientConfiguration>(Utilities.GetGoogleClientSettingsFromAppsettings(builder.Configuration));
             // TODO: will change later
             builder.Services.AddTransient<IClientDbServices, ClientDbServices>();
             builder.Services.AddTransient<IRoleDbServices, RoleDbServices>();

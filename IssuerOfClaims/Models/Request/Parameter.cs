@@ -114,7 +114,6 @@ namespace IssuerOfClaims.Models.Request
             { SignInGoogleRequest.ClientSecret, ParameterPriority.REQRUIRED },
             { SignInGoogleRequest.ClientId, ParameterPriority.REQRUIRED },
             { SignInGoogleRequest.CodeVerifier, ParameterPriority.OPTIONAL }
-            //{ SignInGoogleRequest.Nonce, ParameterPriority.OPTIONAL },
         };
 
         public static Dictionary<Type, RequestPurpose> ParametersForRequest = new Dictionary<Type, RequestPurpose>()

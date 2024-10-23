@@ -7,6 +7,7 @@ using static ServerUltilities.Identity.IdentityServerConstants;
 using IssuerOfClaims.Models;
 using System.Net;
 using System.Web;
+using ServerUltilities.Identity;
 
 namespace IssuerOfClaims.Extensions
 {
@@ -107,6 +108,7 @@ namespace IssuerOfClaims.Extensions
             return content;
         }
 
+        #region issue token response json
         /// <summary>
         /// To achieve optimal performance, write JSON payloads that are already encoded as UTF-8 text rather than as UTF-16 strings. 
         /// <para> Use JsonEncodedText to cache and pre-encode known property names and values as statics.</para>
@@ -286,6 +288,29 @@ namespace IssuerOfClaims.Extensions
             { DefaultResponseMessage.EmailIsConfirmed, JsonEncodedText.Encode("Email is confirmed!") },
             { DefaultResponseMessage.ResponseModeNotAllowed, JsonEncodedText.Encode(ExceptionMessage.RESPONSE_MODE_NOT_ALLOWED) }
         };
+        #endregion
+
+        public static GoogleClientConfiguration GetGoogleClientSettingsFromAppsettings(IConfigurationManager configuration)
+        {
+            var googleClientConfig = configuration.GetSection(IdentityServerConfiguration.GOOGLE_CLIENT).Get<GoogleClientConfiguration>();
+            ValidateGoogleClientSettings(googleClientConfig);
+
+            return googleClientConfig;
+        }
+
+        private static void ValidateGoogleClientSettings(GoogleClientConfiguration? googleClientConfig)
+        {
+            if (googleClientConfig == null)
+                throw new CustomException("Elaboration of google inside server is mismatch!");
+
+            if (googleClientConfig == null
+                || string.IsNullOrEmpty(googleClientConfig.ClientId)
+                || string.IsNullOrEmpty(googleClientConfig.ClientSecret)
+                || string.IsNullOrEmpty(googleClientConfig.AuthUri)
+                || string.IsNullOrEmpty(googleClientConfig.TokenUri)
+                || googleClientConfig.RedirectUris == null || googleClientConfig.RedirectUris.Count == 0)
+                throw new CustomException("Elaboration of google inside server is mismatch!");
+        }
     }
 
     public enum DefaultResponseMessage

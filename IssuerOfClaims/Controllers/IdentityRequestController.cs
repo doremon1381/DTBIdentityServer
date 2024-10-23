@@ -42,21 +42,22 @@ namespace IssuerOfClaims.Controllers
         private readonly IConfigurationManager _configuration;
         private readonly ITokenManager _tokenManager;
         private readonly IClientDbServices _clientDbServices;
-        private readonly IEmailServices _emailServices;
+        private readonly GoogleClientConfiguration _googleClientConfiguration;
 
         public IdentityRequestController(ILogger<IdentityRequestController> logger, IConfigurationManager configuration
             , IApplicationUserManager userManager
             , ITokenManager tokenManager, IEmailServices emailServices
-            , IClientDbServices clientDbServices)
+            , IClientDbServices clientDbServices, GoogleClientConfiguration googleClientConfiguration)
         {
             _logger = logger;
             _configuration = configuration;
 
             _applicationUserManager = userManager;
             _clientDbServices = clientDbServices;
-            _emailServices = emailServices;
 
             _tokenManager = tokenManager;
+
+            _googleClientConfiguration = googleClientConfiguration;
         }
 
         #region catch authorize request
@@ -494,8 +495,8 @@ namespace IssuerOfClaims.Controllers
         private static async Task<string> TokenEndpoint_GetGrantTypeAsync(string requestBody)
         {
             return requestBody.Remove(0, 1).Split("&")
-                .First(t => t.StartsWith("grant_type"))
-                .Replace("grant_type=", "");
+                .First(t => t.StartsWith(TokenRequest.GrantType))
+                .Replace($"{TokenRequest.GrantType}=", "");
         }
 
         private async Task<ActionResult> IssueTokenForRefreshToken(string requestBody)
@@ -683,9 +684,6 @@ namespace IssuerOfClaims.Controllers
         //     : only identityserver's clients can use this endpoint, not user-agent
         public async Task<ActionResult> GoogleAuthenticating()
         {
-            var googleClientConfig = _configuration.GetSection(IdentityServerConfiguration.GOOGLE_CLIENT).Get<GoogleSettings>();
-            ValidateGoogleSettings(googleClientConfig);
-
             string requestQuery = await Utilities.GetRequestBodyAsQueryFormAsync(HttpContext.Request.Body);
 
             // TODO: add '?' before requestBody to get query form of string
@@ -694,11 +692,13 @@ namespace IssuerOfClaims.Controllers
 
             var client = _clientDbServices.Find(parameters.ClientId.Value, parameters.ClientSecret.Value);
 
-            var result = await GetGoogleInfo(parameters, googleClientConfig);
-            // TODO: will learn how to use it, comment for now
+            var result = await Google_SendTokenRequestAsync(parameters, _googleClientConfiguration);
+            // TODO: verify Google id token
             GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(result.IdToken);
 
-            string user_info = await userinfoCallAsync(result.AccessToken, googleClientConfig.UserInfoUri);
+            // TODO: using this function following google example, will check again
+            string user_info = await userinfoCallAsync(result.AccessToken, _googleClientConfiguration.UserInfoUri);
+
             // TODO: create new user or map google user infor to current, get unique user by email
             var user = _applicationUserManager.GetOrCreateUserByEmail(payload);
 
@@ -750,15 +750,9 @@ namespace IssuerOfClaims.Controllers
             _tokenManager.UpdateTokenRequestSession(session);
         }
 
-        private async Task<(string AccessToken, string IdToken, string RefreshToken, DateTime AccessTokenIssueAt, double ExpiredIn)> GetGoogleInfo(SignInGoogleParameters parameters, GoogleSettings config)
+        private async Task<(string AccessToken, string IdToken, string RefreshToken, DateTime AccessTokenIssueAt, double ExpiredIn)> Google_SendTokenRequestAsync(SignInGoogleParameters parameters, GoogleClientConfiguration config)
         {
-            // builds the request
-            string tokenRequestBody = string.Format("code={0}&redirect_uri={1}&client_id={2}&code_verifier={3}&client_secret={4}&scope=&grant_type=authorization_code",
-                parameters.AuthorizationCode.Value,
-                parameters.RedirectUri.Value,
-                config.ClientId,
-                parameters.CodeVerifier.Value,
-                config.ClientSecret);
+            string tokenRequestBody = await Google_CreateTokenRequestBodyAsync(parameters, config);
 
             // sends the request
             HttpWebRequest tokenRequest = (HttpWebRequest)WebRequest.Create(config.TokenUri);
@@ -803,19 +797,17 @@ namespace IssuerOfClaims.Controllers
             return new(access_token, id_token, refresh_token, accessTokenIssueAt, expired_in);
         }
 
-        private static void ValidateGoogleSettings(GoogleSettings? googleClientConfig)
+        private static async Task<string> Google_CreateTokenRequestBodyAsync(SignInGoogleParameters parameters, GoogleClientConfiguration config)
         {
-            if (googleClientConfig == null)
-                throw new CustomException("Elaboration of google inside server is mismatch!");
-
-            if (googleClientConfig == null
-                || string.IsNullOrEmpty(googleClientConfig.ClientId)
-                || string.IsNullOrEmpty(googleClientConfig.ClientSecret)
-                || string.IsNullOrEmpty(googleClientConfig.AuthUri)
-                || string.IsNullOrEmpty(googleClientConfig.TokenUri)
-                || googleClientConfig.RedirectUris == null || googleClientConfig.RedirectUris.Count == 0)
-                throw new CustomException("Elaboration of google inside server is mismatch!");
+            // builds the request
+            return string.Format("code={0}&redirect_uri={1}&client_id={2}&code_verifier={3}&client_secret={4}&scope=&grant_type=authorization_code",
+                parameters.AuthorizationCode.Value,
+                parameters.RedirectUri.Value,
+                config.ClientId,
+                parameters.CodeVerifier.Value,
+                config.ClientSecret);
         }
+
 
         /// <summary>
         /// TODO: validate at_hash from id_token is OPTIONAL in some flow,

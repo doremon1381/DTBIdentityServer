@@ -28,11 +28,12 @@ namespace IssuerOfClaims.Services.Token
         private readonly ITokenForRequestHandlerDbServices _tokensPerIdentityRequestDbServices;
         private readonly IIdentityRequestSessionDbServices _tokenRequestSessionDbServices;
         private readonly IIdentityRequestHandlerDbServices _tokenRequestHandlerDbServices;
-        private readonly GoogleSettings _googleClientSettings;
+        private readonly GoogleClientConfiguration _googleClientConfiguration;
 
         public TokenManager(ITokenResponseDbServices tokenResponseDbServices
             , ITokenForRequestHandlerDbServices tokenResponsePerHandlerDbServices, IIdentityRequestSessionDbServices tokenRequestSessionDbServices
-            , IIdentityRequestHandlerDbServices tokenRequestHandlerDbServices, IConfigurationManager configuration)
+            , IIdentityRequestHandlerDbServices tokenRequestHandlerDbServices
+            , GoogleClientConfiguration googleClientSettings)
         {
             _tokenResponseDbServices = tokenResponseDbServices;
             _tokensPerIdentityRequestDbServices = tokenResponsePerHandlerDbServices;
@@ -40,7 +41,7 @@ namespace IssuerOfClaims.Services.Token
 
             _tokenRequestHandlerDbServices = tokenRequestHandlerDbServices;
 
-            _googleClientSettings = configuration.GetSection("GoogleClient").Get<GoogleSettings>();
+            _googleClientConfiguration = googleClientSettings;
         }
 
         // TODO: will check again
@@ -639,11 +640,11 @@ namespace IssuerOfClaims.Services.Token
         private async Task<string> Google_RefershAccessToken(string refreshToken)
         {
             var content = string.Format("client_id={0}&client_secret={1}&refresh_token={2}&grant_type=refresh_token"
-                , _googleClientSettings.ClientId
-                , _googleClientSettings.ClientSecret
+                , _googleClientConfiguration.ClientId
+                , _googleClientConfiguration.ClientSecret
                 , refreshToken);
 
-            HttpWebRequest refreshRequest = (HttpWebRequest)WebRequest.Create(_googleClientSettings.TokenUri);
+            HttpWebRequest refreshRequest = (HttpWebRequest)WebRequest.Create(_googleClientConfiguration.TokenUri);
             refreshRequest.Method = "POST";
             refreshRequest.ContentType = "application/x-www-form-urlencoded";
             refreshRequest.Accept = "Accept=text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";

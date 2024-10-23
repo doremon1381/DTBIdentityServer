@@ -44,14 +44,16 @@ namespace ServerUltilities.Identity
             // TODO: comment for now
             //GrantType.Hybrid,
             //GrantType.ClientCredentials,
-            //GrantType.ResourceOwnerPassword,
             //GrantType.DeviceFlow
+
+            // TODO: not support this grant type by default
+            //GrantType.ResourceOwnerPassword,
+            // TODO: not support this grant type by default
         };
 
         public static readonly List<string> SupportedCodeChallengeMethods = new List<string>
         {
-            // TODO: comment for now
-            //OidcConstants.CodeChallengeMethods.Plain,
+            OidcConstants.CodeChallengeMethods.Plain,
             OidcConstants.CodeChallengeMethods.Sha256
         };
 

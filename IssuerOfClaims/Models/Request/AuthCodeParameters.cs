@@ -112,7 +112,7 @@ namespace IssuerOfClaims.Models.Request
         {
             if (CodeChallengeMethod.HasValue && !CodeChallenge.HasValue
                 || CodeChallenge.HasValue && !CodeChallengeMethod.HasValue)
-                throw new CustomException(ExceptionMessage.CODECHALLENGE_CODECHALLENGEMETHODE_NOT_HAVE_VALUE_SIMUTANEOUSLY, HttpStatusCode.BadRequest);
+                throw new CustomException(ExceptionMessage.CODECHALLENGE_CODECHALLENGEMETHOD_NOT_HAVE_VALUE_SIMUTANEOUSLY, HttpStatusCode.BadRequest);
         }
 
         /// <summary>

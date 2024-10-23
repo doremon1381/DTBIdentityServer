@@ -591,15 +591,28 @@ namespace IssuerOfClaims.Controllers
             return false;
         }
 
-        private static void ACF_II_VerifyCodeChallenger(string codeVerifier, IdentityRequestHandler tokenRequestHandler)
+        private static void ACF_II_VerifyCodeChallenger(string codeVerifier, IdentityRequestHandler requestHandler)
         {
-            // TODO: by default, those two go along together, it may wrong in future coding
-            if (tokenRequestHandler.RequestSession.CodeChallenge != null
-                && tokenRequestHandler.RequestSession.CodeChallengeMethod != null)
+            // TODO: by default, those two go along together, maybe in different way in future when compare with which is used now
+            if (requestHandler.RequestSession.CodeChallenge != null
+                && requestHandler.RequestSession.CodeChallengeMethod != null)
             {
-                var code_challenge = RNGCryptoServicesUltilities.Base64urlencodeNoPadding(codeVerifier.EncodingWithSHA265());
-                if (!code_challenge.Equals(tokenRequestHandler.RequestSession.CodeChallenge))
-                    throw new InvalidOperationException("code verifier is wrong!");
+                if (requestHandler.RequestSession.CodeChallengeMethod.Equals(CodeChallengeMethods.Plain))
+                {
+                    if (!codeVerifier.Equals(requestHandler.RequestSession.CodeChallenge))
+                        throw new CustomException(ExceptionMessage.CLIENT_OF_TOKEN_REQUEST_IS_DIFFERENT_WITH_AUTH_CODE_REQUEST, HttpStatusCode.BadRequest);
+                }
+                else if (requestHandler.RequestSession.CodeChallengeMethod.Equals(CodeChallengeMethods.Sha256))
+                {
+                    var code_challenge = RNGCryptoServicesUltilities.Base64urlencodeNoPadding(codeVerifier.EncodingWithSHA265());
+                    if (!code_challenge.Equals(requestHandler.RequestSession.CodeChallenge))
+                        throw new CustomException(ExceptionMessage.CLIENT_OF_TOKEN_REQUEST_IS_DIFFERENT_WITH_AUTH_CODE_REQUEST, HttpStatusCode.BadRequest);
+                }
+                else
+                {
+                    throw new CustomException(ExceptionMessage.CODE_CHALLENGE_METHOD_NOT_SUPPORT);
+                }
+                
             }
         }
 
@@ -611,7 +624,7 @@ namespace IssuerOfClaims.Controllers
             if (tokenRequestHandler.RequestSession != null
                 && !tokenRequestHandler.Client.Id.Equals(client.Id))
                 // TODO: status code may wrong
-                throw new InvalidOperationException("something wrong with client which Authorization Code was issued to!");
+                throw new CustomException(ExceptionMessage.CLIENT_OF_TOKEN_REQUEST_IS_DIFFERENT_WITH_AUTH_CODE_REQUEST);
 
             return client;
         }

@@ -33,6 +33,9 @@
         public const string UNKNOW_ERROR = "Not yet know error!";
         public const string EMAIL_CONFIRM_CODE_NOT_MATCH = "Confirm code is not match!";
 
-        public const string CODECHALLENGE_CODECHALLENGEMETHODE_NOT_HAVE_VALUE_SIMUTANEOUSLY = "Code challenge does not have value simutaneosly with code challenge method or vice versa!";
+        public const string CODECHALLENGE_CODECHALLENGEMETHOD_NOT_HAVE_VALUE_SIMUTANEOUSLY = "Code challenge does not have value simutaneosly with code challenge method or vice versa!";
+        public const string CODE_CHALLENGE_METHOD_NOT_SUPPORT = "Code challenge method does not supported!";
+        public const string CODE_VERIFIER_MISMATCH = "code verifier is mismatch!";
+        public const string CLIENT_OF_TOKEN_REQUEST_IS_DIFFERENT_WITH_AUTH_CODE_REQUEST = "something wrong with client which is associated with result from auth code request!";
     }
 }

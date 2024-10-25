@@ -349,6 +349,12 @@
             public const string Create = "create";
         }
 
+        public static class PromptConsentResult
+        {
+            public const string Granted = "granted";
+            public const string NotAllow = "not_allow";
+        }
+
         public static class CodeChallengeMethods
         {
             public const string Plain = "plain";

@@ -12,7 +12,6 @@ using IssuerOfClaims.Services.Token;
 using Microsoft.EntityFrameworkCore;
 using ServerUltilities.Identity;
 using ServerUltilities.Extensions;
-using static ServerUltilities.Identity.Constants;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -41,15 +40,15 @@ namespace IssuerOfClaims.Controllers
         {
             // Get user
             // gather request information, redirect to prompt view if it's need
-            return Ok();
+            // TODO: for test
+            return Ok(new { Prompt = "consent" });
         }
 
-        [HttpPost("id")]
+        [HttpPost("signin/callback")]
         [Authorize]
         public ActionResult SignInCallback()
         {
             return Ok();
-
         }
         #endregion
 

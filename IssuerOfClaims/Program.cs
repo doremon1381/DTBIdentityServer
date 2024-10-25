@@ -4,6 +4,7 @@ using IssuerOfClaims.Extensions;
 using IssuerOfClaims.Models;
 using IssuerOfClaims.Services;
 using IssuerOfClaims.Services.Database;
+using IssuerOfClaims.Services.Middleware;
 using IssuerOfClaims.Services.Token;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -30,8 +31,10 @@ namespace IssuerOfClaims
                 //options.AddFilter("Duende", LogLevel.Debug);
             });
 
+            var webSigninSettings = Utilities.GetWebSigninSettings(builder.Configuration);
             builder.Services.AddSingleton<IConfigurationManager>(builder.Configuration);
-            builder.Services.AddSingleton<GoogleClientConfiguration>(Utilities.GetGoogleClientSettingsFromAppsettings(builder.Configuration));
+            builder.Services.AddSingleton<GoogleClientConfiguration>(Utilities.GetGoogleClientSettings(builder.Configuration));
+            builder.Services.AddSingleton<WebSigninSettings>(webSigninSettings);
             // TODO: will change later
             builder.Services.AddTransient<IClientDbServices, ClientDbServices>();
             builder.Services.AddTransient<IRoleDbServices, RoleDbServices>();
@@ -45,6 +48,7 @@ namespace IssuerOfClaims
 
             // TODO: will add later
             builder.Services.AddIdentityCore<UserIdentity>()
+                //.AddSignInManager<SignInServices>()
                 .AddEntityFrameworkStores<DbContextManager>()
                 .AddDefaultTokenProviders();
             builder.Services.AddTransient<IApplicationUserManager, ApplicationUserManager>();
@@ -59,11 +63,11 @@ namespace IssuerOfClaims
             //builder.Services.AddDistributedMemoryCache();
             builder.Services.AddAuthentication(options =>
             {
-                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultScheme = OidcConstants.AuthenticationSchemes.AuthorizationHeaderBearer;
                 //options.DefaultForbidScheme = JwtBearerDefaults.AuthenticationScheme;
             })
             //.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme,
-            .AddScheme<JwtBearerOptions, AuthenticationServices>(JwtBearerDefaults.AuthenticationScheme,
+            .AddScheme<JwtBearerOptions, AuthenticationServices>(OidcConstants.AuthenticationSchemes.AuthorizationHeaderBearer,
                 options =>
                 {
                     // TODO: will check later
@@ -83,16 +87,16 @@ namespace IssuerOfClaims
             {
                 mvcOptions.Conventions.Add(new ControllerNameAttributeConvention());
             });
-            // TODO: comment for now
-            //builder.Services.AddCors(options =>
-            //{
-            //    options.AddPolicy(name: "MyPolicy",
-            //        policy =>
-            //        {
-            //            policy.WithOrigins("http://localhost:5173")
-            //                .WithMethods("PUT", "DELETE", "GET", "POST", "OPTIONS");
-            //        });
-            //});
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy(name: "AllowFrontEnd",
+                    policy =>
+                    {
+                        policy.WithOrigins(webSigninSettings.Origin)
+                            .WithMethods("PUT", "DELETE", "GET", "POST", "OPTIONS")
+                            .AllowAnyHeader();
+                    });
+            });
             var app = builder.Build();
             // TODO: use for initiate clients in database
             AuthorizationResources.CreateClient(builder.Configuration);
@@ -109,37 +113,16 @@ namespace IssuerOfClaims
             app.UseHttpsRedirection();
             app.UseStaticFiles();
             app.UseRouting();
-            // TODO: comment for now
-            //app.UseCors("MyPolicy");
+            app.UseCors("AllowFrontEnd");
 
             app.UseAuthentication();
-            // TODO: deal with CORS, may change in the future
-            //     : https://www.codemzy.com/blog/get-axios-response-headers
-            app.Use(async (context, next) =>
-            {
-                string endpointUrl = context.Request.Host.ToString();
-
-                // TODO: for now, I assume that every request using this particular method and endpoint, is used for preflight in CORS, I will learn about it later
-                if (context.Request.Method.Equals("OPTIONS") && endpointUrl.Equals("localhost:7180"))
-                {
-                    context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
-                    context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS");
-                    context.Response.Headers.Append("Access-Control-Allow-Headers", "Origin, Content-Type, X-Auth-Token, Authorization, Register");
-                    context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
-                    context.Response.Headers.Append("Access-Control-Expose-Headers", "x-version, Location, location");
-
-                    context.Response.StatusCode = 200;
-                    return;// Short-circuit the pipeline, preventing further middleware execution
-                }
-
-                await next(context);
-            });
+            // TODO: redirect to login web when catch 401 response
+            app.UseMiddleware<RedirectAuthenticationMiddleware>();
             app.UseAuthorization();
 
             // TODO: comment for now
             //app.UseSession();
             app.MapControllers();
-
             app.UseMiddleware<ExceptionHandlerMiddleware>();
         }
     }

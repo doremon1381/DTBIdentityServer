@@ -25,6 +25,8 @@ namespace IssuerOfClaims.Database
         //public DbSet<TokenRequestHandler> TokenRequestHandlers { get; set; }
         //public DbSet<TokenResponse> TokenResponses { get; set; }
         //public DbSet<IdToken> IdTokens { get; set; }
+        // TODO: will think about add IdentityUserClaim later
+        //public DbSet<IdentityUserClaim<Guid>> IdentityUserClaims { get; set; }
         #endregion
 
         public DbContextManager(DbContextOptions<DbContextManager> options, ILogger<DbContextManager> logger)

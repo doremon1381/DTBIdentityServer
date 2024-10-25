@@ -39,7 +39,7 @@ namespace ServerDbModels
         /// <summary>
         /// From client
         /// </summary>
-        public string? Scope { get; set; } = string.Empty;
+        public string Scope { get; set; } = string.Empty;
 
         /// <summary>
         /// One time use only, for "Authorization code flow" or "hybrid flow"

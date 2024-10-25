@@ -9,13 +9,8 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using IssuerOfClaims.Extensions;
 using System.Text;
-using IssuerOfClaims.Controllers.Ultility;
 using System.Net;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using Org.BouncyCastle.Crypto;
 using IssuerOfClaims.Models;
-using Google.Apis.Auth;
-using System.Text.Json;
 
 namespace IssuerOfClaims.Services.Token
 {
@@ -26,7 +21,7 @@ namespace IssuerOfClaims.Services.Token
     {
         private readonly ITokenResponseDbServices _tokenResponseDbServices;
         private readonly ITokenForRequestHandlerDbServices _tokensPerIdentityRequestDbServices;
-        private readonly IIdentityRequestSessionDbServices _tokenRequestSessionDbServices;
+        private readonly IIdentityRequestSessionDbServices _identityRequestSessionDbServices;
         private readonly IIdentityRequestHandlerDbServices _tokenRequestHandlerDbServices;
         private readonly GoogleClientConfiguration _googleClientConfiguration;
 
@@ -37,7 +32,7 @@ namespace IssuerOfClaims.Services.Token
         {
             _tokenResponseDbServices = tokenResponseDbServices;
             _tokensPerIdentityRequestDbServices = tokenResponsePerHandlerDbServices;
-            _tokenRequestSessionDbServices = tokenRequestSessionDbServices;
+            _identityRequestSessionDbServices = tokenRequestSessionDbServices;
 
             _tokenRequestHandlerDbServices = tokenRequestHandlerDbServices;
 
@@ -222,7 +217,7 @@ namespace IssuerOfClaims.Services.Token
             CreateTokenResponsePerIdentityRequest(currentRequestHandler, idToken);
 
             currentRequestHandler.RequestSession.IsInLoginSession = false;
-            _tokenRequestSessionDbServices.Update(currentRequestHandler.RequestSession);
+            _identityRequestSessionDbServices.Update(currentRequestHandler.RequestSession);
 
             return responseBody;
         }
@@ -292,6 +287,7 @@ namespace IssuerOfClaims.Services.Token
             _tokensPerIdentityRequestDbServices.Update(tokensPerIdentityRequest);
         }
 
+        #region Generate Id token
         /// <summary>
         /// <para> TODO: Need to use Cast from CastObjectExtensions with 
         /// new { IdToken = string.Empty, PublicKey = new object() } as parameter
@@ -370,6 +366,7 @@ namespace IssuerOfClaims.Services.Token
             if (scopeVariables.Contains(IdentityServerConstants.StandardScopes.Phone))
             {
                 claims.Add(new Claim(JwtClaimTypes.PhoneNumber, user.PhoneNumber));
+                claims.Add(new Claim(JwtClaimTypes.PhoneNumberVerified, user.PhoneNumberConfirmed.ToString()));
             }
             // TODO: will check again
             if (scopeVariables.Contains(IdentityServerConstants.StandardScopes.Address))
@@ -391,6 +388,7 @@ namespace IssuerOfClaims.Services.Token
 
             return claims.Select(c => new KeyValuePair<string, object>(c.Type, c.Value)).ToDictionary();
         }
+        #endregion
 
         #region Implement RsaSha256, powered by copilot
         /// <summary>
@@ -548,34 +546,34 @@ namespace IssuerOfClaims.Services.Token
         }
         #endregion
 
-        public IdentityRequestSession CreateTokenRequestSession(Guid requestHandlerId)
+        public IdentityRequestSession CreateRequestSession(Guid requestHandlerId)
         {
-            return _tokenRequestSessionDbServices.CreateTokenRequestSession(requestHandlerId);
+            return _identityRequestSessionDbServices.CreateTokenRequestSession(requestHandlerId);
         }
 
-        public IdentityRequestHandler GetDraftTokenRequestHandler()
+        public IdentityRequestHandler GetDraftRequestHandler()
         {
             return _tokenRequestHandlerDbServices.GetDraftObject();
         }
 
-        public bool UpdateTokenRequestHandler(IdentityRequestHandler tokenRequestHandler)
+        public bool UpdateRequestHandler(IdentityRequestHandler tokenRequestHandler)
         {
             return _tokenRequestHandlerDbServices.Update(tokenRequestHandler);
         }
 
-        public bool UpdateTokenRequestSession(IdentityRequestSession tokenRequestSession)
+        public bool UpdateRequestSession(IdentityRequestSession tokenRequestSession)
         {
-            return _tokenRequestSessionDbServices.Update(tokenRequestSession);
+            return _identityRequestSessionDbServices.Update(tokenRequestSession);
         }
 
-        public IdentityRequestHandler FindTokenRequestHandlerByAuthorizationCode(string authCode)
+        public IdentityRequestHandler FindRequestHandlerByAuthorizationCode(string authCode)
         {
             return _tokenRequestHandlerDbServices.FindByAuthorizationCode(authCode);
         }
 
         public IdentityRequestSession FindRequestSessionById(int id)
         {
-            return _tokenRequestSessionDbServices.FindById(id);
+            return _identityRequestSessionDbServices.FindById(id);
         }
 
         public TokenResponse FindRefreshToken(string refreshToken)
@@ -588,6 +586,12 @@ namespace IssuerOfClaims.Services.Token
             return ReadJsonKey(); // Public key
         }
 
+        public IdentityRequestSession GetDraftRequestSession()
+        {
+            return _identityRequestSessionDbServices.GetDraft();
+        }
+
+        #region Google save token to database
         public bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken,
             long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt, DateTime accessTokenExpiredIn
             , IdentityRequestHandler requestHandler, string externalSource)
@@ -616,7 +620,9 @@ namespace IssuerOfClaims.Services.Token
 
             return token;
         }
+        #endregion
 
+        #region Google refresh access token
         public async Task<string> RefreshAccessTokenFromExternalSourceAsync(string refreshToken, string externalSource)
         {
             ValidateRefreshToken(refreshToken);
@@ -664,6 +670,7 @@ namespace IssuerOfClaims.Services.Token
 
             return responseText;
         }
+        #endregion
 
         public string IGF_IssueToken(string state, IdentityRequestHandler requestHandler)
         {
@@ -680,11 +687,12 @@ namespace IssuerOfClaims.Services.Token
         bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken, long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt, DateTime accessTokenExpiredIn, IdentityRequestHandler requestHandler, string externalSource);
         Task<string> IssueTokenForRefreshToken(TokenResponse previousRefreshResponse);
         Task<string> GenerateIdTokenAsync(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "");
-        IdentityRequestSession CreateTokenRequestSession(Guid requestHandlerId);
-        IdentityRequestHandler GetDraftTokenRequestHandler();
-        bool UpdateTokenRequestHandler(IdentityRequestHandler tokenRequestHandler);
-        bool UpdateTokenRequestSession(IdentityRequestSession aCFProcessSession);
-        IdentityRequestHandler FindTokenRequestHandlerByAuthorizationCode(string authCode);
+        IdentityRequestSession GetDraftRequestSession();
+        IdentityRequestSession CreateRequestSession(Guid requestHandlerId);
+        IdentityRequestHandler GetDraftRequestHandler();
+        bool UpdateRequestHandler(IdentityRequestHandler tokenRequestHandler);
+        bool UpdateRequestSession(IdentityRequestSession aCFProcessSession);
+        IdentityRequestHandler FindRequestHandlerByAuthorizationCode(string authCode);
         IdentityRequestSession FindRequestSessionById(int id);
         TokenResponse FindRefreshToken(string refreshToken);
         RSAParameters GetPublicKeyJson();

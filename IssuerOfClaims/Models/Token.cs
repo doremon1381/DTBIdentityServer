@@ -9,7 +9,7 @@ namespace IssuerOfClaims.Models
     public static class Token
     {
         public static string CreateAccessToken(
-            JwtOptions jwtOptions,
+            JwtSettings jwtOptions,
             string username,
             TimeSpan expiration,
             IdentityUserRole[] permissions)

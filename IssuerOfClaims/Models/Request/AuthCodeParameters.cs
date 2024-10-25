@@ -59,6 +59,7 @@ namespace IssuerOfClaims.Models.Request
         ///     . For now, I don't handle prompt value, by default prompt=none
         /// </summary>
         public Parameter Prompt { get; private set; }
+        public Parameter ConsentGranted { get; private set; }
         /// <summary>
         /// TODO: try to add nonce in flow, will check it late
         ///     : because "nonce" still OPTIONAL in some case, so I will use it when it's provided for identity server
@@ -92,9 +93,21 @@ namespace IssuerOfClaims.Models.Request
             ValidateScope();
             ValidatePKCEParameters();
             ValidateResponseType();
+            //ValidatePrompt();
 
             // TODO: will change later
             SetDefaultPrompt();
+        }
+
+        private void ValidatePrompt()
+        {
+            if (Prompt.HasValue)
+            {
+                if (!Constants.SupportedPromptModes.Contains(Prompt.Value))
+                    throw new CustomException(ExceptionMessage.PROMPT_VALUE_NOT_VALID, HttpStatusCode.BadRequest);
+                if (Constants.SupportConsentGrantedValue.Contains(ConsentGranted.Value))
+                    throw new CustomException(ExceptionMessage.PROMPT_CONSENT_VALUE_NOT_VALID, HttpStatusCode.BadRequest);
+            }
         }
 
         private void SetDefaultPrompt()

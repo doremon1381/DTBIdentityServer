@@ -1,15 +1,18 @@
-﻿using Google.Apis.Auth.OAuth2.Responses;
+﻿using IssuerOfClaims.Extensions;
 using IssuerOfClaims.Models;
 using IssuerOfClaims.Services.Database;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using ServerDbModels;
 using ServerUltilities.Extensions;
 using ServerUltilities.Identity;
+using System.Diagnostics;
+using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using static ServerUltilities.Identity.OidcConstants;
@@ -21,8 +24,8 @@ namespace IssuerOfClaims.Services
     /// </summary>
     public class AuthenticationServices : AuthenticationHandler<JwtBearerOptions>
     {
-        private ITokenForRequestHandlerDbServices _tokenResponsePerHandlerDbServices;
-        private IApplicationUserManager _userManager;
+        private readonly ITokenForRequestHandlerDbServices _tokenResponsePerHandlerDbServices;
+        private readonly IApplicationUserManager _userManager;
 
         public AuthenticationServices(IOptionsMonitor<JwtBearerOptions> options, ILoggerFactory logger, UrlEncoder encoder,
             ITokenForRequestHandlerDbServices tokenResponsePerHandlerDbServices, IApplicationUserManager userManager)
@@ -36,28 +39,68 @@ namespace IssuerOfClaims.Services
         {
             try
             {
-                var endpoint = this.Context.GetEndpoint();
-                if (endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() is object)
+                var endpointMetadata = this.Context.GetEndpoint()?.Metadata;
+                if (IsGoingToAnonymousControllerOrEndpoint(endpointMetadata))
                     return AuthenticateResult.NoResult();
 
                 // user login
-                var authenticateInfor = this.Request.Headers.Authorization.ToString();
-                ValidateAuthenticateInfo(authenticateInfor);
 
                 // WRONG_IMPLEMENT!
                 // TODO: need to change from get user by auth code to verify authcode and get user from username or password
-                UserIdentity user = GetUserUsingAuthenticationScheme(authenticateInfor);
-                ClaimsPrincipal claimsPrincipal = CreateClaimPrincipal(user);
+                UserIdentity user = GetUserUsingAuthenticationScheme(this.Request.Headers.Authorization.ToString());
 
-                ValidateClaimsPrincipal(claimsPrincipal);
+                ClaimsPrincipal claimsPrincipal = await CreateClaimPrincipal(user);
                 var ticket = IssueAuthenticationTicket(claimsPrincipal);
 
                 return AuthenticateResult.Success(ticket);
             }
+            catch (CustomException ex)
+            {
+                Set401StatusCode();
+                return AuthenticateResult.Fail(ex.Message);
+            }
             catch (Exception ex)
             {
+                Set401StatusCode();
                 return AuthenticateResult.Fail(ex);
             }
+        }
+
+        private void Set401StatusCode()
+        {
+            this.Context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+        }
+
+        private static bool IsGoingToAnonymousControllerOrEndpoint(EndpointMetadataCollection endpointMetadata)
+        {
+            if (IsAnonymouseController(endpointMetadata))
+                return true;
+            else if (IsAnonymousEndpoint(endpointMetadata))
+                return true;
+
+            return false;
+        }
+
+        private static bool IsAnonymousEndpoint(EndpointMetadataCollection endpointMetadata)
+        {
+            if (endpointMetadata?.GetMetadata<IAllowAnonymous>() is object)
+                return true;
+            return false;
+        }
+
+        private static bool IsAnonymouseController(EndpointMetadataCollection endpointMetadata)
+        {
+            var controllerAction = endpointMetadata.GetMetadata<ControllerActionDescriptor>();
+            if (controllerAction == null)
+                return false;
+
+            var typeInfo = controllerAction.ControllerTypeInfo;
+            var controller = typeInfo.CustomAttributes.FirstOrDefault(c => c.AttributeType.Name.Equals(ControllerAttributeName.AllowAnonymous));
+            if (controller is object)
+            {
+                return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -68,6 +111,7 @@ namespace IssuerOfClaims.Services
         /// <exception cref="InvalidOperationException"></exception>
         private UserIdentity GetUserUsingAuthenticationScheme(string authenticateInfor)
         {
+            ValidateAuthenticateInfo(authenticateInfor);
             // authentication with "Basic access" - username + password
             if (authenticateInfor.StartsWith(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC))
                 return BasicAccess_FindUser(authenticateInfor);
@@ -76,12 +120,12 @@ namespace IssuerOfClaims.Services
             else if (authenticateInfor.StartsWith(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BEARER))
                 return BearerToken_FindUser(authenticateInfor);
             else
-                throw new InvalidOperationException("Not implemented or does not have user with these informations!");
+                throw new InvalidOperationException(ExceptionMessage.UNHANDLED_AUTHENTICATION_SCHEME);
         }
 
         private UserIdentity BearerToken_FindUser(string authenticateInfor)
         {
-            var accessToken = authenticateInfor.Replace(AuthenticationSchemes.AuthorizationHeaderBearer, "").Trim();
+            var accessToken = authenticateInfor.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BEARER, "").Trim();
             var tokenResponse = _tokenResponsePerHandlerDbServices.FindByAccessToken(accessToken);
 
             return tokenResponse.IdentityRequestHandler.User;
@@ -90,41 +134,28 @@ namespace IssuerOfClaims.Services
         private UserIdentity BasicAccess_FindUser(string authenticateInfor)
         {
             var userNamePassword = authenticateInfor.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim().ToBase64Decode();
-            ValidateIdentityCredentials(userNamePassword);
 
             return FindUser(userNamePassword);
-        }
-
-        private static void ValidateClaimsPrincipal(ClaimsPrincipal claimsPrincipal)
-        {
-            if (claimsPrincipal == null)
-                throw new Exception("something is wrong...");
         }
 
         private static void ValidateAuthenticateInfo(string authenticateInfor)
         {
             if (string.IsNullOrEmpty(authenticateInfor))
-                throw new InvalidOperationException("Authentication's identity inside request headers is missing!");
+                throw new CustomException(ExceptionMessage.REQUEST_HEADER_MISSING_IDENTITY_INFO, System.Net.HttpStatusCode.Unauthorized);
         }
 
-        private static void ValidateIdentityCredentials(string userNamePassword)
-        {
-            if (string.IsNullOrEmpty(userNamePassword))
-                throw new InvalidOperationException("username and password is empty!");
-        }
-
-        private void ValidateUser(UserIdentity user, string password)
+        private void VefifyUser(UserIdentity user, string password)
         {
             if (user == null)
-                throw new CustomException("user is null!", System.Net.HttpStatusCode.BadRequest);
+                throw new CustomException(ExceptionMessage.USER_NULL, System.Net.HttpStatusCode.NotFound);
 
             if (string.IsNullOrEmpty(user.PasswordHash))
-                throw new CustomException("try another login method, because this user's password is not set!", System.Net.HttpStatusCode.BadRequest);
+                throw new CustomException(ExceptionMessage.PASSWORD_NOT_SET, System.Net.HttpStatusCode.NotFound);
 
             var valid = _userManager.Current.PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
 
             if (valid == PasswordVerificationResult.Failed)
-                throw new CustomException("wrong password!", System.Net.HttpStatusCode.BadRequest);
+                throw new CustomException(ExceptionMessage.WRONG_PASSWORD, System.Net.HttpStatusCode.BadRequest);
         }
 
         private AuthenticationTicket IssueAuthenticationTicket(ClaimsPrincipal claimPrincipal)
@@ -152,61 +183,12 @@ namespace IssuerOfClaims.Services
 
             // TODO: Do authentication of userId and password against your credentials store here
             var user = _userManager.Current.Users
-                .Include(user => user.IdentityUserRoles).ThenInclude(p => p.Role)
+                //.Include(user => user.IdentityUserRoles).ThenInclude(p => p.Role)
                 .FirstOrDefault(u => u.UserName == userName);
 
-            ValidateUser(user, password);
+            VefifyUser(user, password);
 
             return user;
-        }
-
-        private AuthenticationTicket IssuingTicketForParticularProcess(string schemaName, bool registeredProcess = false, bool offlineAccessProcess = false)
-        {
-            ClaimsPrincipal claims = new ClaimsPrincipal();
-
-            if (registeredProcess == true && offlineAccessProcess == true)
-                throw new InvalidOperationException("Wrong implement!");
-
-            if (registeredProcess)
-            {
-                claims = GetClaimPrincipalForRegisterUser();
-            }
-            else if (offlineAccessProcess)
-            {
-                claims = GetClaimPrincipalForOfflineAccessUser();
-            }
-
-            return new AuthenticationTicket(claims, schemaName);
-        }
-
-        private string GetValidParameterFromQuery(string[] requestQuery, string parameterType)
-        {
-            string parameterValue = requestQuery.GetFromQueryString(parameterType);
-
-            if (string.IsNullOrEmpty(parameterValue))
-                throw new InvalidDataException("Parameter from query string must have value!");
-
-            return parameterValue;
-        }
-
-        private ClaimsPrincipal GetClaimPrincipalForRegisterUser()
-        {
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.Anonymous, "RegisterUser")
-            };
-            var principal = new ClaimsPrincipal(new[] { new ClaimsIdentity(claims, IdentityServerConfiguration.AUTHENTICATION_SCHEME_ANONYMOUS) });
-            return principal;
-        }
-
-        private ClaimsPrincipal GetClaimPrincipalForOfflineAccessUser()
-        {
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.Anonymous, "OfflineAccess")
-            };
-            var principal = new ClaimsPrincipal(new[] { new ClaimsIdentity(claims, IdentityServerConfiguration.AUTHENTICATION_SCHEME_ANONYMOUS) });
-            return principal;
         }
 
         /// <summary>
@@ -215,7 +197,7 @@ namespace IssuerOfClaims.Services
         /// </summary>
         /// <param name="user"></param>
         /// <returns></returns>
-        private static ClaimsPrincipal CreateClaimPrincipal(UserIdentity user)
+        private static async Task<ClaimsPrincipal> CreateClaimPrincipal(UserIdentity user)
         {
             var claims = new List<Claim>
             {

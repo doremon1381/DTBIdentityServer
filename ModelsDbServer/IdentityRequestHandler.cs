@@ -15,7 +15,7 @@ namespace ServerDbModels
     [PrimaryKey(nameof(Id))]
     public class IdentityRequestHandler : DbTableBase<Guid>
     {
-        public IdentityRequestSession? RequestSession { get; set; }
+        public IdentityRequestSession RequestSession { get; set; }
 
         [ForeignKey(nameof(UserId))]
         public Guid UserId { get; set; }

@@ -45,6 +45,12 @@ namespace IssuerOfClaims.Services.Database
             return obj;
         }
 
+        public IdentityRequestSession GetDraft()
+        {
+            IdentityRequestSession obj = new IdentityRequestSession();
+            return obj;
+        }
+
         //public bool Update(TokenRequestSession requestSession)
         //{
         //    return this.Update(requestSession);
@@ -56,6 +62,7 @@ namespace IssuerOfClaims.Services.Database
         IdentityRequestSession FindByAccessToken(string accessToken);
         IdentityRequestSession CreateTokenRequestSession(Guid requestHandlerId);
         IdentityRequestSession FindById(int id);
+        IdentityRequestSession GetDraft();
         //bool Update(TokenRequestSession aCFProcessSession);
     }
 }

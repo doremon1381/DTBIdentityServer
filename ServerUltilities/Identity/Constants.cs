@@ -117,6 +117,11 @@ namespace ServerUltilities.Identity
             OidcConstants.PromptModes.Consent,
             OidcConstants.PromptModes.SelectAccount
         };
+        public static readonly List<string> SupportConsentGrantedValue = new List<string>()
+        {
+            PromptConsentResult.Granted,
+            PromptConsentResult.NotAllow
+        };
 
         public static class KnownAcrValues
         {
@@ -200,10 +205,9 @@ namespace ServerUltilities.Identity
             {
                 public const string Error = "errorId";
                 public const string Login = "returnUrl";
-                public const string Consent = "returnUrl";
+                public const string Consent = "consent";
                 public const string Logout = "logoutId";
                 public const string EndSessionCallback = "endSessionId";
-                public const string Custom = "returnUrl";
                 public const string UserCode = "userCode";
             }
 

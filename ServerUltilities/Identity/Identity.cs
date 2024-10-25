@@ -7,6 +7,7 @@
         public const string AUTHENTICATION_SCHEME_BEARER = "Bearer";
         public const string AUTHENTICATION_SCHEME_ANONYMOUS = "anonymous";
         public const string GOOGLE_CLIENT = "GoogleClient";
+        public const string WEB_SIGNIN = "WebSignin";
         public const string MAILSETTINGS = "MailSettings";
         public const string WEB_SERVER = "WebServer";
         public const string PROJECT_ID = "project_id";

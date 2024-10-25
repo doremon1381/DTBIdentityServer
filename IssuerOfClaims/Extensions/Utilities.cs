@@ -290,7 +290,7 @@ namespace IssuerOfClaims.Extensions
         };
         #endregion
 
-        public static GoogleClientConfiguration GetGoogleClientSettingsFromAppsettings(IConfigurationManager configuration)
+        public static GoogleClientConfiguration GetGoogleClientSettings(IConfigurationManager configuration)
         {
             var googleClientConfig = configuration.GetSection(IdentityServerConfiguration.GOOGLE_CLIENT).Get<GoogleClientConfiguration>();
             ValidateGoogleClientSettings(googleClientConfig);
@@ -298,10 +298,32 @@ namespace IssuerOfClaims.Extensions
             return googleClientConfig;
         }
 
+        public static WebSigninSettings GetWebSigninSettings(IConfigurationManager configuration)
+        {
+            var webSignin = configuration.GetSection(IdentityServerConfiguration.WEB_SIGNIN).Get<WebSigninSettings>();
+            ValidateWebSigninSettings(webSignin);
+
+            return webSignin;
+        }
+
+        private static void ValidateWebSigninSettings(WebSigninSettings? webSignin)
+        {
+            if (webSignin == null)
+                throw new CustomException(ExceptionMessage.MISSING_WEB_SIGIN_DETAILS);
+
+            if (webSignin == null
+                || string.IsNullOrEmpty(webSignin.SigninUri)
+                || string.IsNullOrEmpty(webSignin.ConsentPromptUri)
+                || string.IsNullOrEmpty(webSignin.ChangePasswordUri)
+                || string.IsNullOrEmpty(webSignin.ForgetPasswordUri)
+                || string.IsNullOrEmpty(webSignin.RegisterUri))
+                throw new CustomException(ExceptionMessage.MISSING_WEB_SIGIN_DETAILS);
+        }
+
         private static void ValidateGoogleClientSettings(GoogleClientConfiguration? googleClientConfig)
         {
             if (googleClientConfig == null)
-                throw new CustomException("Elaboration of google inside server is mismatch!");
+                throw new CustomException(ExceptionMessage.MISSING_GOOGLE_CLIENT_DETAILS);
 
             if (googleClientConfig == null
                 || string.IsNullOrEmpty(googleClientConfig.ClientId)
@@ -309,7 +331,7 @@ namespace IssuerOfClaims.Extensions
                 || string.IsNullOrEmpty(googleClientConfig.AuthUri)
                 || string.IsNullOrEmpty(googleClientConfig.TokenUri)
                 || googleClientConfig.RedirectUris == null || googleClientConfig.RedirectUris.Count == 0)
-                throw new CustomException("Elaboration of google inside server is mismatch!");
+                throw new CustomException(ExceptionMessage.MISSING_GOOGLE_CLIENT_DETAILS);
         }
     }
 
@@ -325,5 +347,10 @@ namespace IssuerOfClaims.Extensions
         public const string FaceBook = "Facebook";
         public const string Twitter = "Twitter";
         //...
+    }
+
+    public static class ControllerAttributeName
+    {
+        public const string AllowAnonymous = "AllowAnonymousAttribute";
     }
 }

@@ -84,7 +84,8 @@ namespace IssuerOfClaims.Controllers
 
             var client = _clientDbServices.Find(parameters.ClientId.Value);
 
-            ACF_I_VerifyRedirectUris(parameters.RedirectUri.Value, client);
+            ACF_I_ValidateRedirectUris(parameters.RedirectUri.Value, client);
+            ACF_I_ValidateConsentPrompt(parameters.ConsentGranted.Value);
 
             switch (GetMappingGrantType(parameters.ResponseType.Value))
             {
@@ -101,12 +102,20 @@ namespace IssuerOfClaims.Controllers
             }
         }
 
+        private void ACF_I_ValidateConsentPrompt(string consentValue)
+        {
+            if (consentValue.Equals(PromptConsentResult.NotAllow))
+            {
+                throw new CustomException(AuthorizeErrors.AccessDenied, HttpStatusCode.FailedDependency);
+            }
+        }
+
         private static string GetMappingGrantType(string responseType)
         {
             return Constants.ResponseTypeToGrantTypeMapping[responseType];
         }
 
-        private static void ACF_I_VerifyRedirectUris(string redirectUri, Client client)
+        private static void ACF_I_ValidateRedirectUris(string redirectUri, Client client)
         {
             IEnumerable<Uri> redirectUris = client.RedirectUris.Split(",").Select(r => new Uri(r));
             Uri requestUri = new Uri(redirectUri);
@@ -144,10 +153,10 @@ namespace IssuerOfClaims.Controllers
 
             ACF_I_ValidateScopes(@params.Scope.Value, client);
 
-            var requestHandler = ACF_I_CreateTokenRequestHandler(user, client);
-            var acfProcessSession = _tokenManager.CreateTokenRequestSession(requestHandler.Id);
+            var acfProcessSession = _tokenManager.GetDraftRequestSession();
+            ACF_I_AddRequestSessionDetails(@params, acfProcessSession, out string authorizationCode);
 
-            ACF_I_UpdateRequestSessionDetails(@params, acfProcessSession, out string authorizationCode);
+            ACF_I_CreateTokenRequestHandler(user, client, acfProcessSession);
 
             // TODO: will check again
             await ACF_I_SendResponseBaseOnResponseModeAsync(@params, authorizationCode);
@@ -247,25 +256,22 @@ namespace IssuerOfClaims.Controllers
         /// </summary>
         /// <param name="user"></param>
         /// <param name="ACFProcessSession"></param>
-        private IdentityRequestHandler ACF_I_CreateTokenRequestHandler(UserIdentity user, Client client)
-        //, IdentityRequestSession ACFProcessSession)
+        private void ACF_I_CreateTokenRequestHandler(UserIdentity user, Client client, IdentityRequestSession draftRequestSession)
         {
-            var tokenRequestHandler = _tokenManager.GetDraftTokenRequestHandler();
+            var tokenRequestHandler = _tokenManager.GetDraftRequestHandler();
             tokenRequestHandler.User = user;
             // TODO: will check again
             tokenRequestHandler.Client = client;
+            tokenRequestHandler.RequestSession = draftRequestSession;
 
             // TODO: will check again
-            _tokenManager.UpdateTokenRequestHandler(tokenRequestHandler);
-
-            return tokenRequestHandler;
+            _tokenManager.UpdateRequestHandler(tokenRequestHandler);
         }
-        private void ACF_I_UpdateRequestSessionDetails(AuthCodeParameters parameters, IdentityRequestSession ACFProcessSession, out string authorizationCode)
+        private void ACF_I_AddRequestSessionDetails(AuthCodeParameters parameters, IdentityRequestSession ACFProcessSession, out string authorizationCode)
         {
             ACF_I_ImportPKCERequestedParams(parameters.CodeChallenge.Value, parameters.CodeChallengeMethod.Value, parameters.CodeChallenge.HasValue, ACFProcessSession);
             ACF_I_ImportRequestSessionData(parameters.Scope.Value, parameters.Nonce.Value, ACFProcessSession, parameters.RedirectUri.Value, out authorizationCode);
 
-            _tokenManager.UpdateTokenRequestSession(ACFProcessSession);
         }
         private static void ACF_I_ImportRequestSessionData(string scope, string nonce, IdentityRequestSession tokenRequestSession, string redirectUri, out string authorizationCode)
         {
@@ -315,30 +321,27 @@ namespace IssuerOfClaims.Controllers
             var idToken = await _tokenManager.GenerateIdTokenAsync(user, parameters.Scope.Value, parameters.Nonce.Value, client.ClientId);
 
             // TODO: update must follow order, I will explain late
-            var requestHandler = IGF_UpdateTokenRequestHandler(user, client, idToken);
-            IGF_CreateRequestSession(requestHandler.Id, client.AllowedScopes);
+            var requestSession = IGF_GetDraftRequestSession(client.AllowedScopes);
+            var requestHandler = IGF_CreateTokenRequestHandler(user, client, requestSession);
 
             var accessToken = _tokenManager.IGF_IssueToken(parameters.State.Value, requestHandler);
 
+            int defaultSecondsToTokenExpired = 3600;
             // Check response mode to know what kind of response is going to be used
             // return a form_post, url fragment or body of response
-            string responseMessage = "";
-
-            if (parameters.ResponseMode.Value.Equals(ResponseModes.FormPost))
+            string responseMessage = parameters.ResponseMode.Value switch
             {
-                responseMessage = GetFormPostHtml(parameters.RedirectUri.Value, new Dictionary<string, string>()
+                ResponseModes.FormPost => GetFormPostHtml(parameters.RedirectUri.Value, new Dictionary<string, string>()
                 {
                     { AuthorizeResponse.AccessToken, accessToken },
                     { AuthorizeResponse.TokenType, OidcConstants.TokenResponse.BearerTokenType },
                     { AuthorizeResponse.IdentityToken, idToken },
                     { AuthorizeResponse.State, parameters.State.Value }
-                });
-            }
-            else
-            {
-                int expiredIn = 3600;
-                responseMessage = await IGF_CreateRedirectContentAsync(accessToken, OidcConstants.TokenResponse.BearerTokenType, parameters.State.Value, idToken, expiredIn, parameters.ResponseMode.Value, parameters.RedirectUri.Value);
-            }
+                }),
+                ResponseModes.Query => await IGF_CreateRedirectResponseBodyAsync(accessToken, OidcConstants.TokenResponse.BearerTokenType, parameters.State.Value, idToken, defaultSecondsToTokenExpired, parameters.ResponseMode.Value, parameters.RedirectUri.Value),
+                ResponseModes.Fragment => await IGF_CreateRedirectResponseBodyAsync(accessToken, OidcConstants.TokenResponse.BearerTokenType, parameters.State.Value, idToken, defaultSecondsToTokenExpired, parameters.ResponseMode.Value, parameters.RedirectUri.Value),
+                _ => throw new CustomException(ExceptionMessage.NOT_IMPLEMENTED, HttpStatusCode.NotImplemented)
+            };
 
             HttpContext.Response.StatusCode = (int)HttpStatusCode.Redirect;
             // TODO: will learn how to use this function
@@ -347,7 +350,7 @@ namespace IssuerOfClaims.Controllers
             return new EmptyResult();
         }
 
-        private async Task<string> IGF_CreateRedirectContentAsync(string accessToken, string bearerTokenType, string state, string idToken, int expiredIn, string responseMode, string redirectUri)
+        private async Task<string> IGF_CreateRedirectResponseBodyAsync(string accessToken, string bearerTokenType, string state, string idToken, int expiredIn, string responseMode, string redirectUri)
         {
             string seprate = GetSeparatorByResponseMode(responseMode);
 
@@ -370,29 +373,28 @@ namespace IssuerOfClaims.Controllers
             };
         }
 
-        private IdentityRequestHandler IGF_UpdateTokenRequestHandler(UserIdentity user, Client client, string idToken)
+        private IdentityRequestHandler IGF_CreateTokenRequestHandler(UserIdentity user, Client client, IdentityRequestSession requestSession)
         {
-            var requestHandler = _tokenManager.GetDraftTokenRequestHandler();
+            var requestHandler = _tokenManager.GetDraftRequestHandler();
             requestHandler.User = user;
             requestHandler.Client = client;
-            //
-            _tokenManager.UpdateTokenRequestHandler(requestHandler);
+            requestHandler.RequestSession = requestSession;
+
+            _tokenManager.UpdateRequestHandler(requestHandler);
 
             return requestHandler;
         }
 
         // TODO: will test again
-        private void IGF_CreateRequestSession(Guid tokenRequestHandlerId, string allowedScopes)
+        private IdentityRequestSession IGF_GetDraftRequestSession(string allowedScopes)
         {
-            var tokenRequestSession = _tokenManager.CreateTokenRequestSession(tokenRequestHandlerId);
+            var tokenRequestSession = _tokenManager.GetDraftRequestSession();
 
             tokenRequestSession.Scope = allowedScopes;
             tokenRequestSession.IsInLoginSession = false;
             tokenRequestSession.IsOfflineAccess = false;
 
-            _tokenManager.UpdateTokenRequestSession(tokenRequestSession);
-
-            //return tokenRequestSession;
+            return tokenRequestSession;
         }
 
         /// <summary>
@@ -542,7 +544,7 @@ namespace IssuerOfClaims.Controllers
 
             // TODO: for now, every request, by default in scop will have openid, so ignore this part of checking now
             //     : Verify that the Authorization Code used was issued in response to an OpenID Connect Authentication Request(so that an ID Token will be returned from the Token Endpoint).
-            var tokenRequestHandler = _tokenManager.FindTokenRequestHandlerByAuthorizationCode(parameters.Code.Value);
+            var tokenRequestHandler = _tokenManager.FindRequestHandlerByAuthorizationCode(parameters.Code.Value);
             // TODO: will change to use email when allow using identity from another source
             UserIdentity user = ACF_II_GetResourceOwnerIdentity(tokenRequestHandler.User.UserName);
             var client = ACF_II_VerifyAndGetClient(parameters.ClientId.Value, parameters.ClientSecret.Value, tokenRequestHandler);
@@ -613,7 +615,7 @@ namespace IssuerOfClaims.Controllers
                 {
                     throw new CustomException(ExceptionMessage.CODE_CHALLENGE_METHOD_NOT_SUPPORT);
                 }
-                
+
             }
         }
 
@@ -707,8 +709,8 @@ namespace IssuerOfClaims.Controllers
             var requestHandler = GoogleAuth_ImportRequestHandlerData(parameters.CodeVerifier.Value, result.RefreshToken, client, user);
 
             // at this step, token request session is used for storing data
-            GoogleAuth_SaveToken(result.AccessToken, result.RefreshToken, result.IdToken, 
-                payload.IssuedAtTimeSeconds.Value, payload.ExpirationTimeSeconds.Value , result.AccessTokenIssueAt, result.AccessTokenIssueAt.AddSeconds(result.ExpiredIn),
+            GoogleAuth_SaveToken(result.AccessToken, result.RefreshToken, result.IdToken,
+                payload.IssuedAtTimeSeconds.Value, payload.ExpirationTimeSeconds.Value, result.AccessTokenIssueAt, result.AccessTokenIssueAt.AddSeconds(result.ExpiredIn),
                 payload, requestHandler);
 
             SuccessfulRequestHandle(requestHandler);
@@ -719,22 +721,22 @@ namespace IssuerOfClaims.Controllers
             return Ok(response);
         }
 
-        private bool GoogleAuth_SaveToken(string accessToken, string refreshToken, string idToken, 
+        private bool GoogleAuth_SaveToken(string accessToken, string refreshToken, string idToken,
             long issuedAtTimeSeconds, long expirationTimeSeconds, DateTime accessTokenIssueAt, DateTime accessTokenExpiredIn,
             GoogleJsonWebSignature.Payload payload, IdentityRequestHandler requestHandler)
         {
-            return _tokenManager.SaveTokenFromExternalSource(accessToken, refreshToken, idToken, 
+            return _tokenManager.SaveTokenFromExternalSource(accessToken, refreshToken, idToken,
                 issuedAtTimeSeconds, expirationTimeSeconds, accessTokenIssueAt, accessTokenExpiredIn,
                 requestHandler, ExternalSources.Google);
         }
 
         private IdentityRequestHandler GoogleAuth_ImportRequestHandlerData(string codeVerifier, string refreshToken, Client client, UserIdentity user)
         {
-            var requestHandler = _tokenManager.GetDraftTokenRequestHandler();
+            var requestHandler = _tokenManager.GetDraftRequestHandler();
             requestHandler.User = user;
             requestHandler.Client = client;
 
-            _tokenManager.UpdateTokenRequestHandler(requestHandler);
+            _tokenManager.UpdateRequestHandler(requestHandler);
 
             GoogleAuth_CreateRequestSession(codeVerifier, refreshToken, requestHandler);
 
@@ -743,11 +745,11 @@ namespace IssuerOfClaims.Controllers
 
         private void GoogleAuth_CreateRequestSession(string codeVerifier, string refreshToken, IdentityRequestHandler requestHandler)
         {
-            var session = _tokenManager.CreateTokenRequestSession(requestHandler.Id);
+            var session = _tokenManager.CreateRequestSession(requestHandler.Id);
             session.CodeVerifier = codeVerifier;
             session.IsOfflineAccess = string.IsNullOrEmpty(refreshToken) ? false : true;
 
-            _tokenManager.UpdateTokenRequestSession(session);
+            _tokenManager.UpdateRequestSession(session);
         }
 
         private async Task<(string AccessToken, string IdToken, string RefreshToken, DateTime AccessTokenIssueAt, double ExpiredIn)> Google_SendTokenRequestAsync(SignInGoogleParameters parameters, GoogleClientConfiguration config)
@@ -889,7 +891,7 @@ namespace IssuerOfClaims.Controllers
         private void SuccessfulRequestHandle(IdentityRequestHandler requestHandler)
         {
             requestHandler.SuccessAt = DateTime.UtcNow;
-            _tokenManager.UpdateTokenRequestHandler(requestHandler);
+            _tokenManager.UpdateRequestHandler(requestHandler);
         }
         #endregion
     }

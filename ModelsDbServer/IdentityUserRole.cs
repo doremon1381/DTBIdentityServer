@@ -22,4 +22,11 @@ namespace ServerDbModels
         public Role Role { get; set; } = null;
         public UserIdentity User { get; set; } = null;
     }
+
+    //[Table($"{nameof(IdentityUserClaim)}s")]
+    //[PrimaryKey(nameof(Id))]
+    //public class IdentityUserClaim<Guid>: IDbTable
+    //{
+
+    //}
 }

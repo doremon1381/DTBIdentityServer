@@ -1,6 +1,6 @@
 ﻿namespace IssuerOfClaims.Models
 {
-    public record class JwtOptions(
+    public record class JwtSettings(
         string Issuer,
         string Audience,
         string Key,

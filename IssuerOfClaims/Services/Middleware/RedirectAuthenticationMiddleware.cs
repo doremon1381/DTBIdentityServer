@@ -1,4 +1,5 @@
-﻿using IssuerOfClaims.Models;
+﻿using IssuerOfClaims.Extensions;
+using IssuerOfClaims.Models;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
@@ -18,24 +19,39 @@ namespace IssuerOfClaims.Services.Middleware
         {
             if (context.Response.StatusCode == (int)HttpStatusCode.Unauthorized)
             {
-                string query = CreateRedirectRequestQuery(context);
+                // TODO: I still want if there is any exception, parent thread will catch it
+                //     : so I want to wait for a task, not the function inside it, which is run on another thread and know nothing about parent of the task
+                await Task.Run(() => RedirectToLoginAsync(context.Request.Path.Value, context.Request.Method, context.Request.Query))
+                    .ConfigureAwait(false);
 
-                // redirect to login 
-                await RedirectToLoginAsync(_webSigninSettings.Origin, query);
-                // TODO: terminate request, will check again
+                // TODO: will check again
                 context.Response.StatusCode = (int)HttpStatusCode.OK;
+                // TODO: terminate request, will check again
                 return;
             }
             else
+            {
                 await _next(context);
+
+                // TODO: wait for controller doing its work.
+            }
         }
 
-        private static string CreateRedirectRequestQuery(HttpContext context)
+        private async Task RedirectToLoginAsync(string path, string method, IQueryCollection queryCollection)
+        {
+            var query = await Task.Run(() => CreateRedirectRequestQuery(path, method, queryCollection));
+
+            // redirect to login 
+            await Task.Run(() => SendRequestAsync(_webSigninSettings.Origin, query)).ConfigureAwait(false);
+        }
+
+        private static string CreateRedirectRequestQuery(string path, string method, IQueryCollection queryCollection)
         {
             StringBuilder query = new StringBuilder();
-            query.Append($"{QS.Path}{QS.Equal}{Uri.EscapeDataString(context.Request.Path.Value)}");
-            query.Append($"{QS.And}{QS.Method}{QS.Equal}" + context.Request.Method);
-            foreach (var item in context.Request.Query)
+            query.Append($"{QS.Path}{QS.Equal}{Uri.EscapeDataString(path)}");
+            //query.Append($"{QS.And}{QS.OauthEndpoint}{QS.Equal}{context.Request.RouteValues.First().Value}");
+            query.Append($"{QS.And}{QS.Method}{QS.Equal}" + method);
+            foreach (var item in queryCollection)
             {
                 query.Append($"&{item.Key}={item.Value}");
             }
@@ -44,24 +60,13 @@ namespace IssuerOfClaims.Services.Middleware
         }
 
         //TODO: temporary
-        private static async Task RedirectToLoginAsync(string loginUri, string query)
+        private static void SendRequestAsync(string loginUri, string query)
         {
             Process.Start(new ProcessStartInfo()
             {
                 FileName = string.Format("{0}/?{1}", loginUri, query),
                 UseShellExecute = true
             });
-        }
-
-        /// <summary>
-        /// Query symbols
-        /// </summary>
-        private static class QS
-        {
-            public const string Path = "path";
-            public const string Equal = "=";
-            public const string Method = "method";
-            public static string And = "&";
         }
     }
 }

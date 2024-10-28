@@ -15,6 +15,7 @@ namespace IssuerOfClaims.Models.Request
 
         private static readonly Type _currentType = typeof(T);
         private static readonly RequestPurpose _requestPurpose = ParameterUtilities.ParametersForRequest[_currentType];
+
         private static readonly Type _registerRequestType = typeof(RegisterRequest);
         private static readonly Type _authorizeRequestType = typeof(AuthorizeRequest);
         private static readonly Type _signInGoogleRequestType = typeof(SignInGoogleRequest);
@@ -84,23 +85,21 @@ namespace IssuerOfClaims.Models.Request
 
         private void InitiateProperties()
         {
-            // TODO: for currently logic, to ensure response mode is set before another properties, I run this function first
+            // TODO: for currently logic, to ensure response mode is set before response type, I run this function first
             if (_responseType != null)
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
                 SetPropertyValueAsync(_responseType);
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 
-            List<Task> tasks = new List<Task>();
-            foreach (var property in _properties)
+            var tasks = _properties.Select(p =>
             {
-                if (property.Name.Equals(_responseTypeName))
-                    continue;
+                if (p.Name.Equals(_responseTypeName))
+                    return Task.Run(() => { });
                 else
-                    tasks.Add(Task.Factory.StartNew(async () =>
+                    return Task.Factory.StartNew(() =>
                     {
-                        await SetPropertyValueAsync(property);
-                    }, TaskCreationOptions.AttachedToParent));
-            }
+                       SetPropertyValueAsync(p);
+                    }, TaskCreationOptions.AttachedToParent);
+            });
+
             Task.WaitAll(tasks.ToArray());
         }
 
@@ -110,7 +109,7 @@ namespace IssuerOfClaims.Models.Request
         /// <param name="setValue"></param>
         /// <param name="property"></param>
         /// <returns></returns>
-        private async Task SetPropertyValueAsync(PropertyInfo property)
+        private void SetPropertyValueAsync(PropertyInfo property)
         {
             string parameterName = GetNameOfRequestParameter(property.Name);
             string value = requestQuery.GetFromQueryString(parameterName);
@@ -134,7 +133,6 @@ namespace IssuerOfClaims.Models.Request
                     value = execute.Invoke(value, string.Empty);
             }
 
-            //setValue(parameter, value);
             parameter.SetValue(value);
             property.SetValue(this, parameter);
         }

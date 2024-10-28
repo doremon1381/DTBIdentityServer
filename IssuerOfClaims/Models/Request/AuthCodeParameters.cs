@@ -59,6 +59,9 @@ namespace IssuerOfClaims.Models.Request
         ///     . For now, I don't handle prompt value, by default prompt=none
         /// </summary>
         public Parameter Prompt { get; private set; }
+        /// <summary>
+        /// TODO: not in OpenID specs, currently used for redirecting from login web to server
+        /// </summary>
         public Parameter ConsentGranted { get; private set; }
         /// <summary>
         /// TODO: try to add nonce in flow, will check it late

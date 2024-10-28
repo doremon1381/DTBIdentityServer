@@ -353,4 +353,16 @@ namespace IssuerOfClaims.Extensions
     {
         public const string AllowAnonymous = "AllowAnonymousAttribute";
     }
+
+    /// <summary>
+    /// Query symbols
+    /// </summary>
+    internal static class QS
+    {
+        public const string Path = "path";
+        public const string OauthEndpoint = "endpoint";
+        public const string Equal = "=";
+        public const string Method = "method";
+        public const string And = "&";
+    }
 }

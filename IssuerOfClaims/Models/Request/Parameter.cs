@@ -86,7 +86,9 @@ namespace IssuerOfClaims.Models.Request
             { AuthorizeRequest.Prompt, ParameterPriority.OPTIONAL },
             { AuthorizeRequest.MaxAge, ParameterPriority.OPTIONAL },
             { AuthorizeRequest.UiLocales, ParameterPriority.OPTIONAL },
-            { AuthorizeRequest.IdTokenHint, ParameterPriority.OPTIONAL }
+            { AuthorizeRequest.IdTokenHint, ParameterPriority.OPTIONAL },
+
+            { AuthorizeRequest.ConsentGranted, ParameterPriority.OPTIONAL }
         };
 
         // TODO: will check again

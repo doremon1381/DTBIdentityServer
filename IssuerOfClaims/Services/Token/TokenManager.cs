@@ -672,9 +672,9 @@ namespace IssuerOfClaims.Services.Token
         }
         #endregion
 
-        public string IGF_IssueToken(string state, IdentityRequestHandler requestHandler)
+        public async Task<string> IGF_IssueTokenAsync(string state, IdentityRequestHandler requestHandler)
         {
-            var accessToken = CreateToken(OidcConstants.TokenTypes.AccessToken);
+            var accessToken = await Task.Run(() => CreateToken(OidcConstants.TokenTypes.AccessToken));
             CreateTokenResponsePerIdentityRequest(requestHandler, accessToken);
 
             return accessToken.Token;
@@ -697,6 +697,6 @@ namespace IssuerOfClaims.Services.Token
         TokenResponse FindRefreshToken(string refreshToken);
         RSAParameters GetPublicKeyJson();
         Task<string> RefreshAccessTokenFromExternalSourceAsync(string refreshToken, string externalSource);
-        string IGF_IssueToken(string state, IdentityRequestHandler requestHandler);
+        Task<string> IGF_IssueTokenAsync(string state, IdentityRequestHandler requestHandler);
     }
 }

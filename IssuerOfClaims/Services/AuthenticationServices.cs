@@ -40,7 +40,7 @@ namespace IssuerOfClaims.Services
             try
             {
                 var endpointMetadata = this.Context.GetEndpoint()?.Metadata;
-                if (IsGoingToAnonymousControllerOrEndpoint(endpointMetadata))
+                if (IsGoingToAnonymousControllerOrEndpoint(endpointMetadata) && IfAuthenticateInfoIsEmpty(this.Request.Headers.Authorization.ToString()))
                     return AuthenticateResult.NoResult();
 
                 // WRONG_IMPLEMENT!
@@ -109,7 +109,7 @@ namespace IssuerOfClaims.Services
         /// <exception cref="InvalidOperationException"></exception>
         private UserIdentity GetUserUsingAuthenticationScheme(string authenticateInfor)
         {
-            ValidateAuthenticateInfo(authenticateInfor);
+            ValidateAuthenticationInfo(authenticateInfor);
             // authentication with "Basic access" - username + password
             if (authenticateInfor.StartsWith(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC))
                 return BasicAccess_FindUser(authenticateInfor);
@@ -136,7 +136,15 @@ namespace IssuerOfClaims.Services
             return FindUser(userNamePassword);
         }
 
-        private static void ValidateAuthenticateInfo(string authenticateInfor)
+        private static bool IfAuthenticateInfoIsEmpty(string authenticateInfor)
+        {
+            if (string.IsNullOrEmpty(authenticateInfor))
+                return true;
+
+            return false;
+        }
+
+        private static void ValidateAuthenticationInfo(string authenticateInfor)
         {
             if (string.IsNullOrEmpty(authenticateInfor))
                 throw new CustomException(ExceptionMessage.REQUEST_HEADER_MISSING_IDENTITY_INFO, System.Net.HttpStatusCode.Unauthorized);

@@ -24,6 +24,9 @@
             public const string RequestUri = "request_uri";
             public const string Resource = "resource";
             public const string DPoPKeyThumbprint = "dpop_jkt";
+
+            // TODO: use for redirect from login web to server
+            public const string ConsentGranted = "consent_granted";
         }
 
         public static class AuthorizeErrors

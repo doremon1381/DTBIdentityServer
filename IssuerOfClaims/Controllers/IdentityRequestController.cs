@@ -23,6 +23,7 @@ using Google.Apis.Auth;
 using IssuerOfClaims.Models.Request;
 using System.Net.WebSockets;
 using static ServerUltilities.Identity.Constants;
+using System.Diagnostics;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -39,18 +40,19 @@ namespace IssuerOfClaims.Controllers
         private readonly ILogger<IdentityRequestController> _logger;
 
         private readonly IApplicationUserManager _applicationUserManager;
-        private readonly IConfigurationManager _configuration;
+        //private readonly IConfigurationManager _configuration;
         private readonly ITokenManager _tokenManager;
         private readonly IClientDbServices _clientDbServices;
         private readonly GoogleClientConfiguration _googleClientConfiguration;
+        private readonly WebSigninSettings _webSigninSettings;
 
         public IdentityRequestController(ILogger<IdentityRequestController> logger, IConfigurationManager configuration
             , IApplicationUserManager userManager
             , ITokenManager tokenManager, IEmailServices emailServices
-            , IClientDbServices clientDbServices, GoogleClientConfiguration googleClientConfiguration)
+            , IClientDbServices clientDbServices, GoogleClientConfiguration googleClientConfiguration, WebSigninSettings webSigninSettings)
         {
             _logger = logger;
-            _configuration = configuration;
+            //_configuration = configuration;
 
             _applicationUserManager = userManager;
             _clientDbServices = clientDbServices;
@@ -58,6 +60,7 @@ namespace IssuerOfClaims.Controllers
             _tokenManager = tokenManager;
 
             _googleClientConfiguration = googleClientConfiguration;
+            _webSigninSettings = webSigninSettings;
         }
 
         #region catch authorize request
@@ -67,8 +70,8 @@ namespace IssuerOfClaims.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpGet("authorize")]
-        [Authorize]
-        public async Task<ActionResult> AuthorizationAsync()
+        [AllowAnonymous]
+        public async Task<ActionResult> AuthenticationGetAsync()
         {
             // 1. Get authorization request from server
             // 2. Return an http 302 message to server, give it a nonce cookie (for now, ignore this part),
@@ -81,7 +84,7 @@ namespace IssuerOfClaims.Controllers
 
             AuthCodeParameters parameters = new AuthCodeParameters(HttpContext.Request.QueryString.Value);
 
-            return await AuthorizeAsync(parameters);
+            return await EndAuthenticationRequestAsync(parameters);
         }
 
         /// <summary>
@@ -90,23 +93,44 @@ namespace IssuerOfClaims.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpPost("authorize")]
-        [Authorize]
-        public async Task<ActionResult> AuthorizeAsync_Post()
+        [AllowAnonymous]
+        public async Task<ActionResult> AuthenticationPostAsync()
         {
             var query = await Utilities.SerializeFormAsync(HttpContext.Request.Body);
 
             AuthCodeParameters parameters = new AuthCodeParameters(query);
 
-            return await AuthorizeAsync(parameters);
+            return await EndAuthenticationRequestAsync(parameters);
         }
 
-        private async Task<ActionResult> AuthorizeAsync(AuthCodeParameters parameters)
+        private async Task<ActionResult> EndAuthenticationRequestAsync(AuthCodeParameters parameters)
+        {
+            if (HttpContext.User.Identity.IsAuthenticated)
+                return await AuthenticationAsync(parameters);
+            else
+            {
+                // TODO: redirect to login
+                await RedirectToLoginAsync(HttpContext, _webSigninSettings.SigninUri);
+
+                return new EmptyResult();
+            }
+        }
+
+        // TODO: add callback to server after login success
+        //[HttpGet("authorize/callback")]
+        //[Authorize]
+        //public async Task<ActionResult> AuthenticationCalbackAsync()
+        //{}
+
+        private async Task<ActionResult> AuthenticationAsync(AuthCodeParameters parameters)
         {
             var client = _clientDbServices.Find(parameters.ClientId.Value);
 
-            ACF_I_ValidateRedirectUris(parameters.RedirectUri.Value, client);
-            ACF_I_ValidateConsentPrompt(parameters.ConsentGranted.Value);
+            // TODO: will test again
+            await Task.Run(() => ValidateRedirectUris(parameters.RedirectUri.Value, client));
+            ValidateConsentPrompt(parameters.ConsentGranted.Value);
 
+            // Authentication by using one of these flows
             switch (GetMappingGrantType(parameters.ResponseType.Value))
             {
                 case GrantType.Implicit:
@@ -122,7 +146,7 @@ namespace IssuerOfClaims.Controllers
             }
         }
 
-        private void ACF_I_ValidateConsentPrompt(string consentValue)
+        private void ValidateConsentPrompt(string consentValue)
         {
             if (consentValue.Equals(PromptConsentResult.NotAllow))
             {
@@ -135,7 +159,7 @@ namespace IssuerOfClaims.Controllers
             return Constants.ResponseTypeToGrantTypeMapping[responseType];
         }
 
-        private static void ACF_I_ValidateRedirectUris(string redirectUri, Client client)
+        private static void ValidateRedirectUris(string redirectUri, Client client)
         {
             IEnumerable<Uri> redirectUris = client.RedirectUris.Split(",").Select(r => new Uri(r));
             Uri requestUri = new Uri(redirectUri);
@@ -147,6 +171,41 @@ namespace IssuerOfClaims.Controllers
         private static bool ACF_RedirectUriIsRegistered(IEnumerable<Uri> redirectUris, Uri requestUri)
         {
             return redirectUris.FirstOrDefault(r => r.Host.Equals(requestUri.Host) && r.AbsolutePath.Equals(requestUri.AbsolutePath)) != null;
+        }
+
+        private static async Task RedirectToLoginAsync(HttpContext context, string signinUri, bool isResponseStarted = false)
+        {
+            StringBuilder query = CreateRedirectRequestQuery(context);
+
+            // redirect to login 
+            await SendRequestAsync(signinUri, query.ToString());
+            if (!isResponseStarted)
+                // TODO: terminate request, will check again
+                context.Response.StatusCode = (int)HttpStatusCode.OK;
+        }
+
+        private static StringBuilder CreateRedirectRequestQuery(HttpContext context)
+        {
+            StringBuilder query = new StringBuilder();
+            query.Append($"{QS.Path}{QS.Equal}{Uri.EscapeDataString(context.Request.Path.Value)}");
+            //query.Append($"{QS.And}{QS.OauthEndpoint}{QS.Equal}{context.Request.RouteValues.First().Value}");
+            query.Append($"{QS.And}{QS.Method}{QS.Equal}" + context.Request.Method);
+            foreach (var item in context.Request.Query)
+            {
+                query.Append($"&{item.Key}={item.Value}");
+            }
+
+            return query;
+        }
+
+        //TODO: temporary
+        private static async Task SendRequestAsync(string loginUri, string query)
+        {
+            Process.Start(new ProcessStartInfo()
+            {
+                FileName = string.Format("{0}/?{1}", loginUri, query),
+                UseShellExecute = true
+            });
         }
         #endregion
 
@@ -179,7 +238,7 @@ namespace IssuerOfClaims.Controllers
             ACF_I_CreateTokenRequestHandler(user, client, acfProcessSession);
 
             // TODO: will check again
-            await ACF_I_SendResponseBaseOnResponseModeAsync(@params, authorizationCode);
+            await ACF_I_SendResponseAsync(@params, authorizationCode);
 
             // WRONG IMPLEMENT!
             // TODO: if following openid specs, I will need to return responseBody as query or fragment inside uri
@@ -189,7 +248,7 @@ namespace IssuerOfClaims.Controllers
             return new EmptyResult();
         }
 
-        private static async Task ACF_I_SendResponseBaseOnResponseModeAsync(AuthCodeParameters @params, string authorizationCode)
+        private static async Task ACF_I_SendResponseAsync(AuthCodeParameters @params, string authorizationCode)
         {
             string responseMessage = await ACF_I_CreateRedirectContentAsync("", @params.ResponseMode.Value, @params.State.Value, authorizationCode, @params.Scope.Value, @params.Prompt.Value);
 
@@ -344,7 +403,7 @@ namespace IssuerOfClaims.Controllers
             var requestSession = IGF_GetDraftRequestSession(client.AllowedScopes);
             var requestHandler = IGF_CreateTokenRequestHandler(user, client, requestSession);
 
-            var accessToken = _tokenManager.IGF_IssueToken(parameters.State.Value, requestHandler);
+            var accessToken = await _tokenManager.IGF_IssueTokenAsync(parameters.State.Value, requestHandler);
 
             int defaultSecondsToTokenExpired = 3600;
             // Check response mode to know what kind of response is going to be used
@@ -358,8 +417,8 @@ namespace IssuerOfClaims.Controllers
                     { AuthorizeResponse.IdentityToken, idToken },
                     { AuthorizeResponse.State, parameters.State.Value }
                 }),
-                ResponseModes.Query => await IGF_CreateRedirectResponseBodyAsync(accessToken, OidcConstants.TokenResponse.BearerTokenType, parameters.State.Value, idToken, defaultSecondsToTokenExpired, parameters.ResponseMode.Value, parameters.RedirectUri.Value),
-                ResponseModes.Fragment => await IGF_CreateRedirectResponseBodyAsync(accessToken, OidcConstants.TokenResponse.BearerTokenType, parameters.State.Value, idToken, defaultSecondsToTokenExpired, parameters.ResponseMode.Value, parameters.RedirectUri.Value),
+                ResponseModes.Query => await Task.Run(() => IGF_CreateRedirectResponseBody(accessToken, OidcConstants.TokenResponse.BearerTokenType, parameters.State.Value, idToken, defaultSecondsToTokenExpired, parameters.ResponseMode.Value, parameters.RedirectUri.Value)),
+                ResponseModes.Fragment => await Task.Run(() => IGF_CreateRedirectResponseBody(accessToken, OidcConstants.TokenResponse.BearerTokenType, parameters.State.Value, idToken, defaultSecondsToTokenExpired, parameters.ResponseMode.Value, parameters.RedirectUri.Value)),
                 _ => throw new CustomException(ExceptionMessage.NOT_IMPLEMENTED, HttpStatusCode.NotImplemented)
             };
 
@@ -370,7 +429,7 @@ namespace IssuerOfClaims.Controllers
             return new EmptyResult();
         }
 
-        private async Task<string> IGF_CreateRedirectResponseBodyAsync(string accessToken, string bearerTokenType, string state, string idToken, int expiredIn, string responseMode, string redirectUri)
+        private static string IGF_CreateRedirectResponseBody(string accessToken, string bearerTokenType, string state, string idToken, int expiredIn, string responseMode, string redirectUri)
         {
             string seprate = GetSeparatorByResponseMode(responseMode);
 

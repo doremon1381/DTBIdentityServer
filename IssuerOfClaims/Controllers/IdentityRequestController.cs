@@ -250,7 +250,7 @@ namespace IssuerOfClaims.Controllers
 
         private static async Task ACF_I_SendResponseAsync(AuthCodeParameters @params, string authorizationCode)
         {
-            string responseMessage = await ACF_I_CreateRedirectContentAsync("", @params.ResponseMode.Value, @params.State.Value, authorizationCode, @params.Scope.Value, @params.Prompt.Value);
+            string responseMessage = await Task.Run(() => ACF_I_CreateRedirectContentAsync("", @params.ResponseMode.Value, @params.State.Value, authorizationCode, @params.Scope.Value, @params.Prompt.Value));
 
             // TODO: need to send another request to redirect uri, contain fragment or query
             ACF_I_HttpClientOnDuty(@params.RedirectUri.Value, responseMessage);
@@ -298,7 +298,7 @@ namespace IssuerOfClaims.Controllers
             }
         }
 
-        private static async Task<string> ACF_I_CreateRedirectContentAsync(string redirectUri, string responseMode, string state, string authorizationCode, string scope, string prompt)
+        private static string ACF_I_CreateRedirectContentAsync(string redirectUri, string responseMode, string state, string authorizationCode, string scope, string prompt)
         {
             string seprate = GetSeparatorByResponseMode(responseMode);
 
@@ -408,25 +408,30 @@ namespace IssuerOfClaims.Controllers
             int defaultSecondsToTokenExpired = 3600;
             // Check response mode to know what kind of response is going to be used
             // return a form_post, url fragment or body of response
-            string responseMessage = parameters.ResponseMode.Value switch
-            {
-                ResponseModes.FormPost => GetFormPostHtml(parameters.RedirectUri.Value, new Dictionary<string, string>()
-                {
-                    { AuthorizeResponse.AccessToken, accessToken },
-                    { AuthorizeResponse.TokenType, OidcConstants.TokenResponse.BearerTokenType },
-                    { AuthorizeResponse.IdentityToken, idToken },
-                    { AuthorizeResponse.State, parameters.State.Value }
-                }),
-                ResponseModes.Query => await Task.Run(() => IGF_CreateRedirectResponseBody(accessToken, OidcConstants.TokenResponse.BearerTokenType, parameters.State.Value, idToken, defaultSecondsToTokenExpired, parameters.ResponseMode.Value, parameters.RedirectUri.Value)),
-                ResponseModes.Fragment => await Task.Run(() => IGF_CreateRedirectResponseBody(accessToken, OidcConstants.TokenResponse.BearerTokenType, parameters.State.Value, idToken, defaultSecondsToTokenExpired, parameters.ResponseMode.Value, parameters.RedirectUri.Value)),
-                _ => throw new CustomException(ExceptionMessage.NOT_IMPLEMENTED, HttpStatusCode.NotImplemented)
-            };
+            string responseMessage = await CreateResponseMessgae(parameters, idToken, accessToken, defaultSecondsToTokenExpired);
 
             HttpContext.Response.StatusCode = (int)HttpStatusCode.Redirect;
             // TODO: will learn how to use this function
             await WriteHtmlAsync(HttpContext.Response, responseMessage);
             // TODO: will learn how to use it later
             return new EmptyResult();
+        }
+
+        private async Task<string> CreateResponseMessgae(AuthCodeParameters parameters, string idToken, string accessToken, int defaultSecondsToTokenExpired)
+        {
+            return parameters.ResponseMode.Value switch
+            {
+                ResponseModes.FormPost => await Task.Run(() => GetFormPostHtml(parameters.RedirectUri.Value, new Dictionary<string, string>()
+                {
+                    { AuthorizeResponse.AccessToken, accessToken },
+                    { AuthorizeResponse.TokenType, OidcConstants.TokenResponse.BearerTokenType },
+                    { AuthorizeResponse.IdentityToken, idToken },
+                    { AuthorizeResponse.State, parameters.State.Value }
+                })),
+                ResponseModes.Query => await Task.Run(() => IGF_CreateRedirectResponseBody(accessToken, OidcConstants.TokenResponse.BearerTokenType, parameters.State.Value, idToken, defaultSecondsToTokenExpired, parameters.ResponseMode.Value, parameters.RedirectUri.Value)),
+                ResponseModes.Fragment => await Task.Run(() => IGF_CreateRedirectResponseBody(accessToken, OidcConstants.TokenResponse.BearerTokenType, parameters.State.Value, idToken, defaultSecondsToTokenExpired, parameters.ResponseMode.Value, parameters.RedirectUri.Value)),
+                _ => throw new CustomException(ExceptionMessage.NOT_IMPLEMENTED, HttpStatusCode.NotImplemented)
+            };
         }
 
         private static string IGF_CreateRedirectResponseBody(string accessToken, string bearerTokenType, string state, string idToken, int expiredIn, string responseMode, string redirectUri)

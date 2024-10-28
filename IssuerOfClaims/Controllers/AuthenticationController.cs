@@ -190,7 +190,7 @@ namespace IssuerOfClaims.Controllers
         [AllowAnonymous]
         public async Task<ActionResult> ChangePasswordAfterEmailConfirm()
         {
-            string requestBody = await Utilities.GetRequestBodyAsQueryFormAsync(HttpContext.Request.Body);
+            string requestBody = await Utilities.SerializeFormAsync(HttpContext.Request.Body);
             ChangePasswordParameters parameters = new ChangePasswordParameters(requestBody);
 
             // TODO: will think about client later

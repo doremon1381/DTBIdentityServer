@@ -33,8 +33,8 @@ namespace IssuerOfClaims.Services.Middleware
         private static string CreateRedirectRequestQuery(HttpContext context)
         {
             StringBuilder query = new StringBuilder();
-            query.Append("path=" + Uri.EscapeDataString(context.Request.Path.Value));
-            query.Append("&method=" + context.Request.Method);
+            query.Append($"{QS.Path}{QS.Equal}{Uri.EscapeDataString(context.Request.Path.Value)}");
+            query.Append($"{QS.And}{QS.Method}{QS.Equal}" + context.Request.Method);
             foreach (var item in context.Request.Query)
             {
                 query.Append($"&{item.Key}={item.Value}");
@@ -51,6 +51,17 @@ namespace IssuerOfClaims.Services.Middleware
                 FileName = string.Format("{0}/?{1}", loginUri, query),
                 UseShellExecute = true
             });
+        }
+
+        /// <summary>
+        /// Query symbols
+        /// </summary>
+        private static class QS
+        {
+            public const string Path = "path";
+            public const string Equal = "=";
+            public const string Method = "method";
+            public static string And = "&";
         }
     }
 }

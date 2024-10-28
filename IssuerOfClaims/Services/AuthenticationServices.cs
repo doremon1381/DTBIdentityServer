@@ -43,8 +43,6 @@ namespace IssuerOfClaims.Services
                 if (IsGoingToAnonymousControllerOrEndpoint(endpointMetadata))
                     return AuthenticateResult.NoResult();
 
-                // user login
-
                 // WRONG_IMPLEMENT!
                 // TODO: need to change from get user by auth code to verify authcode and get user from username or password
                 UserIdentity user = GetUserUsingAuthenticationScheme(this.Request.Headers.Authorization.ToString());

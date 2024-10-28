@@ -92,7 +92,7 @@ namespace IssuerOfClaims.Extensions
         /// <param name="stream">HttpContext.Request.Body</param>
         /// <returns></returns>
         /// <exception cref="InvalidDataException"></exception>
-        public static async Task<string> GetRequestBodyAsQueryFormAsync(Stream stream)
+        public static async Task<string> SerializeFormAsync(Stream stream)
         {
             string content = "";
             using (StreamReader reader = new StreamReader(stream))

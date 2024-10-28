@@ -62,9 +62,8 @@ namespace IssuerOfClaims.Controllers
 
         #region catch authorize request
         /// <summary>
-        /// authorization_endpoint
+        /// authorization_endpoint: support the use of the HTTP GET.
         /// https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest
-        /// Authentication Request Validation
         /// </summary>
         /// <returns></returns>
         [HttpGet("authorize")]
@@ -82,6 +81,27 @@ namespace IssuerOfClaims.Controllers
 
             AuthCodeParameters parameters = new AuthCodeParameters(HttpContext.Request.QueryString.Value);
 
+            return await AuthorizeAsync(parameters);
+        }
+
+        /// <summary>
+        /// authorization_endpoint: support the use of the HTTP POST.
+        ///  https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest
+        /// </summary>
+        /// <returns></returns>
+        [HttpPost("authorize")]
+        [Authorize]
+        public async Task<ActionResult> AuthorizeAsync_Post()
+        {
+            var query = await Utilities.SerializeFormAsync(HttpContext.Request.Body);
+
+            AuthCodeParameters parameters = new AuthCodeParameters(query);
+
+            return await AuthorizeAsync(parameters);
+        }
+
+        private async Task<ActionResult> AuthorizeAsync(AuthCodeParameters parameters)
+        {
             var client = _clientDbServices.Find(parameters.ClientId.Value);
 
             ACF_I_ValidateRedirectUris(parameters.RedirectUri.Value, client);
@@ -473,7 +493,7 @@ namespace IssuerOfClaims.Controllers
             //     : need to implement another action
             //     : send back access_token when have request refresh 
 
-            string requestBody = await Utilities.GetRequestBodyAsQueryFormAsync(HttpContext.Request.Body);
+            string requestBody = await Utilities.SerializeFormAsync(HttpContext.Request.Body);
             string grantType = await TokenEndpoint_GetGrantTypeAsync(requestBody);
 
             switch (grantType)
@@ -686,7 +706,7 @@ namespace IssuerOfClaims.Controllers
         //     : only identityserver's clients can use this endpoint, not user-agent
         public async Task<ActionResult> GoogleAuthenticating()
         {
-            string requestQuery = await Utilities.GetRequestBodyAsQueryFormAsync(HttpContext.Request.Body);
+            string requestQuery = await Utilities.SerializeFormAsync(HttpContext.Request.Body);
 
             // TODO: add '?' before requestBody to get query form of string
             // , AbtractRequestParamters instances use request query as parameter

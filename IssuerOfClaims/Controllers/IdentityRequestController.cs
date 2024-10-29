@@ -109,7 +109,6 @@ namespace IssuerOfClaims.Controllers
                 return await AuthenticationAsync(parameters);
             else
             {
-                // TODO: redirect to login
                 await RedirectToLoginAsync(HttpContext, _webSigninSettings.SigninUri);
 
                 return new EmptyResult();
@@ -124,7 +123,7 @@ namespace IssuerOfClaims.Controllers
 
         private async Task<ActionResult> AuthenticationAsync(AuthCodeParameters parameters)
         {
-            var client = _clientDbServices.Find(parameters.ClientId.Value);
+            var client = await _clientDbServices.FindAsync(parameters.ClientId.Value);
 
             // TODO: will test again
             await Task.Run(() => ValidateRedirectUris(parameters.RedirectUri.Value, client));
@@ -173,15 +172,14 @@ namespace IssuerOfClaims.Controllers
             return redirectUris.FirstOrDefault(r => r.Host.Equals(requestUri.Host) && r.AbsolutePath.Equals(requestUri.AbsolutePath)) != null;
         }
 
-        private static async Task RedirectToLoginAsync(HttpContext context, string signinUri, bool isResponseStarted = false)
+        private static async Task RedirectToLoginAsync(HttpContext context, string signinUri)
         {
             StringBuilder query = CreateRedirectRequestQuery(context);
 
             // redirect to login 
             await SendRequestAsync(signinUri, query.ToString());
-            if (!isResponseStarted)
-                // TODO: terminate request, will check again
-                context.Response.StatusCode = (int)HttpStatusCode.OK;
+            // TODO: terminate request, will check again
+            context.Response.StatusCode = (int)HttpStatusCode.OK;
         }
 
         private static StringBuilder CreateRedirectRequestQuery(HttpContext context)
@@ -228,7 +226,7 @@ namespace IssuerOfClaims.Controllers
             //     : get user, create authorization code, save it to login session and out
 
             UserIdentity user = await ACF_I_GetResourceOwnerIdentity();
-            var client = _clientDbServices.Find(@params.ClientId.Value);
+            var client = await _clientDbServices.FindAsync(@params.ClientId.Value);
 
             ACF_I_ValidateScopes(@params.Scope.Value, client);
 
@@ -393,7 +391,7 @@ namespace IssuerOfClaims.Controllers
             var principal = HttpContext.User;
 
             var user = await _applicationUserManager.Current.GetUserAsync(principal);
-            var client = _clientDbServices.Find(parameters.ClientId.Value);
+            var client = await _clientDbServices.FindAsync(parameters.ClientId.Value); 
 
             // TODO: scope is used for getting claims to send to client,
             //     : for example, if scope is missing email, then in id_token which will be sent to client will not contain email's information 
@@ -593,7 +591,7 @@ namespace IssuerOfClaims.Controllers
 
             OfflineAccessTokenParameters parameters = new OfflineAccessTokenParameters(requestBody);
 
-            var refreshToken = _tokenManager.FindRefreshToken(parameters.RefreshToken.Value);
+            var refreshToken = await _tokenManager.FindRefreshTokenAsync(parameters.RefreshToken.Value);
             ValidateRefreshToken(refreshToken.TokenExpiried);
 
             string tokenResponses = string.Empty;
@@ -628,16 +626,16 @@ namespace IssuerOfClaims.Controllers
 
             // TODO: for now, every request, by default in scop will have openid, so ignore this part of checking now
             //     : Verify that the Authorization Code used was issued in response to an OpenID Connect Authentication Request(so that an ID Token will be returned from the Token Endpoint).
-            var tokenRequestHandler = _tokenManager.FindRequestHandlerByAuthorizationCode(parameters.Code.Value);
+            var tokenRequestHandler = await _tokenManager.FindRequestHandlerByAuthorizationCodeASync(parameters.Code.Value);
             // TODO: will change to use email when allow using identity from another source
             UserIdentity user = ACF_II_GetResourceOwnerIdentity(tokenRequestHandler.User.UserName);
-            var client = ACF_II_VerifyAndGetClient(parameters.ClientId.Value, parameters.ClientSecret.Value, tokenRequestHandler);
+            var client = await ACF_II_VerifyAndGetClientAsync(parameters.ClientId.Value, parameters.ClientSecret.Value, tokenRequestHandler);
 
             ACF_II_VerifyRedirectUris(parameters.RedirectUri.Value, tokenRequestHandler.RequestSession.RedirectUri);
             ACF_II_VerifyCodeChallenger(parameters.CodeVerifier.Value, tokenRequestHandler);
 
             // TODO: issue token from TokenManager
-            var tokenResponses = _tokenManager.ACF_IssueToken(user.Id, client.Id, client.ClientId, tokenRequestHandler.Id);
+            var tokenResponses = await _tokenManager.ACF_IssueToken(user.Id, client.Id, client.ClientId, tokenRequestHandler.Id);
 
             SuccessfulRequestHandle(tokenRequestHandler);
 
@@ -704,9 +702,9 @@ namespace IssuerOfClaims.Controllers
         }
 
         // TODO: will test again
-        private Client ACF_II_VerifyAndGetClient(string clientId, string clientSecret, IdentityRequestHandler tokenRequestHandler)
+        private async Task<Client> ACF_II_VerifyAndGetClientAsync(string clientId, string clientSecret, IdentityRequestHandler tokenRequestHandler)
         {
-            Client client = _clientDbServices.Find(clientId, clientSecret);
+            Client client = await _clientDbServices.FindAsync(clientId, clientSecret);
 
             if (tokenRequestHandler.RequestSession != null
                 && !tokenRequestHandler.Client.Id.Equals(client.Id))
@@ -727,19 +725,19 @@ namespace IssuerOfClaims.Controllers
 
             // TODO: by using authorization before this part, so it should has an user in HttpContext
             //     : in current context of services, when I use async, this function return an error about "connection is lost"...
-            var user = _applicationUserManager.Current.GetUserAsync(HttpContext.User).Result;
+            var user = await _applicationUserManager.Current.GetUserAsync(HttpContext.User);
 
             if (user == null)
                 throw new InvalidOperationException(ExceptionMessage.OBJECT_NOT_FOUND);
 
-            object responseBody = await ResponseForUserInfoRequestAsync(user);
+            object responseBody = await Task.Run(() => ResponseForUserInfoRequest(user));
             // TODO: has some bug inside this function, will fix it later
             //string responseBody = await Utilities.CreateUserInfoResponseAsync(user);
 
             return StatusCode((int)HttpStatusCode.OK, responseBody);
         }
 
-        private static async Task<object> ResponseForUserInfoRequestAsync(UserIdentity user)
+        private static object ResponseForUserInfoRequest(UserIdentity user)
         {
             return new
             {
@@ -776,7 +774,7 @@ namespace IssuerOfClaims.Controllers
             // , AbtractRequestParamters instances use request query as parameter
             var parameters = new SignInGoogleParameters(requestQuery);
 
-            var client = _clientDbServices.Find(parameters.ClientId.Value, parameters.ClientSecret.Value);
+            var client = await _clientDbServices.FindAsync(parameters.ClientId.Value, parameters.ClientSecret.Value);
 
             var result = await Google_SendTokenRequestAsync(parameters, _googleClientConfiguration);
             // TODO: verify Google id token

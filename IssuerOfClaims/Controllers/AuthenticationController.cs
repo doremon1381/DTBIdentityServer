@@ -75,13 +75,13 @@ namespace IssuerOfClaims.Controllers
             var user = _applicationUserManager.CreateUser(parameters);
 
             // TODO: https://openid.net/specs/openid-connect-prompt-create-1_0.html#name-authorization-request
-            var client = _clientDbServices.Find(parameters.ClientId.Value);
+            var client = await _clientDbServices.FindAsync(parameters.ClientId.Value);
 
             // TODO: will check again
             string id_token = await _tokenManager.GenerateIdTokenAsync(user, string.Empty, parameters.Nonce.Value, client.ClientId);
 
             if (parameters.Email.HasValue)
-                await _emailServices.SendVerifyingEmailAsync(user, "confirmEmail", client, Request.Scheme, Request.Host.ToString());
+                await _emailServices.SendVerifyingEmailAsync(user, "confirmEmail", client.Id, Request.Scheme, Request.Host.ToString());
 
             object responseBody = CreateRegisterUserResponseBody(id_token, parameters.State.Value, parameters.State.HasValue);
 
@@ -193,10 +193,10 @@ namespace IssuerOfClaims.Controllers
             string requestBody = await Utilities.SerializeFormAsync(HttpContext.Request.Body);
             ChangePasswordParameters parameters = new ChangePasswordParameters(requestBody);
 
-            // TODO: will think about client later
-            var client = _clientDbServices.Find(parameters.ClientId.Value);
+            // TODO: need to vefify client from request
+            var client = _clientDbServices.FindAsync(parameters.ClientId.Value);
 
-            var emailForChangingPassword = _emailServices.GetChangePasswordEmailByCode(parameters.Code.Value);
+            var emailForChangingPassword = await _emailServices.GetChangePasswordEmailByCodeAsync(parameters.Code.Value);
             var user = emailForChangingPassword.User;
 
             // TODO: will check again
@@ -225,13 +225,13 @@ namespace IssuerOfClaims.Controllers
             if (string.IsNullOrEmpty(email))
                 return StatusCode((int)HttpStatusCode.BadRequest, ExceptionMessage.EMAIL_IS_MISSING);
 
-            var client = _clientDbServices.Find(clientId);
+            var client = await _clientDbServices.FindAsync(clientId);
             if (client == null)
                 return StatusCode((int)HttpStatusCode.BadRequest, ExceptionMessage.CLIENTID_NOT_FOUND);
 
             // TODO: get user by email, by logic, username + email is unique for an user that is stored in db, but fow now, email may be duplicated for test
             var user = _applicationUserManager.Current.Users.FirstOrDefault(u => u.Email.Equals(email));
-            await _emailServices.SendForgotPasswordCodeToEmailAsync(user, client);
+            await _emailServices.SendForgotPasswordCodeToEmailAsync(user, client.Id);
 
             return Ok();
         }

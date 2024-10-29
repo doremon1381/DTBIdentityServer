@@ -1,5 +1,4 @@
-﻿using IssuerOfClaims.Database;
-using IssuerOfClaims.Extensions;
+﻿using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
 using System.Management;
@@ -9,17 +8,20 @@ namespace IssuerOfClaims.Services.Database
 {
     public class ClientDbServices : DbTableServicesBase<Client>, IClientDbServices
     {
-        public ClientDbServices() 
+        public ClientDbServices()
         {
         }
 
-        public Client Find(string id, string clientSecret)
+        public async Task<Client> FindAsync(string id, string clientSecret)
         {
             Client client = null;
 
-            UsingDbSet(_Clients =>
+            await UsingDbSetAsync(_Clients =>
             {
-                client = _Clients.First(c => c.ClientId.Equals(id) && c.ClientSecrets.Contains(clientSecret));
+                client = _Clients
+                    // TODO: temporary
+                    .AsNoTracking()
+                    .First(c => c.ClientId.Equals(id) && c.ClientSecrets.Contains(clientSecret));
             });
 
 
@@ -27,13 +29,16 @@ namespace IssuerOfClaims.Services.Database
             return client;
         }
 
-        public Client Find(string clientId)
+        public async Task<Client> FindAsync(string clientId)
         {
             Client client = null;
 
-            UsingDbSet(_Clients =>
+            await UsingDbSetAsync((_Clients) =>
             {
-                client = _Clients.Include(c => c.TokenRequestHandlers).ThenInclude(c => c.RequestSession)
+                client = _Clients
+                // TODO: temporary
+                .AsNoTracking()
+                .Include(c => c.TokenRequestHandlers).ThenInclude(c => c.RequestSession)
                 .First(c => c.ClientId.Equals(clientId));
             });
 
@@ -44,7 +49,7 @@ namespace IssuerOfClaims.Services.Database
 
     public interface IClientDbServices : IDbContextBase<Client>
     {
-        Client Find(string clientId, string clientSecret);
-        Client Find(string clientId);
+        Task<Client> FindAsync(string clientId, string clientSecret);
+        Task<Client> FindAsync(string clientId);
     }
 }

@@ -1,5 +1,4 @@
-﻿using IssuerOfClaims.Database;
-using IssuerOfClaims.Extensions;
+﻿using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
 using System.Net;
@@ -17,11 +16,11 @@ namespace IssuerOfClaims.Services.Database
             return new ConfirmEmail();
         }
 
-        public ConfirmEmail GetByCode(string code)
+        public async Task<ConfirmEmail> GetByCodeAsync(string code)
         {
             ConfirmEmail obj = default;
 
-            UsingDbSet((confirmEmails) =>
+            await UsingDbSetAsync((confirmEmails) =>
             {
                 obj = confirmEmails
                 .Include(c => c.User)
@@ -38,6 +37,6 @@ namespace IssuerOfClaims.Services.Database
     {
         //ConfirmEmail Get(int id);
         ConfirmEmail GetDraft();
-        ConfirmEmail GetByCode(string code);
+        Task<ConfirmEmail> GetByCodeAsync(string code);
     }
 }

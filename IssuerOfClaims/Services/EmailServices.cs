@@ -15,22 +15,22 @@ namespace IssuerOfClaims.Services
     {
         private readonly IConfirmEmailDbServices _emailDbServices;
         private readonly IApplicationUserManager _applicationUserManager;
-        private readonly MailSettings _mailSettings = null;
+        private readonly MailSettings _mailSettings;
 
-        public EmailServices(IConfirmEmailDbServices emailDbServices, IApplicationUserManager userManager, IConfigurationManager configuration)
+        public EmailServices(IConfirmEmailDbServices emailDbServices, IApplicationUserManager userManager, MailSettings mailSettings)
         {
             _emailDbServices = emailDbServices;
-            _mailSettings = configuration.GetSection(IdentityServerConfiguration.MAILSETTINGS).Get<MailSettings>();
+            _mailSettings = mailSettings;
             _applicationUserManager = userManager;
         }
 
-        public async Task SendForgotPasswordCodeToEmailAsync(UserIdentity user, Client client)
+        public async Task SendForgotPasswordCodeToEmailAsync(UserIdentity user, Guid clientId)
         {
             var code = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(8);
             code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
 
             int expiredTimeInMinutes = 2;
-            await CreateConfirmEmailAsync(user, code, client, ConfirmEmailPurpose.ChangePassword, expiredTimeInMinutes);
+            await CreateConfirmEmailAsync(user, code, clientId, ConfirmEmailPurpose.ChangePassword, expiredTimeInMinutes);
 
             string emailBody = $"Your password reset's security code is <span style=\"font-weight:bold; font-size:25px\">{code}</span>.";
             await SendEmailAsync(user.UserName, user.Email, emailBody);
@@ -53,13 +53,13 @@ namespace IssuerOfClaims.Services
             return body;
         }
 
-        public async Task SendVerifyingEmailAsync(UserIdentity user, string callbackEndpoint, Client client, string requestScheme, string requestHost)
+        public async Task SendVerifyingEmailAsync(UserIdentity user, string callbackEndpoint, Guid clientId, string requestScheme, string requestHost)
         {
             var code = await _applicationUserManager.Current.GenerateEmailConfirmationTokenAsync(user);
             code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
 
             int expiredTimeInMinutes = 60;
-            await CreateConfirmEmailAsync(user, code, client, ConfirmEmailPurpose.CreateIdentity, expiredTimeInMinutes);
+            await CreateConfirmEmailAsync(user, code, clientId, ConfirmEmailPurpose.CreateIdentity, expiredTimeInMinutes);
 
             string callbackUrl = CreateCallbackUrl(requestScheme, requestHost, callbackEndpoint, user.Id, code);
             string emailBody = CreateEmailBody(callbackUrl);
@@ -94,7 +94,7 @@ namespace IssuerOfClaims.Services
             }
         }
 
-        private async Task CreateConfirmEmailAsync(UserIdentity user, string code, Client client, string purpose, int expiredTimeInMinutes)
+        private async Task CreateConfirmEmailAsync(UserIdentity user, string code, Guid clientId, string purpose, int expiredTimeInMinutes)
         {
             try
             {
@@ -108,7 +108,7 @@ namespace IssuerOfClaims.Services
                 if (_emailDbServices.Create(nw))
                 {
                     nw.User = user;
-                    nw.Client = client;
+                    nw.ClientId = clientId;
 
                     _emailDbServices.Update(nw);
                 }
@@ -120,9 +120,9 @@ namespace IssuerOfClaims.Services
             }
         }
 
-        public ConfirmEmail GetChangePasswordEmailByCode(string code)
+        public async Task<ConfirmEmail> GetChangePasswordEmailByCodeAsync(string code)
         {
-            var changePasswordEmail = _emailDbServices.GetByCode(code);
+            var changePasswordEmail = await _emailDbServices.GetByCodeAsync(code);
 
             if (!changePasswordEmail.Purpose.Equals(ConfirmEmailPurpose.ChangePassword))
                 throw new InvalidOperationException("something inside this process is wrong!");
@@ -140,9 +140,9 @@ namespace IssuerOfClaims.Services
 
     public interface IEmailServices
     {
-        Task SendForgotPasswordCodeToEmailAsync(UserIdentity user, Client client);
-        Task SendVerifyingEmailAsync(UserIdentity user, string callbackEndpoint, Client client, string requestScheme, string requestHost);
-        ConfirmEmail GetChangePasswordEmailByCode(string code);
+        Task SendForgotPasswordCodeToEmailAsync(UserIdentity user, Guid clientId);
+        Task SendVerifyingEmailAsync(UserIdentity user, string callbackEndpoint, Guid clientId, string requestScheme, string requestHost);
+        Task<ConfirmEmail> GetChangePasswordEmailByCodeAsync(string code);
         bool UpdateConfirmEmail(ConfirmEmail emailForChangingPassword);
     }
 }

@@ -1,5 +1,4 @@
-﻿using IssuerOfClaims.Database;
-using IssuerOfClaims.Extensions;
+﻿using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
 using ServerUltilities.Identity;
@@ -58,11 +57,11 @@ namespace IssuerOfClaims.Services.Database
             return obj;
         }
 
-        public TokenResponse Find(string token, string tokenType)
+        public async Task<TokenResponse> FindAsync(string token, string tokenType)
         {
             TokenResponse obj = null;
 
-            UsingDbSetWithSaveChanges((_TokenResponses) => 
+            await UsingDbSetAsync((_TokenResponses) => 
             {
                 obj = _TokenResponses.Include(t => t.TokensPerIdentityRequests)
                     .Where(t => t.TokenType.Equals(tokenType))
@@ -81,7 +80,7 @@ namespace IssuerOfClaims.Services.Database
         TokenResponse CreateAccessToken();
         TokenResponse CreateIdToken();
         TokenResponse CreateRefreshToken();
-        TokenResponse Find(string token, string tokenType);
+        Task<TokenResponse> FindAsync(string token, string tokenType);
         //TokenResponse CreateTokenResponse(TokenRequestHandler session);
     }
 }

@@ -1,5 +1,4 @@
 ﻿using Azure.Core;
-using IssuerOfClaims.Database;
 using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
@@ -32,11 +31,11 @@ namespace IssuerOfClaims.Services.Database
             return obj;
         }
 
-        public TokenForRequestHandler FindByAccessToken(string accessToken)
+        public async Task<TokenForRequestHandler> FindByAccessTokenASync(string accessToken)
         {
             TokenForRequestHandler obj = null;
 
-            UsingDbSet(_tokenResponses => 
+            await UsingDbSetAsync(_tokenResponses => 
             {
                 obj = _tokenResponses
                     .Include(t => t.TokenResponse)
@@ -58,7 +57,7 @@ namespace IssuerOfClaims.Services.Database
         /// <param name="needAccessToken"></param>
         /// <param name="issuedByLocal"></param>
         /// <returns></returns>
-        public TokenForRequestHandler? FindLast(Guid userId, Guid clientId, bool needAccessToken = true, bool issuedByLocal = true)
+        public async Task<TokenForRequestHandler>? FindLastAsync(Guid userId, Guid clientId, bool needAccessToken = true, bool issuedByLocal = true)
         {
             var filter = needAccessToken switch
             {
@@ -67,7 +66,7 @@ namespace IssuerOfClaims.Services.Database
             };
 
             TokenForRequestHandler? obj = null;
-            UsingDbSet(_tokenResponses => 
+            await UsingDbSetAsync(_tokenResponses => 
             {
                 obj = _tokenResponses
                         .Include(t => t.TokenResponse)
@@ -86,8 +85,8 @@ namespace IssuerOfClaims.Services.Database
     public interface ITokenForRequestHandlerDbServices : IDbContextBase<TokenForRequestHandler>
     {
         TokenForRequestHandler GetDraftObject();
-        TokenForRequestHandler FindByAccessToken(string accessToken);
+        Task<TokenForRequestHandler> FindByAccessTokenASync(string accessToken);
         TokenForRequestHandler CreatNew();
-        TokenForRequestHandler? FindLast(Guid userId, Guid clientId, bool needAccessToken = true, bool issuedByLocal = true);
+        Task<TokenForRequestHandler>? FindLastAsync(Guid userId, Guid clientId, bool needAccessToken = true, bool issuedByLocal = true);
     }
 }

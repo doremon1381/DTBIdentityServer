@@ -1,5 +1,4 @@
-﻿using IssuerOfClaims.Database;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
 using System.Net;
 
@@ -31,11 +30,11 @@ namespace IssuerOfClaims.Services.Database
             return obj;
         }
 
-        public IdentityRequestSession FindById(int id)
+        public async Task<IdentityRequestSession> FindByIdAsync(int id)
         {
             IdentityRequestSession obj = null;
 
-            UsingDbSet(_loginSessions =>
+            await UsingDbSetAsync(_loginSessions =>
             {
                 obj = _loginSessions.First(t => t.Id.Equals(id));
             });
@@ -61,7 +60,7 @@ namespace IssuerOfClaims.Services.Database
     {
         IdentityRequestSession FindByAccessToken(string accessToken);
         IdentityRequestSession CreateTokenRequestSession(Guid requestHandlerId);
-        IdentityRequestSession FindById(int id);
+        Task<IdentityRequestSession> FindByIdAsync(int id);
         IdentityRequestSession GetDraft();
         //bool Update(TokenRequestSession aCFProcessSession);
     }

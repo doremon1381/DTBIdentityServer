@@ -11,13 +11,12 @@ using Microsoft.Extensions.Options;
 using ServerDbModels;
 using ServerUltilities.Extensions;
 using ServerUltilities.Identity;
-using System.Diagnostics;
 using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using static ServerUltilities.Identity.OidcConstants;
 
-namespace IssuerOfClaims.Services
+namespace IssuerOfClaims.Services.Authentication
 {
     /// <summary>
     /// TODO: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/middleware/write?view=aspnetcore-8.0&viewFallbackFrom=aspnetcore-2.2#per-request-dependencies
@@ -39,13 +38,14 @@ namespace IssuerOfClaims.Services
         {
             try
             {
-                var endpointMetadata = this.Context.GetEndpoint()?.Metadata;
-                if (IsGoingToAnonymousControllerOrEndpoint(endpointMetadata) && IfAuthenticateInfoIsEmpty(this.Request.Headers.Authorization.ToString()))
-                    return AuthenticateResult.NoResult();
+                var endpointMetadata = Context.GetEndpoint()?.Metadata;
+                // TODO: if there is information for authentication inside header, go to authentication 
+                if (IfAuthenticateInfoIsEmpty(Request.Headers.Authorization.ToString()))
+                    if (IsGoingToAnonymousControllerOrEndpoint(endpointMetadata))
+                        return AuthenticateResult.NoResult();
 
-                // WRONG_IMPLEMENT!
                 // TODO: need to change from get user by auth code to verify authcode and get user from username or password
-                UserIdentity user = GetUserUsingAuthenticationScheme(this.Request.Headers.Authorization.ToString());
+                UserIdentity user = await GetUserUsingAuthenticationSchemeAsync(Request.Headers.Authorization.ToString());
 
                 ClaimsPrincipal claimsPrincipal = await CreateClaimPrincipal(user);
                 var ticket = IssueAuthenticationTicket(claimsPrincipal);
@@ -66,7 +66,7 @@ namespace IssuerOfClaims.Services
 
         private void Set401StatusCode()
         {
-            this.Context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+            Context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
         }
 
         private static bool IsGoingToAnonymousControllerOrEndpoint(EndpointMetadataCollection endpointMetadata)
@@ -107,33 +107,33 @@ namespace IssuerOfClaims.Services
         /// <param name="authenticateInfor"></param>
         /// <returns></returns>
         /// <exception cref="InvalidOperationException"></exception>
-        private UserIdentity GetUserUsingAuthenticationScheme(string authenticateInfor)
+        private async Task<UserIdentity> GetUserUsingAuthenticationSchemeAsync(string authenticateInfor)
         {
             ValidateAuthenticationInfo(authenticateInfor);
             // authentication with "Basic access" - username + password
             if (authenticateInfor.StartsWith(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC))
-                return BasicAccess_FindUser(authenticateInfor);
+                return await BasicAccess_FindUserAsync(authenticateInfor);
             // authentication with Bearer" token - access token or id token, for now, I'm trying to implement
             //     , https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
             else if (authenticateInfor.StartsWith(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BEARER))
-                return BearerToken_FindUser(authenticateInfor);
+                return await BearerToken_FindUserAsync(authenticateInfor);
             else
                 throw new InvalidOperationException(ExceptionMessage.UNHANDLED_AUTHENTICATION_SCHEME);
         }
 
-        private UserIdentity BearerToken_FindUser(string authenticateInfor)
+        private async Task<UserIdentity> BearerToken_FindUserAsync(string authenticateInfor)
         {
             var accessToken = authenticateInfor.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BEARER, "").Trim();
-            var tokenResponse = _tokenResponsePerHandlerDbServices.FindByAccessToken(accessToken);
+            var tokenResponse = await _tokenResponsePerHandlerDbServices.FindByAccessTokenASync(accessToken);
 
             return tokenResponse.IdentityRequestHandler.User;
         }
 
-        private UserIdentity BasicAccess_FindUser(string authenticateInfor)
+        private async Task<UserIdentity> BasicAccess_FindUserAsync(string authenticateInfor)
         {
             var userNamePassword = authenticateInfor.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim().ToBase64Decode();
 
-            return FindUser(userNamePassword);
+            return await FindUserAsync(userNamePassword);
         }
 
         private static bool IfAuthenticateInfoIsEmpty(string authenticateInfor)
@@ -147,21 +147,21 @@ namespace IssuerOfClaims.Services
         private static void ValidateAuthenticationInfo(string authenticateInfor)
         {
             if (string.IsNullOrEmpty(authenticateInfor))
-                throw new CustomException(ExceptionMessage.REQUEST_HEADER_MISSING_IDENTITY_INFO, System.Net.HttpStatusCode.Unauthorized);
+                throw new CustomException(ExceptionMessage.REQUEST_HEADER_MISSING_IDENTITY_INFO, HttpStatusCode.Unauthorized);
         }
 
         private void VefifyUser(UserIdentity user, string password)
         {
             if (user == null)
-                throw new CustomException(ExceptionMessage.USER_NULL, System.Net.HttpStatusCode.NotFound);
+                throw new CustomException(ExceptionMessage.USER_NULL, HttpStatusCode.NotFound);
 
             if (string.IsNullOrEmpty(user.PasswordHash))
-                throw new CustomException(ExceptionMessage.PASSWORD_NOT_SET, System.Net.HttpStatusCode.NotFound);
+                throw new CustomException(ExceptionMessage.PASSWORD_NOT_SET, HttpStatusCode.NotFound);
 
             var valid = _userManager.Current.PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
 
             if (valid == PasswordVerificationResult.Failed)
-                throw new CustomException(ExceptionMessage.WRONG_PASSWORD, System.Net.HttpStatusCode.BadRequest);
+                throw new CustomException(ExceptionMessage.WRONG_PASSWORD, HttpStatusCode.BadRequest);
         }
 
         private AuthenticationTicket IssueAuthenticationTicket(ClaimsPrincipal claimPrincipal)
@@ -170,27 +170,27 @@ namespace IssuerOfClaims.Services
             AddAuthenticateIdentityToContext(claimPrincipal);
             #endregion
 
-            return new AuthenticationTicket(claimPrincipal, this.Scheme.Name);
+            return new AuthenticationTicket(claimPrincipal, Scheme.Name);
         }
 
         private void AddAuthenticateIdentityToContext(ClaimsPrincipal principal)
         {
             Thread.CurrentPrincipal = principal;
-            if (this.Context != null)
+            if (Context != null)
             {
                 Context.User = principal;
             }
         }
 
-        private UserIdentity FindUser(string userNamePassword)
+        private async Task<UserIdentity> FindUserAsync(string userNamePassword)
         {
             string userName = userNamePassword.Split(":")[0];
             string password = userNamePassword.Split(":")[1];
 
             // TODO: Do authentication of userId and password against your credentials store here
-            var user = _userManager.Current.Users
+            var user = await _userManager.Current.Users
                 //.Include(user => user.IdentityUserRoles).ThenInclude(p => p.Role)
-                .FirstOrDefault(u => u.UserName == userName);
+                .FirstOrDefaultAsync(u => u.UserName == userName);
 
             VefifyUser(user, password);
 

@@ -3,6 +3,7 @@ using IssuerOfClaims.Database;
 using IssuerOfClaims.Extensions;
 using IssuerOfClaims.Models;
 using IssuerOfClaims.Services;
+using IssuerOfClaims.Services.Authentication;
 using IssuerOfClaims.Services.Database;
 using IssuerOfClaims.Services.Middleware;
 using IssuerOfClaims.Services.Token;
@@ -35,6 +36,7 @@ namespace IssuerOfClaims
             builder.Services.AddSingleton<IConfigurationManager>(builder.Configuration);
             builder.Services.AddSingleton<GoogleClientConfiguration>(Utilities.GetGoogleClientSettings(builder.Configuration));
             builder.Services.AddSingleton<WebSigninSettings>(webSigninSettings);
+            builder.Services.AddSingleton<MailSettings>(builder.Configuration.GetSection(IdentityServerConfiguration.MAILSETTINGS).Get<MailSettings>());
             // TODO: will change later
             builder.Services.AddTransient<IClientDbServices, ClientDbServices>();
             builder.Services.AddTransient<IRoleDbServices, RoleDbServices>();
@@ -73,7 +75,8 @@ namespace IssuerOfClaims
                     // TODO: will check later
                     //options.Authority = "PrMIdentityServer";
                     //options.Audience = "http://localhost:3010/";
-                    builder.Configuration.Bind("Jwt", options);
+                    // TODO: currently not useful
+                    //builder.Configuration.Bind("Jwt", options);
                     //options.TokenValidationParameters = new TokenValidationParameters
                     //{
                     //    ValidateIssuer = true,

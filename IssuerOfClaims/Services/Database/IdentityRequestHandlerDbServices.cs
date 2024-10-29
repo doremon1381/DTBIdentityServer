@@ -1,5 +1,4 @@
-﻿using IssuerOfClaims.Database;
-using IssuerOfClaims.Extensions;
+﻿using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using ServerDbModels;
@@ -15,10 +14,10 @@ namespace IssuerOfClaims.Services.Database
         {
         }
 
-        public IdentityRequestHandler FindByAuthorizationCode(string authorizationCode)
+        public async Task<IdentityRequestHandler> FindByAuthorizationCodeAsync(string authorizationCode)
         {
             IdentityRequestHandler obj = null;
-            UsingDbSet((_tokenRequestHandlers) =>
+            await UsingDbSetAsync((_tokenRequestHandlers) =>
             {
                 var obj1 = _tokenRequestHandlers
                     .Include(l => l.User)
@@ -35,10 +34,10 @@ namespace IssuerOfClaims.Services.Database
         }
 
         // TODO:
-        public IdentityRequestHandler FindById(Guid currentRequestHandlerId)
+        public async Task<IdentityRequestHandler> FindByIdAsync(Guid currentRequestHandlerId)
         {
             IdentityRequestHandler obj = null;
-            UsingDbSet((_tokenRequestHandlers) =>
+            await UsingDbSetAsync((_tokenRequestHandlers) =>
             {
                 obj = _tokenRequestHandlers
                 .Include(t => t.User)
@@ -77,8 +76,8 @@ namespace IssuerOfClaims.Services.Database
 
     public interface IIdentityRequestHandlerDbServices : IDbContextBase<IdentityRequestHandler>
     {
-        IdentityRequestHandler FindByAuthorizationCode(string authorizationCode);
-        IdentityRequestHandler FindById(Guid currentRequestHandlerId);
+        Task<IdentityRequestHandler> FindByAuthorizationCodeAsync(string authorizationCode);
+        Task<IdentityRequestHandler> FindByIdAsync(Guid currentRequestHandlerId);
         IdentityRequestHandler GetDraftObject();
     }
 }

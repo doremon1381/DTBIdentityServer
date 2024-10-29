@@ -1,9 +1,10 @@
-﻿using IssuerOfClaims.Models;
+﻿using IssuerOfClaims.Database;
+using IssuerOfClaims.Models;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
 using System.Net;
 
-namespace IssuerOfClaims.Database
+namespace IssuerOfClaims.Services.Database
 {
     public abstract class DbTableServicesBase<TEntity> : IDbContextBase<TEntity> where TEntity : class, IDbTable
     {
@@ -42,13 +43,25 @@ namespace IssuerOfClaims.Database
             }
         }
 
-        public static void UsingDbSet(Action<DbSet<TEntity>> callback)
+        public static async Task UsingDbSetAsync(Action<DbSet<TEntity>> callback)
         {
-            using (var dbContext = CreateDbContext())
+            await Task.Factory.StartNew(() =>
             {
-                var dbSet = dbContext.GetDbSet<TEntity>();
-                callback(dbSet);
-            }
+                using (var dbContext = CreateDbContext())
+                {
+                    var dbSet = dbContext.GetDbSet<TEntity>();
+                    callback(dbSet);
+                }
+            }, TaskCreationOptions.AttachedToParent);
+            // TODO: will think about it later
+            //await task.ContinueWith(t =>
+            //{
+            //    if (t.IsFaulted)
+            //    {
+            //        throw new CustomException("Something is wrong while using dbset!");
+            //    }
+            //}, TaskContinuationOptions.OnlyOnFaulted);
+
         }
 
         // TODO: will add dynamic building include query, 
@@ -136,11 +149,12 @@ namespace IssuerOfClaims.Database
 
             return true;
         }
-        public bool IsTableEmpty()
+
+        public async Task<bool> IsTableEmptyAsync()
         {
             bool isEmpty = true;
 
-            UsingDbSet((dbSet) =>
+            await UsingDbSetAsync((dbSet) =>
             {
                 isEmpty = !(dbSet.Count() > 0);
             });
@@ -158,7 +172,7 @@ namespace IssuerOfClaims.Database
                     dbSet.AddRange(models);
                 });
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 // TODO:
                 hasError = true;
@@ -180,7 +194,7 @@ namespace IssuerOfClaims.Database
     /// </summary>
     public interface IDbContextBase<DbModel> where DbModel : class, IDbTable
     {
-        bool IsTableEmpty();
+        Task<bool> IsTableEmptyAsync();
         List<DbModel> GetAll();
         bool Create(DbModel model);
         //bool Add(TDbModel model);

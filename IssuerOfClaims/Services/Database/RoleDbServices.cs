@@ -1,5 +1,4 @@
-﻿using IssuerOfClaims.Database;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
 using System.Net;
 
@@ -16,7 +15,7 @@ namespace IssuerOfClaims.Services.Database
         {
             int count = 0;
 
-            UsingDbSet(roles => 
+            UsingDbSetAsync(roles => 
             {
                 count = roles.Count();
             });
@@ -27,7 +26,7 @@ namespace IssuerOfClaims.Services.Database
         public Role GetRoleByName(string roleName)
         {
             Role role = null;
-            UsingDbSet(roles =>
+            UsingDbSetAsync(roles =>
             { 
                 role = roles.First(r => r.RoleName.Equals(roleName));
             });

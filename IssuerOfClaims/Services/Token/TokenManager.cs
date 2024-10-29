@@ -45,14 +45,14 @@ namespace IssuerOfClaims.Services.Token
             ValidateRefreshToken(currentRefreshToken);
 
             var lastestRefreshTokenBeUsed = currentRefreshToken.TokensPerIdentityRequests.Last();
-            var tokenRequestHandler = _tokenRequestHandlerDbServices.FindById(lastestRefreshTokenBeUsed.IdentityRequestHandlerId);
+            var tokenRequestHandler = await _tokenRequestHandlerDbServices.FindByIdAsync(lastestRefreshTokenBeUsed.IdentityRequestHandlerId);
 
             // create new id token, remove the old, add the new into previous authenticate session
             // create new access token if it's expired, if access token is created new, remove the old, add the new one into previous authenticate session
             // create new refresh token if it's expired, if refresh token is created new, remove the old, add the new one into previous authenticate session
 
-            var accessToken = RefreshAccessToken_IssuseToken(tokenRequestHandler, tokenRequestHandler.TokensPerRequestHandlers.First(t => t.TokenResponse.TokenType.Equals(OidcConstants.TokenTypes.AccessToken)), OidcConstants.TokenTypes.AccessToken);
-            var idToken = RefreshAccessToken_IssuseIdToken(tokenRequestHandler, tokenRequestHandler.TokensPerRequestHandlers.First(t => t.TokenResponse.TokenType.Equals(OidcConstants.TokenTypes.IdentityToken)));
+            var accessToken = RefreshAccessToken_IssuseToken(tokenRequestHandler, tokenRequestHandler.TokensPerRequestHandlers.First(t => t.TokenResponse.TokenType.Equals(OidcConstants.TokenTypes.AccessToken)));
+            var idToken = await RefreshAccessToken_IssuseIdToken(tokenRequestHandler, tokenRequestHandler.TokensPerRequestHandlers.First(t => t.TokenResponse.TokenType.Equals(OidcConstants.TokenTypes.IdentityToken)));
 
             var responseBody = await Utilities.CreateTokenResponseStringAsync(accessToken.Token, idToken.Token, accessToken.TokenExpiried);
 
@@ -70,11 +70,11 @@ namespace IssuerOfClaims.Services.Token
         /// </summary>
         /// <param name="currentRequestHandler"></param>
         /// <returns></returns>
-        private TokenResponse RefreshAccessToken_IssuseIdToken(IdentityRequestHandler currentRequestHandler, TokenForRequestHandler tokenResponsePerIdentityRequest)
+        private async Task<TokenResponse> RefreshAccessToken_IssuseIdToken(IdentityRequestHandler currentRequestHandler, TokenForRequestHandler tokenResponsePerIdentityRequest)
         {
             TokenResponse idToken = CreateToken(OidcConstants.TokenTypes.IdentityToken);
-            var idTokenValue = GenerateIdTokenAsync(currentRequestHandler.User, currentRequestHandler.RequestSession.Scope, ""
-                , currentRequestHandler.Client.ClientId, currentRequestHandler.SuccessAt.Value.ToString()).Result;
+            var idTokenValue = await GenerateIdTokenAsync(currentRequestHandler.User, currentRequestHandler.RequestSession.Scope, ""
+                , currentRequestHandler.Client.ClientId, currentRequestHandler.SuccessAt.Value.ToString());
 
             idToken.Token = idTokenValue;
 
@@ -87,13 +87,13 @@ namespace IssuerOfClaims.Services.Token
             return idToken;
         }
 
-        private TokenResponse RefreshAccessToken_IssuseToken(IdentityRequestHandler tokenRequestHandler, TokenForRequestHandler tokenResponsePerIdentityRequest, string tokenType)
+        private TokenResponse RefreshAccessToken_IssuseToken(IdentityRequestHandler tokenRequestHandler, TokenForRequestHandler tokenResponsePerIdentityRequest)
         {
             TokenResponse token = tokenResponsePerIdentityRequest.TokenResponse;
 
             if (token.TokenExpiried < DateTime.Now)
             {
-                token = CreateToken(tokenType);
+                token = CreateToken(OidcConstants.TokenTypes.AccessToken);
 
                 _tokenResponseDbServices.Delete(tokenResponsePerIdentityRequest.TokenResponse);
                 _tokensPerIdentityRequestDbServices.Delete(tokenResponsePerIdentityRequest);
@@ -104,18 +104,18 @@ namespace IssuerOfClaims.Services.Token
             return token;
         }
 
-        public string ACF_IssueToken(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId)
+        public async Task<string> ACF_IssueToken(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId)
         {
-            var currentRequestHandler = _tokenRequestHandlerDbServices.FindById(currentRequestHandlerId);
+            var currentRequestHandler = await _tokenRequestHandlerDbServices.FindByIdAsync(currentRequestHandlerId);
 
             // TODO: use this temporary
-            TokenResponse idToken = ACF_CreateIdToken(currentRequestHandler, clientId);
+            TokenResponse idToken = await ACF_CreateIdToken(currentRequestHandler, clientId);
 
             bool isOfflineAccess = currentRequestHandler.RequestSession.IsOfflineAccess;
 
             // I want to reuse token response if it is not expired
-            var latestRefreshToken = _tokensPerIdentityRequestDbServices.FindLast(userId, idOfClient, needAccessToken: false);
-            var latestAccessToken = _tokensPerIdentityRequestDbServices.FindLast(userId, idOfClient, needAccessToken: true);
+            var latestRefreshToken = await _tokensPerIdentityRequestDbServices.FindLastAsync(userId, idOfClient, needAccessToken: false);
+            var latestAccessToken = await _tokensPerIdentityRequestDbServices.FindLastAsync(userId, idOfClient, needAccessToken: true);
 
             TokenResponse refreshToken = null;
             TokenResponse accessToken = null;
@@ -208,7 +208,7 @@ namespace IssuerOfClaims.Services.Token
 
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
             // TODO: at this step, if accessToken is null, then something is wrong!
-            var responseBody = Utilities.CreateTokenResponseStringAsync(accessToken.Token, idToken.Token, accessToken.TokenExpiried, refreshToken == null ? "" : refreshToken.Token).Result;
+            var responseBody = await Utilities.CreateTokenResponseStringAsync(accessToken.Token, idToken.Token, accessToken.TokenExpiried, refreshToken == null ? "" : refreshToken.Token);
 #pragma warning restore CS8602 // Dereference of a possibly null reference.
 
             CreateTokenResponsePerIdentityRequest(currentRequestHandler, accessToken);
@@ -225,10 +225,10 @@ namespace IssuerOfClaims.Services.Token
         // TODO: https://openid.net/specs/openid-connect-core-1_0.html#TokenResponse
         //     : following 3.1.3.3.  Successful Token Response
         //     : ID Token value associated with the authenticated session.
-        private TokenResponse ACF_CreateIdToken(IdentityRequestHandler currentRequestHandler, string clientId)
+        private async Task<TokenResponse> ACF_CreateIdToken(IdentityRequestHandler currentRequestHandler, string clientId)
         {
             TokenResponse tokenResponse = CreateToken(OidcConstants.TokenTypes.IdentityToken);
-            var idToken = GenerateIdTokenAsync(currentRequestHandler.User, currentRequestHandler.RequestSession.Scope, currentRequestHandler.RequestSession.Nonce, clientId).Result;
+            var idToken = await GenerateIdTokenAsync(currentRequestHandler.User, currentRequestHandler.RequestSession.Scope, currentRequestHandler.RequestSession.Nonce, clientId);
             tokenResponse.Token = idToken;
 
             _tokenResponseDbServices.Update(tokenResponse);
@@ -307,7 +307,7 @@ namespace IssuerOfClaims.Services.Token
                 // TODO: use rsa256 instead of hs256 for now
                 var claims = await CreateClaimsForIdTokenAsync(user, nonce, authTime, scope, clientId);
 
-                var publicPrivateKeys = await CreateRsaPublicKeyAndPrivateKey();
+                var allKeys = await CreateRsaPublicKeyAndPrivateKey();
 
                 // TODO: will add rsa key to database
 
@@ -317,7 +317,7 @@ namespace IssuerOfClaims.Services.Token
                     IssuedAt = DateTime.UtcNow,
                     // TODO: idtoken will be used in short time
                     Expires = DateTime.UtcNow.AddMinutes(15),
-                    SigningCredentials = new SigningCredentials(new RsaSecurityKey(publicPrivateKeys.Key), SecurityAlgorithms.RsaSha256),
+                    SigningCredentials = new SigningCredentials(new RsaSecurityKey(allKeys.PrivateKey), SecurityAlgorithms.RsaSha256),
                     Claims = claims,
                 };
 
@@ -391,11 +391,12 @@ namespace IssuerOfClaims.Services.Token
         #endregion
 
         #region Implement RsaSha256, powered by copilot
+        private static readonly object lockObj = new object();
         /// <summary>
         /// for this pair, key is rsa private key, value is rsa public key
         /// </summary>
         /// <returns></returns>
-        private static async Task<KeyValuePair<RSAParameters, RSAParameters>> CreateRsaPublicKeyAndPrivateKey()
+        private static async Task<(RSAParameters PrivateKey, RSAParameters PublicKey)> CreateRsaPublicKeyAndPrivateKey()
         {
             RSAParameters publicKey;
             RSAParameters privateKey;
@@ -420,7 +421,7 @@ namespace IssuerOfClaims.Services.Token
                 privateKey = ReadJsonKey(isPublicKey: false); // Private key
             }
 
-            return new KeyValuePair<RSAParameters, RSAParameters>(privateKey, publicKey);
+            return new(privateKey, publicKey);
         }
 
         private static bool KeyIsMissingOrExpired(bool isPublicKey = true)
@@ -464,8 +465,12 @@ namespace IssuerOfClaims.Services.Token
             RSAParameters result = default;
             if (keyFile.Exists)
             {
-                var text = keyFile.OpenText().ReadToEnd();
-                result = JsonConvert.DeserializeObject<RSAParameters>(text);
+                StringBuilder text = new StringBuilder();
+                using (var stream = keyFile.OpenText())
+                {
+                    text.Append(stream.ReadToEnd());
+                }
+                result = JsonConvert.DeserializeObject<RSAParameters>(text.ToString());
             }
             // TODO: will check again
             else
@@ -566,19 +571,19 @@ namespace IssuerOfClaims.Services.Token
             return _identityRequestSessionDbServices.Update(tokenRequestSession);
         }
 
-        public IdentityRequestHandler FindRequestHandlerByAuthorizationCode(string authCode)
+        public async Task<IdentityRequestHandler> FindRequestHandlerByAuthorizationCodeASync(string authCode)
         {
-            return _tokenRequestHandlerDbServices.FindByAuthorizationCode(authCode);
+            return await _tokenRequestHandlerDbServices.FindByAuthorizationCodeAsync(authCode);
         }
 
-        public IdentityRequestSession FindRequestSessionById(int id)
+        public async Task<IdentityRequestSession> FindRequestSessionByIdAsync(int id)
         {
-            return _identityRequestSessionDbServices.FindById(id);
+            return await _identityRequestSessionDbServices.FindByIdAsync(id);
         }
 
-        public TokenResponse FindRefreshToken(string refreshToken)
+        public async Task<TokenResponse> FindRefreshTokenAsync(string refreshToken)
         {
-            return _tokenResponseDbServices.Find(refreshToken, OidcConstants.TokenTypes.RefreshToken);
+            return await _tokenResponseDbServices.FindAsync(refreshToken, OidcConstants.TokenTypes.RefreshToken);
         }
 
         public RSAParameters GetPublicKeyJson()
@@ -663,7 +668,7 @@ namespace IssuerOfClaims.Services.Token
             string responseText = "";
 
             WebResponse response = await refreshRequest.GetResponseAsync();
-            using(StreamReader reader = new StreamReader(response.GetResponseStream()))
+            using (StreamReader reader = new StreamReader(response.GetResponseStream()))
             {
                 responseText = await reader.ReadToEndAsync();
             }
@@ -683,7 +688,7 @@ namespace IssuerOfClaims.Services.Token
 
     public interface ITokenManager
     {
-        string ACF_IssueToken(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId);
+        Task<string> ACF_IssueToken(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId);
         bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken, long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt, DateTime accessTokenExpiredIn, IdentityRequestHandler requestHandler, string externalSource);
         Task<string> IssueTokenForRefreshToken(TokenResponse previousRefreshResponse);
         Task<string> GenerateIdTokenAsync(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "");
@@ -692,9 +697,9 @@ namespace IssuerOfClaims.Services.Token
         IdentityRequestHandler GetDraftRequestHandler();
         bool UpdateRequestHandler(IdentityRequestHandler tokenRequestHandler);
         bool UpdateRequestSession(IdentityRequestSession aCFProcessSession);
-        IdentityRequestHandler FindRequestHandlerByAuthorizationCode(string authCode);
-        IdentityRequestSession FindRequestSessionById(int id);
-        TokenResponse FindRefreshToken(string refreshToken);
+        Task<IdentityRequestHandler> FindRequestHandlerByAuthorizationCodeASync(string authCode);
+        Task<IdentityRequestSession> FindRequestSessionByIdAsync(int id);
+        Task<TokenResponse> FindRefreshTokenAsync(string refreshToken);
         RSAParameters GetPublicKeyJson();
         Task<string> RefreshAccessTokenFromExternalSourceAsync(string refreshToken, string externalSource);
         Task<string> IGF_IssueTokenAsync(string state, IdentityRequestHandler requestHandler);

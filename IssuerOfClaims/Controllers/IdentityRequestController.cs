@@ -30,7 +30,7 @@ namespace IssuerOfClaims.Controllers
     [ApiController]
     [Route("[controller]")]
     //[ApiVersion("1.0")]
-    [ControllerName(ProtocolRoutePaths.OauthPathPrefix)]
+    [ControllerName("oauth2")]
     //[EnableCors("MyPolicy")]
     // TODO: https://openid.net/specs/openid-connect-core-1_0.html
     //     : try to implement from this specs
@@ -103,16 +103,10 @@ namespace IssuerOfClaims.Controllers
             return await EndAuthenticationRequestAsync(parameters);
         }
 
+        // TODO: will check again
         private async Task<ActionResult> EndAuthenticationRequestAsync(AuthCodeParameters parameters)
         {
-            if (HttpContext.User.Identity.IsAuthenticated)
-                return await AuthenticationAsync(parameters);
-            else
-            {
-                await RedirectToLoginAsync(HttpContext, _webSigninSettings.SigninUri);
-
-                return new EmptyResult();
-            }
+            return await AuthenticationAsync(parameters);
         }
 
         // TODO: add callback to server after login success
@@ -391,7 +385,7 @@ namespace IssuerOfClaims.Controllers
             var principal = HttpContext.User;
 
             var user = await _applicationUserManager.Current.GetUserAsync(principal);
-            var client = await _clientDbServices.FindAsync(parameters.ClientId.Value); 
+            var client = await _clientDbServices.FindAsync(parameters.ClientId.Value);
 
             // TODO: scope is used for getting claims to send to client,
             //     : for example, if scope is missing email, then in id_token which will be sent to client will not contain email's information 

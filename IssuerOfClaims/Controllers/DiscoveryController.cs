@@ -55,7 +55,7 @@ namespace IssuerOfClaims.Controllers
         {
             if (string.IsNullOrEmpty(discoveryString))
             {
-                var serverHostUrl = $"{Request.Scheme}://{Request.Host.Value}/";
+                var serverHostUrl = $"{Request.Scheme}://{Request.Host.Value}";
                 Dictionary<string, object> discovery = new Dictionary<string, object>();
 
                 // TODO: Discovery + ProtocolRoutePaths

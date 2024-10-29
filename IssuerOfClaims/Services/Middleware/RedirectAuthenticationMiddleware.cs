@@ -3,6 +3,7 @@ using IssuerOfClaims.Models;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
+using static ServerUltilities.Identity.Constants;
 
 namespace IssuerOfClaims.Services.Middleware
 {
@@ -17,24 +18,25 @@ namespace IssuerOfClaims.Services.Middleware
 
         public override async Task Invoke(HttpContext context)
         {
-            if (context.Response.StatusCode == (int)HttpStatusCode.Unauthorized)
-            {
-                // TODO: I still want if there is any exception, parent thread will catch it
-                //     : so I want to wait for a task, not the function inside it, which is run on another thread and know nothing about parent of the task
-                await Task.Run(() => RedirectToLoginAsync(context.Request.Path.Value, context.Request.Method, context.Request.Query))
-                    .ConfigureAwait(false);
+            // TODO: for now, only allow oauth2/authorize enpoint to be redirect if has 401 error after verify authentication header of request, I will think about it later
+            string endpoint = context.Request.Path.Value;
+            if (endpoint == ProtocolRoutePaths.Authorize)
+                if (context.Response.StatusCode == (int)HttpStatusCode.Unauthorized)
+                {
+                    // TODO: I still want if there is any exception, parent thread will catch it
+                    //     : so I want to wait for a task, not the function inside it, which is run on another thread and know nothing about parent of the task
+                    await Task.Run(() => RedirectToLoginAsync(context.Request.Path.Value, context.Request.Method, context.Request.Query))
+                        .ConfigureAwait(false);
 
-                // TODO: will check again
-                context.Response.StatusCode = (int)HttpStatusCode.OK;
-                // TODO: terminate request, will check again
-                return;
-            }
-            else
-            {
-                await _next(context);
+                    // TODO: will check again
+                    context.Response.StatusCode = (int)HttpStatusCode.OK;
+                    // TODO: terminate request, will check again
+                    return;
+                }
 
-                // TODO: wait for controller doing its work.
-            }
+            await _next(context);
+
+            // TODO: wait for controller doing its work.
         }
 
         private async Task RedirectToLoginAsync(string path, string method, IQueryCollection queryCollection)

@@ -10,6 +10,7 @@ using IssuerOfClaims.Services.Token;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 using ServerDbModels;
 using ServerUltilities.Identity;
 
@@ -100,6 +101,15 @@ namespace IssuerOfClaims
                             .AllowAnyHeader();
                     });
             });
+
+            // TODO: configure serilog, will learn about it later
+            Log.Logger = new LoggerConfiguration()
+                .WriteTo.Console()
+                .WriteTo.File("Logs/log-.txt", rollingInterval: RollingInterval.Day)
+                .CreateLogger();
+
+            builder.Host.UseSerilog();
+
             var app = builder.Build();
             // TODO: use for initiate clients in database
             AuthorizationResources.CreateClient(builder.Configuration);

@@ -9,7 +9,7 @@
         public const string REQUEST_BODY_NOT_NULL_OR_EMPTY = "Request body cannot be empty!";
         public const string QUERYSTRING_NOT_NULL_OR_EMPTY = "Query string cannot be empty!";
 
-        public const string REFRESH_TOKEN_NULL = "Refresh token can not be empty!";
+        public const string REFRESH_TOKEN_NULL = "Refresh token is null or empty!";
         public const string REQUIRED_PARAMETER_NOT_NULL = "Required parameter cannot be null!";
 
         public const string CLIENTID_IS_REQUIRED = "ClientId is required!";

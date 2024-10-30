@@ -120,125 +120,13 @@ namespace IssuerOfClaims.Extensions
         /// <param name="refreshToken"></param>
         public static async Task<string> CreateTokenResponseStringAsync(string accessToken, string idToken, DateTime expiredInDateTime, string refreshToken = "", string tokenType = TokenResponse.BearerTokenType)
         {
-            var valuePairs = await ConvertResponseStringToUTF8Async(accessToken, idToken, refreshToken, expiredInDateTime, tokenType);
+            var valuePairs = await Task.Run(() => ConvertResponseStringToUTF8(accessToken, idToken, refreshToken, expiredInDateTime, tokenType));
             var json = await CreateTokenJsonStringAsync(valuePairs);
 
             return json;
         }
 
-        public static async Task<string> CreateUserInfoResponseAsync(ServerDbModels.UserIdentity user)
-        {
-            UserInfoValuePairs valuePairs = await ConvertUserInfoToUTF8Async(user.UserName, user.FullName, user.Email, user.EmailConfirmed, user.Avatar);
-            string json = await CreateUserInforJsonStringAsync(valuePairs);
-
-            return json;
-        }
-
-        public static async Task<string> CreateDiscoveryResponseAsync(Dictionary<string, string> dictionary)
-        {
-            Dictionary<JsonEncodedText, JsonEncodedText> valuePairs = await ConverDiscoveryEndpointsToUTF8Async(dictionary);
-
-            string json = await CreateDiscoveryEndpointsJsonStringAsync(valuePairs);
-
-            return json;
-        }
-
-        private static async Task<string> CreateDiscoveryEndpointsJsonStringAsync(Dictionary<JsonEncodedText, JsonEncodedText> valuePairs)
-        {
-            using var stream = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(stream))
-            {
-                writer.WriteStartObject();
-
-                foreach (var key in valuePairs.Keys)
-                {
-                    writer.WriteString(key, valuePairs[key]);
-                }
-                writer.WriteEndObject();
-
-                await writer.FlushAsync();
-            }
-
-            return Encoding.UTF8.GetString(stream.ToArray());
-        }
-
-        private static async Task<Dictionary<JsonEncodedText, JsonEncodedText>> ConverDiscoveryEndpointsToUTF8Async(Dictionary<string, string> dictionary)
-        {
-            var dic = new Dictionary<JsonEncodedText, JsonEncodedText>();
-
-            foreach (var key in dictionary.Keys)
-            {
-                dic.Add(JsonEncodedText.Encode(key), JsonEncodedText.Encode(dictionary[key]));
-            }
-
-            return dic;
-        }
-
-        private static async Task<string> CreateUserInforJsonStringAsync(UserInfoValuePairs valuePairs)
-        {
-            var name = HttpUtility.UrlDecode(Encoding.UTF8.GetString(valuePairs.Name.Value.EncodedUtf8Bytes));
-            var stream = new MemoryStream();
-            var writer = new Utf8JsonWriter(stream);
-            {
-                writer.WriteStartObject();
-                writer.WriteString(valuePairs.Sub.Key, valuePairs.Sub.Value);
-                writer.WriteString(valuePairs.Name.Key, valuePairs.Name.Value);
-                writer.WriteString(valuePairs.Email.Key, valuePairs.Email.Value);
-                writer.WriteString(valuePairs.EmailConfirmed.Key, valuePairs.EmailConfirmed.Value);
-                writer.WriteString(valuePairs.Picture.Key, valuePairs.Picture.Value);
-                writer.WriteEndObject();
-
-                writer.Flush();
-            }
-
-            string json = Encoding.UTF8.GetString(stream.ToArray());
-            return json;
-        }
-
-        private static async Task<UserInfoValuePairs> ConvertUserInfoToUTF8Async(string userName, string fullName, string email, bool emailConfirmed, string avatar)
-        {
-            var sub = new KeyValuePair<JsonEncodedText, JsonEncodedText>(
-                JsonEncodedText.Encode(UserInforResponse.Sub),
-                JsonEncodedText.Encode(userName));
-            var name = new KeyValuePair<JsonEncodedText, JsonEncodedText>(
-                JsonEncodedText.Encode(UserInforResponse.Name),
-                JsonEncodedText.Encode(fullName));
-            var emailValuePairs = new KeyValuePair<JsonEncodedText, JsonEncodedText>(
-                JsonEncodedText.Encode(UserInforResponse.Email),
-                JsonEncodedText.Encode(email));
-            var emailConfirmedValuePairs = new KeyValuePair<JsonEncodedText, JsonEncodedText>(
-                JsonEncodedText.Encode(UserInforResponse.EmailConfirmed),
-                JsonEncodedText.Encode(emailConfirmed.ToString()));
-            var picture = new KeyValuePair<JsonEncodedText, JsonEncodedText>(
-                JsonEncodedText.Encode(UserInforResponse.Picture),
-                JsonEncodedText.Encode(avatar));
-
-            return new UserInfoValuePairs(sub, name, emailValuePairs, emailConfirmedValuePairs, picture);
-        }
-
-        private static async Task<string> CreateTokenJsonStringAsync(TokenResponseValuePairs pairs)
-        {
-            using var stream = new MemoryStream();
-            using var writer = new Utf8JsonWriter(stream);
-            {
-                writer.WriteStartObject();
-                writer.WriteString(pairs.AccessToken.Key, pairs.AccessToken.Value);
-                if (!string.IsNullOrEmpty(pairs.RefreshToken.Value.Value))
-                    writer.WriteString(pairs.RefreshToken.Key, pairs.RefreshToken.Value);
-                writer.WriteString(pairs.ExpiredTime.Key, pairs.ExpiredTime.Value);
-                if (!string.IsNullOrEmpty(pairs.TokenType.Value.Value))
-                    writer.WriteString(pairs.TokenType.Key, pairs.TokenType.Value);
-                writer.WriteString(pairs.IdToken.Key, pairs.IdToken.Value);
-                writer.WriteEndObject();
-
-                writer.Flush();
-            }
-
-            string json = Encoding.UTF8.GetString(stream.ToArray());
-            return json;
-        }
-
-        private static async Task<TokenResponseValuePairs> ConvertResponseStringToUTF8Async(string accessToken, string idToken, string refreshToken, DateTime expiredTime, string tokenType)
+        private static TokenResponseValuePairs ConvertResponseStringToUTF8(string accessToken, string idToken, string refreshToken, DateTime expiredTime, string tokenType)
         {
             var accessTokenPair =
             new KeyValuePair<JsonEncodedText, JsonEncodedText>(
@@ -268,6 +156,122 @@ namespace IssuerOfClaims.Extensions
             return new TokenResponseValuePairs(accessTokenPair, refreshTokenPair, expiredTimePair, tokenTypePair, idTokenPair);
         }
 
+        private static async Task<string> CreateTokenJsonStringAsync(TokenResponseValuePairs pairs)
+        {
+            using var stream = new MemoryStream();
+            using var writer = new Utf8JsonWriter(stream);
+            {
+                writer.WriteStartObject();
+                writer.WriteString(pairs.AccessToken.Key, pairs.AccessToken.Value);
+                if (!string.IsNullOrEmpty(pairs.RefreshToken.Value.Value))
+                    writer.WriteString(pairs.RefreshToken.Key, pairs.RefreshToken.Value);
+                writer.WriteString(pairs.ExpiredTime.Key, pairs.ExpiredTime.Value);
+                if (!string.IsNullOrEmpty(pairs.TokenType.Value.Value))
+                    writer.WriteString(pairs.TokenType.Key, pairs.TokenType.Value);
+                writer.WriteString(pairs.IdToken.Key, pairs.IdToken.Value);
+                writer.WriteEndObject();
+
+                await writer.FlushAsync();
+            }
+
+            string json = Encoding.UTF8.GetString(stream.ToArray());
+            return json;
+        }
+
+        #region user info to json
+        public static async Task<string> CreateUserInfoResponseAsync(ServerDbModels.UserIdentity user)
+        {
+            UserInfoValuePairs valuePairs = await Task.Run(() => ConvertUserInfoToUTF8(user.UserName, user.FullName, user.Email, user.EmailConfirmed, user.Avatar));
+            string json = await CreateUserInforJsonStringAsync(valuePairs);
+
+            return json;
+        }
+
+        private static UserInfoValuePairs ConvertUserInfoToUTF8(string userName, string fullName, string email, bool emailConfirmed, string avatar)
+        {
+            var sub = new KeyValuePair<JsonEncodedText, JsonEncodedText>(
+                JsonEncodedText.Encode(UserInforResponse.Sub),
+                JsonEncodedText.Encode(userName));
+            var name = new KeyValuePair<JsonEncodedText, JsonEncodedText>(
+                JsonEncodedText.Encode(UserInforResponse.Name),
+                JsonEncodedText.Encode(fullName));
+            var emailValuePairs = new KeyValuePair<JsonEncodedText, JsonEncodedText>(
+                JsonEncodedText.Encode(UserInforResponse.Email),
+                JsonEncodedText.Encode(email));
+            var emailConfirmedValuePairs = new KeyValuePair<JsonEncodedText, JsonEncodedText>(
+                JsonEncodedText.Encode(UserInforResponse.EmailConfirmed),
+                JsonEncodedText.Encode(emailConfirmed.ToString()));
+            var picture = new KeyValuePair<JsonEncodedText, JsonEncodedText>(
+                JsonEncodedText.Encode(UserInforResponse.Picture),
+                JsonEncodedText.Encode(avatar));
+
+            return new UserInfoValuePairs(sub, name, emailValuePairs, emailConfirmedValuePairs, picture);
+        }
+
+        private static async Task<string> CreateUserInforJsonStringAsync(UserInfoValuePairs valuePairs)
+        {
+            var name = HttpUtility.UrlDecode(Encoding.UTF8.GetString(valuePairs.Name.Value.EncodedUtf8Bytes));
+            var stream = new MemoryStream();
+            var writer = new Utf8JsonWriter(stream);
+            {
+                writer.WriteStartObject();
+                writer.WriteString(valuePairs.Sub.Key, valuePairs.Sub.Value);
+                writer.WriteString(valuePairs.Name.Key, valuePairs.Name.Value);
+                writer.WriteString(valuePairs.Email.Key, valuePairs.Email.Value);
+                writer.WriteString(valuePairs.EmailConfirmed.Key, valuePairs.EmailConfirmed.Value);
+                writer.WriteString(valuePairs.Picture.Key, valuePairs.Picture.Value);
+                writer.WriteEndObject();
+
+                await writer.FlushAsync();
+            }
+
+            string json = Encoding.UTF8.GetString(stream.ToArray());
+            return json;
+        }
+        #endregion
+
+        #region discovery endpoint to json
+        public static async Task<string> CreateDiscoveryResponseAsync(Dictionary<string, string> dictionary)
+        {
+            Dictionary<JsonEncodedText, JsonEncodedText> valuePairs = await Task.Run(() => ConverDiscoveryEndpointsToUTF8(dictionary));
+
+            string json = await CreateDiscoveryEndpointsJsonStringAsync(valuePairs);
+
+            return json;
+        }
+
+        private static async Task<string> CreateDiscoveryEndpointsJsonStringAsync(Dictionary<JsonEncodedText, JsonEncodedText> valuePairs)
+        {
+            using var stream = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(stream))
+            {
+                writer.WriteStartObject();
+
+                foreach (var key in valuePairs.Keys)
+                {
+                    writer.WriteString(key, valuePairs[key]);
+                }
+                writer.WriteEndObject();
+
+                await writer.FlushAsync();
+            }
+
+            return Encoding.UTF8.GetString(stream.ToArray());
+        }
+
+        private static Dictionary<JsonEncodedText, JsonEncodedText> ConverDiscoveryEndpointsToUTF8(Dictionary<string, string> dictionary)
+        {
+            var dic = new Dictionary<JsonEncodedText, JsonEncodedText>();
+
+            foreach (var key in dictionary.Keys)
+            {
+                dic.Add(JsonEncodedText.Encode(key), JsonEncodedText.Encode(dictionary[key]));
+            }
+
+            return dic;
+        }
+        #endregion
+
         private record TokenResponseValuePairs(
             KeyValuePair<JsonEncodedText, JsonEncodedText> AccessToken,
             KeyValuePair<JsonEncodedText, JsonEncodedText> RefreshToken,
@@ -290,6 +294,7 @@ namespace IssuerOfClaims.Extensions
         };
         #endregion
 
+        #region manipulate appsettings.json
         public static GoogleClientConfiguration GetGoogleClientSettings(IConfigurationManager configuration)
         {
             var googleClientConfig = configuration.GetSection(IdentityServerConfiguration.GOOGLE_CLIENT).Get<GoogleClientConfiguration>();
@@ -333,6 +338,7 @@ namespace IssuerOfClaims.Extensions
                 || googleClientConfig.RedirectUris == null || googleClientConfig.RedirectUris.Count == 0)
                 throw new CustomException(ExceptionMessage.MISSING_GOOGLE_CLIENT_DETAILS);
         }
+        #endregion
     }
 
     public enum DefaultResponseMessage

@@ -44,12 +44,12 @@ namespace IssuerOfClaims.Controllers
         private readonly ITokenManager _tokenManager;
         private readonly IClientDbServices _clientDbServices;
         private readonly GoogleClientConfiguration _googleClientConfiguration;
-        private readonly WebSigninSettings _webSigninSettings;
+        //private readonly WebSigninSettings _webSigninSettings;
 
         public IdentityRequestController(ILogger<IdentityRequestController> logger, IConfigurationManager configuration
             , IApplicationUserManager userManager
             , ITokenManager tokenManager, IEmailServices emailServices
-            , IClientDbServices clientDbServices, GoogleClientConfiguration googleClientConfiguration, WebSigninSettings webSigninSettings)
+            , IClientDbServices clientDbServices, GoogleClientConfiguration googleClientConfiguration)
         {
             _logger = logger;
             //_configuration = configuration;
@@ -60,7 +60,7 @@ namespace IssuerOfClaims.Controllers
             _tokenManager = tokenManager;
 
             _googleClientConfiguration = googleClientConfiguration;
-            _webSigninSettings = webSigninSettings;
+            //_webSigninSettings = webSigninSettings;
         }
 
         #region catch authorize request
@@ -70,7 +70,7 @@ namespace IssuerOfClaims.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpGet("authorize")]
-        [AllowAnonymous]
+        [Authorize]
         public async Task<ActionResult> AuthenticationGetAsync()
         {
             // 1. Get authorization request from server
@@ -84,7 +84,7 @@ namespace IssuerOfClaims.Controllers
 
             AuthCodeParameters parameters = new AuthCodeParameters(HttpContext.Request.QueryString.Value);
 
-            return await EndAuthenticationRequestAsync(parameters);
+            return await AuthenticationAsync(parameters);
         }
 
         /// <summary>
@@ -93,27 +93,27 @@ namespace IssuerOfClaims.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpPost("authorize")]
-        [AllowAnonymous]
+        [Authorize]
         public async Task<ActionResult> AuthenticationPostAsync()
         {
             var query = await Utilities.SerializeFormAsync(HttpContext.Request.Body);
 
             AuthCodeParameters parameters = new AuthCodeParameters(query);
 
-            return await EndAuthenticationRequestAsync(parameters);
-        }
-
-        // TODO: will check again
-        private async Task<ActionResult> EndAuthenticationRequestAsync(AuthCodeParameters parameters)
-        {
             return await AuthenticationAsync(parameters);
         }
 
         // TODO: add callback to server after login success
-        //[HttpGet("authorize/callback")]
-        //[Authorize]
-        //public async Task<ActionResult> AuthenticationCalbackAsync()
-        //{}
+        /// <summary>
+        /// catch request from login web ui after consent is granted
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet("authorize/callback")]
+        [Authorize]
+        public async Task<ActionResult> AuthenticationCalbackAsync()
+        {
+            return new EmptyResult();
+        }
 
         private async Task<ActionResult> AuthenticationAsync(AuthCodeParameters parameters)
         {
@@ -219,15 +219,15 @@ namespace IssuerOfClaims.Controllers
             //     : by using AuthenticateHanlder, in this step, authenticated is done
             //     : get user, create authorization code, save it to login session and out
 
-            UserIdentity user = await ACF_I_GetResourceOwnerIdentity();
+            UserIdentity user = await ACF_I_GetResourceOwnerIdentityAsync();
             var client = await _clientDbServices.FindAsync(@params.ClientId.Value);
 
             ACF_I_ValidateScopes(@params.Scope.Value, client);
 
-            var acfProcessSession = _tokenManager.GetDraftRequestSession();
-            ACF_I_AddRequestSessionDetails(@params, acfProcessSession, out string authorizationCode);
+            string authorizationCode = IssueAuthorizationCode();
 
-            ACF_I_CreateTokenRequestHandler(user, client, acfProcessSession);
+            // TODO: other stuff which is needed to implement oauth specs, will rename this function later
+            DoSomethingWhichIsNeeded(@params, user, client, authorizationCode);
 
             // TODO: will check again
             await ACF_I_SendResponseAsync(@params, authorizationCode);
@@ -238,6 +238,22 @@ namespace IssuerOfClaims.Controllers
             //     , so if it 's considered a bug, I will fix it later
             //return StatusCode((int)HttpStatusCode.OK, System.Text.Json.JsonSerializer.Serialize(responseBody));
             return new EmptyResult();
+        }
+
+        private string DoSomethingWhichIsNeeded(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode)
+        {
+            var acfProcessSession = _tokenManager.GetDraftRequestSession();
+
+            ACF_I_SaveSessionDetails(@params, acfProcessSession, authorizationCode);
+            ACF_I_CreateIdentityRequestHandler(user, client, acfProcessSession);
+
+            return authorizationCode;
+        }
+
+        private string IssueAuthorizationCode()
+        {
+            // TODO: create authorization code
+            return RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(32);
         }
 
         private static async Task ACF_I_SendResponseAsync(AuthCodeParameters @params, string authorizationCode)
@@ -302,7 +318,7 @@ namespace IssuerOfClaims.Controllers
             return builder.ToString();
         }
 
-        private async Task<UserIdentity> ACF_I_GetResourceOwnerIdentity()
+        private async Task<UserIdentity> ACF_I_GetResourceOwnerIdentityAsync()
         {
             var obj = await _applicationUserManager.Current.GetUserAsync(HttpContext.User);
 
@@ -327,28 +343,26 @@ namespace IssuerOfClaims.Controllers
         /// </summary>
         /// <param name="user"></param>
         /// <param name="ACFProcessSession"></param>
-        private void ACF_I_CreateTokenRequestHandler(UserIdentity user, Client client, IdentityRequestSession draftRequestSession)
+        private void ACF_I_CreateIdentityRequestHandler(UserIdentity user, Client client, IdentityRequestSession draftRequestSession)
         {
-            var tokenRequestHandler = _tokenManager.GetDraftRequestHandler();
-            tokenRequestHandler.User = user;
+            var requestHandler = _tokenManager.GetDraftRequestHandler();
+            requestHandler.User = user;
             // TODO: will check again
-            tokenRequestHandler.Client = client;
-            tokenRequestHandler.RequestSession = draftRequestSession;
+            requestHandler.Client = client;
+            requestHandler.RequestSession = draftRequestSession;
 
             // TODO: will check again
-            _tokenManager.UpdateRequestHandler(tokenRequestHandler);
+            _tokenManager.UpdateRequestHandler(requestHandler);
         }
-        private void ACF_I_AddRequestSessionDetails(AuthCodeParameters parameters, IdentityRequestSession ACFProcessSession, out string authorizationCode)
-        {
-            ACF_I_ImportPKCERequestedParams(parameters.CodeChallenge.Value, parameters.CodeChallengeMethod.Value, parameters.CodeChallenge.HasValue, ACFProcessSession);
-            ACF_I_ImportRequestSessionData(parameters.Scope.Value, parameters.Nonce.Value, ACFProcessSession, parameters.RedirectUri.Value, out authorizationCode);
 
+        private void ACF_I_SaveSessionDetails(AuthCodeParameters parameters, IdentityRequestSession ACFProcessSession, string authorizationCode)
+        {
+            ACF_I_AddPKCEFromRequest(parameters.CodeChallenge.Value, parameters.CodeChallengeMethod.Value, parameters.CodeChallenge.HasValue, ACFProcessSession);
+            ACF_I_AddOtherSessionData(parameters.Scope.Value, parameters.Nonce.Value, ACFProcessSession, parameters.RedirectUri.Value, authorizationCode);
         }
-        private static void ACF_I_ImportRequestSessionData(string scope, string nonce, IdentityRequestSession tokenRequestSession, string redirectUri, out string authorizationCode)
-        {
-            // TODO: create authorization code
-            authorizationCode = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(32);
 
+        private static void ACF_I_AddOtherSessionData(string scope, string nonce, IdentityRequestSession tokenRequestSession, string redirectUri, string authorizationCode)
+        {
             tokenRequestSession.AuthorizationCode = authorizationCode;
             tokenRequestSession.Nonce = nonce;
             tokenRequestSession.RedirectUri = redirectUri;
@@ -356,7 +370,7 @@ namespace IssuerOfClaims.Controllers
             tokenRequestSession.IsOfflineAccess = scope.Contains(OidcConstants.StandardScopes.OfflineAccess);
         }
 
-        private static void ACF_I_ImportPKCERequestedParams(string codeChallenge, string codeChallengeMethod, bool codeChallenge_HasValue, IdentityRequestSession tokenRequestSession)
+        private static void ACF_I_AddPKCEFromRequest(string codeChallenge, string codeChallengeMethod, bool codeChallenge_HasValue, IdentityRequestSession tokenRequestSession)
         {
             if (codeChallenge_HasValue)
             {
@@ -585,30 +599,9 @@ namespace IssuerOfClaims.Controllers
 
             OfflineAccessTokenParameters parameters = new OfflineAccessTokenParameters(requestBody);
 
-            var refreshToken = await _tokenManager.FindRefreshTokenAsync(parameters.RefreshToken.Value);
-            ValidateRefreshToken(refreshToken.TokenExpiried);
-
-            string tokenResponses = string.Empty;
-            // Token from external source
-            if (!string.IsNullOrEmpty(refreshToken.ExternalSource))
-            {
-                // TODO: will update this part later
-                tokenResponses = await _tokenManager.RefreshAccessTokenFromExternalSourceAsync(refreshToken.Token, refreshToken.ExternalSource);
-            }
-            else
-            {
-                tokenResponses = await _tokenManager.IssueTokenForRefreshToken(refreshToken);
-            }
+            var tokenResponses = await _tokenManager.IssueTokenByRefreshToken(parameters.RefreshToken.Value);
 
             return StatusCode((int)HttpStatusCode.OK, tokenResponses);
-        }
-
-        private static bool ValidateRefreshToken(DateTime expiredTime)
-        {
-            if (expiredTime <= DateTime.Now)
-                throw new CustomException(ExceptionMessage.REFRESH_TOKEN_EXPIRED, HttpStatusCode.Unauthorized);
-
-            return true;
         }
 
         private async Task<ActionResult> IssueTokenForAuthorizationCodeAsync(string requestBody)
@@ -622,8 +615,8 @@ namespace IssuerOfClaims.Controllers
             //     : Verify that the Authorization Code used was issued in response to an OpenID Connect Authentication Request(so that an ID Token will be returned from the Token Endpoint).
             var tokenRequestHandler = await _tokenManager.FindRequestHandlerByAuthorizationCodeASync(parameters.Code.Value);
             // TODO: will change to use email when allow using identity from another source
-            UserIdentity user = ACF_II_GetResourceOwnerIdentity(tokenRequestHandler.User.UserName);
-            var client = await ACF_II_VerifyAndGetClientAsync(parameters.ClientId.Value, parameters.ClientSecret.Value, tokenRequestHandler);
+            UserIdentity user = await ACF_II_GetAndVerifyUserIdentity(tokenRequestHandler.User.UserName);
+            var client = await ACF_II_GetAndVerifyClientAsync(parameters.ClientId.Value, parameters.ClientSecret.Value, tokenRequestHandler);
 
             ACF_II_VerifyRedirectUris(parameters.RedirectUri.Value, tokenRequestHandler.RequestSession.RedirectUri);
             ACF_II_VerifyCodeChallenger(parameters.CodeVerifier.Value, tokenRequestHandler);
@@ -633,17 +626,22 @@ namespace IssuerOfClaims.Controllers
 
             SuccessfulRequestHandle(tokenRequestHandler);
 
+            // TODO: https://openid.net/specs/openid-connect-core-1_0.html#TokenResponse
+            //     : will think about it later, for now, I follow the openid specs
+            HttpContext.Response.Headers.CacheControl = RequiredHeaderValues.CacheControl_NoStore;
+
             return StatusCode((int)HttpStatusCode.OK, tokenResponses);
         }
 
         // TODO: will test again
-        private UserIdentity ACF_II_GetResourceOwnerIdentity(string userName)
+        private async Task<UserIdentity> ACF_II_GetAndVerifyUserIdentity(string userName)
         {
-            var obj = _applicationUserManager.Current.Users
+            var obj = await _applicationUserManager.Current.Users
                     .Include(u => u.IdentityRequestHandlers)
                     .Include(u => u.IdentityRequestHandlers).ThenInclude(s => s.Client)
                     .Include(u => u.IdentityRequestHandlers).ThenInclude(l => l.RequestSession)
-                    .FirstOrDefault(u => u.UserName == userName);
+                    .AsSplitQuery()
+                    .FirstOrDefaultAsync(u => u.UserName == userName);
             if (obj == null)
                 throw new InvalidDataException(ExceptionMessage.USER_NULL);
 
@@ -696,7 +694,7 @@ namespace IssuerOfClaims.Controllers
         }
 
         // TODO: will test again
-        private async Task<Client> ACF_II_VerifyAndGetClientAsync(string clientId, string clientSecret, IdentityRequestHandler tokenRequestHandler)
+        private async Task<Client> ACF_II_GetAndVerifyClientAsync(string clientId, string clientSecret, IdentityRequestHandler tokenRequestHandler)
         {
             Client client = await _clientDbServices.FindAsync(clientId, clientSecret);
 

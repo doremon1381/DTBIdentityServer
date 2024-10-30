@@ -259,8 +259,8 @@ namespace ServerUltilities.Identity
         public static class ProtocolRoutePaths
         {
             //public const string ConnectPathPrefix = "connect";
-            public const string OauthPathPrefix = "oauth2";
-            public const string AuthPathPrefix = "auth";
+            public const string OauthPathPrefix = "/oauth2";
+            public const string AuthPathPrefix = "/auth";
 
             public const string Authorize = OauthPathPrefix + "/authorize";
             public const string AuthorizeCallback = Authorize + "/callback";
@@ -430,5 +430,25 @@ namespace ServerUltilities.Identity
             public const string NewPassword = "password";
             public const string ClientId = "client_id";
         }
+
+        internal static Dictionary<string, string> RouteMappingWithOpenIDAction = new Dictionary<string, string>()
+        {
+            { "Authorization", "Authorization" }
+        };
+
+        public static class TokenResponseRequiredHeaders
+        {
+            public const string CacheControl = "Cache-Control";
+        }
+
+        public static class RequiredHeaderValues
+        {
+            public const string CacheControl_NoStore = "no-store";
+        }
+
+        public static Dictionary<string, string> TokenResponseHeaderWithValue = new Dictionary<string, string>()
+        {
+            { TokenResponseRequiredHeaders.CacheControl, RequiredHeaderValues.CacheControl_NoStore }
+        };
     }
 }

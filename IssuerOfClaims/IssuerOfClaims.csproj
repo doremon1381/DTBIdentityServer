@@ -50,7 +50,6 @@
   <ItemGroup>
     <Folder Include="Migrations\" />
     <Folder Include="Img\" />
-    <Folder Include="Logs\" />
     <Folder Include="Services\Token\RsaSha256Keys\" />
   </ItemGroup>
 

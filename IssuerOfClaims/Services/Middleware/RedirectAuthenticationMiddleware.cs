@@ -30,13 +30,11 @@ namespace IssuerOfClaims.Services.Middleware
 
                     // TODO: will check again
                     context.Response.StatusCode = (int)HttpStatusCode.OK;
-                    // TODO: terminate request, will check again
+                    // TODO: immediately response, will check again
                     return;
                 }
 
             await _next(context);
-
-            // TODO: wait for controller doing its work.
         }
 
         private async Task RedirectToLoginAsync(string path, string method, IQueryCollection queryCollection)
@@ -44,7 +42,7 @@ namespace IssuerOfClaims.Services.Middleware
             var query = await Task.Run(() => CreateRedirectRequestQuery(path, method, queryCollection));
 
             // redirect to login 
-            await Task.Run(() => SendRequestAsync(_webSigninSettings.Origin, query)).ConfigureAwait(false);
+            await Task.Run(() => SendRequestAsync(_webSigninSettings.SigninUri, query)).ConfigureAwait(false);
         }
 
         private static string CreateRedirectRequestQuery(string path, string method, IQueryCollection queryCollection)
@@ -66,7 +64,7 @@ namespace IssuerOfClaims.Services.Middleware
         {
             Process.Start(new ProcessStartInfo()
             {
-                FileName = string.Format("{0}/?{1}", loginUri, query),
+                FileName = string.Format("{0}?{1}", loginUri, query),
                 UseShellExecute = true
             });
         }

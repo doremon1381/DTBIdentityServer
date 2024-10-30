@@ -401,7 +401,7 @@ namespace IssuerOfClaims.Services.Token
             RSAParameters publicKey;
             RSAParameters privateKey;
 
-            if (KeyIsMissingOrExpired())
+            if (KeyCanBeUsed())
             {
                 using (RSACryptoServiceProvider rsa = new RSACryptoServiceProvider())
                 {
@@ -424,13 +424,13 @@ namespace IssuerOfClaims.Services.Token
             return new(privateKey, publicKey);
         }
 
-        private static bool KeyIsMissingOrExpired(bool isPublicKey = true)
+        private static bool KeyCanBeUsed(bool isPublicKey = true)
         {
             FileInfo keyFile = new FileInfo(GetKeyFilePath(isPublicKey));
 
             if (keyFile.Exists)
             {
-                if (keyFile.CreationTime.AddDays(15) > DateTime.Now)
+                if (keyFile.LastWriteTimeUtc.AddDays(15) < DateTime.Now)
                     return false;
             }
 

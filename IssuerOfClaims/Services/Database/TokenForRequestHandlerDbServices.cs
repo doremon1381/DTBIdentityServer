@@ -41,6 +41,7 @@ namespace IssuerOfClaims.Services.Database
                     .Include(t => t.TokenResponse)
                     .Include(t => t.IdentityRequestHandler).ThenInclude(h => h.User)
                     .Where(t => t.TokenResponse.TokenType.Equals(TokenTypes.AccessToken))
+                    .AsSplitQuery()
                     .First(r => r.TokenResponse.Token.Equals(accessToken));
             });
 
@@ -71,6 +72,7 @@ namespace IssuerOfClaims.Services.Database
                 obj = _tokenResponses
                         .Include(t => t.TokenResponse)
                         .Include(t => t.IdentityRequestHandler).ThenInclude(h => h.RequestSession)
+                        .AsSplitQuery()
                         .Where(filter)
                         .LastOrDefault(t => t.IdentityRequestHandler.UserId == userId && t.IdentityRequestHandler.ClientId == clientId);
             });

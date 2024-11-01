@@ -65,7 +65,7 @@ namespace IssuerOfClaims
         private static DbContextManager CreateDbContext(IConfigurationManager configuration)
         {
             var contextOptions = new DbContextOptionsBuilder<DbContextManager>()
-                 .UseSqlServer(configuration.GetConnectionString(DbUtilities.DatabaseName))
+                 .UseSqlServer(configuration.GetConnectionString(DbUtilities.DatabasePath))
                  .Options;
 
             var dbContext = new DbContextManager(contextOptions, null);

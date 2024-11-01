@@ -1,4 +1,5 @@
-﻿using IssuerOfClaims.Extensions;
+﻿using EFCoreSecondLevelCacheInterceptor;
+using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using ServerDbModels;
@@ -23,7 +24,8 @@ namespace IssuerOfClaims.Services.Database
                     .Include(l => l.User)
                     .Include(t => t.Client)
                     .Include(l => l.TokensPerRequestHandlers).ThenInclude(t => t.TokenResponse)
-                    .Include(l => l.RequestSession);
+                    .Include(l => l.RequestSession)
+                    .AsSplitQuery();
                 obj = obj1.First(l => l.RequestSession != null && l.RequestSession.AuthorizationCode != null && l.RequestSession.AuthorizationCode.Equals(authorizationCode));
             });
 
@@ -44,6 +46,9 @@ namespace IssuerOfClaims.Services.Database
                 .Include(t => t.Client)
                 .Include(t => t.RequestSession)
                 .Include(t => t.TokensPerRequestHandlers).ThenInclude(t => t.TokenResponse)
+                .AsSplitQuery()
+                // TODO:
+                //.Cacheable()
                 .First(t => t.Id.Equals(currentRequestHandlerId));
             });
 

@@ -1,3 +1,5 @@
+using EFCoreSecondLevelCacheInterceptor;
+using Google;
 using IssuerOfClaims.Controllers.Ultility;
 using IssuerOfClaims.Database;
 using IssuerOfClaims.Extensions;
@@ -10,9 +12,12 @@ using IssuerOfClaims.Services.Token;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Serilog;
 using ServerDbModels;
 using ServerUltilities.Identity;
+using System;
 
 namespace IssuerOfClaims
 {
@@ -23,10 +28,13 @@ namespace IssuerOfClaims
             var builder = WebApplication.CreateBuilder(args);
 
             builder.Services.AddControllers();
-            builder.Services.AddDbContext<IDbContextManager, DbContextManager>(optionsAction =>
-            {
-                optionsAction.UseSqlServer(builder.Configuration.GetConnectionString(DbUtilities.DatabaseName));
-            }, ServiceLifetime.Transient);
+            builder.Services
+                .AddDbContext<IDbContextManager, DbContextManager>((serviceProvider,optionsAction) =>
+                {
+                    optionsAction
+                    .UseSqlServer(builder.Configuration.GetConnectionString(DbUtilities.DatabasePath));
+                    //.AddInterceptors(serviceProvider.GetRequiredService<SecondLevelCacheInterceptor>());
+                }, ServiceLifetime.Transient);
 
             builder.Services.AddLogging(options =>
             {
@@ -101,6 +109,16 @@ namespace IssuerOfClaims
                             .AllowAnyHeader();
                     });
             });
+
+            // Configure EF Core with second-level cache
+            //builder.Services.AddDbContext<DbContextManager>(options =>
+            //    options.UseSqlServer(builder.Configuration.GetConnectionString(DbUtilities.DatabasePath))
+            //           .AddInterceptors(new SecondLevelCacheInterceptor()));
+
+            //builder.Services.AddEFSecondLevelCache(options =>
+            //    options.UseMemoryCacheProvider()
+            //           //.DisableLogging(true)
+            //           .CacheAllQueries(CacheExpirationMode.Absolute, TimeSpan.FromMinutes(5)));
 
             // TODO: configure serilog, will learn about it later
             Log.Logger = new LoggerConfiguration()

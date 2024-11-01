@@ -8,6 +8,7 @@ using System.Text.Encodings.Web;
 using System.Text;
 using IssuerOfClaims.Models;
 using ServerUltilities.Identity;
+using IssuerOfClaims.Extensions;
 
 namespace IssuerOfClaims.Services
 {
@@ -26,14 +27,52 @@ namespace IssuerOfClaims.Services
 
         public async Task SendForgotPasswordCodeToEmailAsync(UserIdentity user, Guid clientId)
         {
-            var code = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(8);
+            var code = await _applicationUserManager.Current.GeneratePasswordResetTokenAsync(user);
             code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
 
             int expiredTimeInMinutes = 2;
-            await CreateConfirmEmailAsync(user, code, clientId, ConfirmEmailPurpose.ChangePassword, expiredTimeInMinutes);
+            await CreateConfirmEmailAsync(user.Id, clientId, code, ConfirmEmailPurpose.ChangePassword, expiredTimeInMinutes);
 
             string emailBody = $"Your password reset's security code is <span style=\"font-weight:bold; font-size:25px\">{code}</span>.";
-            await SendEmailAsync(user.UserName, user.Email, emailBody);
+            await SendMailAsync(user.UserName, user.Email, emailBody);
+        }
+
+        public async Task SendVerifyingEmailAsync(UserIdentity user, string callbackEndpoint, Guid clientId, string requestScheme, string requestHost)
+        {
+            var code = await _applicationUserManager.Current.GenerateEmailConfirmationTokenAsync(user);
+            code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+
+            int expiredTimeInMinutes = 60;
+            await CreateConfirmEmailAsync(user.Id, clientId, code, ConfirmEmailPurpose.CreateIdentity, expiredTimeInMinutes);
+
+            string callbackUrl = CreateCallbackUrl(requestScheme, requestHost, callbackEndpoint, user.Id, code);
+            string emailBody = CreateEmailBody(callbackUrl);
+
+            await SendMailAsync(user.UserName, user.Email, emailBody);
+        }
+
+        public async Task<ConfirmEmail> GetChangePasswordEmailByCodeAsync(string code)
+        {
+            var changePasswordEmail = await _emailDbServices.GetByCodeAsync(code);
+
+            if (!changePasswordEmail.Purpose.Equals(ConfirmEmailPurpose.ChangePassword))
+                throw new InvalidOperationException(ExceptionMessage.CONFIRM_EMAIL_SEEM_WRONG);
+            if (!changePasswordEmail.ExpiryTime.HasValue || changePasswordEmail.ExpiryTime < DateTime.Now)
+                throw new InvalidOperationException(ExceptionMessage.CONFIRM_EMAIL_EXPIRED);
+
+            return changePasswordEmail;
+        }
+
+        public bool UpdateConfirmEmail(ConfirmEmail emailForChangingPassword)
+        {
+            return _emailDbServices.Update(emailForChangingPassword);
+        }
+
+        private static string CreateEmailBody(string callbackUrl)
+        {
+            var body = $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.";
+
+            return body;
         }
 
         private static string CreateCallbackUrl(string requestScheme, string requestHost, string callbackEndpoint, Guid userId, string code)
@@ -46,28 +85,7 @@ namespace IssuerOfClaims.Services
             return callbackUrl;
         }
 
-        private static string CreateEmailBody(string callbackUrl)
-        {
-            var body = $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.";
-
-            return body;
-        }
-
-        public async Task SendVerifyingEmailAsync(UserIdentity user, string callbackEndpoint, Guid clientId, string requestScheme, string requestHost)
-        {
-            var code = await _applicationUserManager.Current.GenerateEmailConfirmationTokenAsync(user);
-            code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-
-            int expiredTimeInMinutes = 60;
-            await CreateConfirmEmailAsync(user, code, clientId, ConfirmEmailPurpose.CreateIdentity, expiredTimeInMinutes);
-
-            string callbackUrl = CreateCallbackUrl(requestScheme, requestHost, callbackEndpoint, user.Id, code);
-            string emailBody = CreateEmailBody(callbackUrl);
-
-            await SendEmailAsync(user.UserName, user.Email, emailBody);
-        }
-
-        private async Task SendEmailAsync(string userName, string emailAddress, string emailBody)
+        private void SendEmail(string userName, string emailAddress, string emailBody)
         {
             var email = new MimeMessage();
             email.From.Add(new MailboxAddress(_mailSettings.Name, _mailSettings.EmailId));
@@ -94,7 +112,7 @@ namespace IssuerOfClaims.Services
             }
         }
 
-        private async Task CreateConfirmEmailAsync(UserIdentity user, string code, Guid clientId, string purpose, int expiredTimeInMinutes)
+        private void CreateConfirmEmail(Guid userId, string code, Guid clientId, string purpose, int expiredTimeInMinutes)
         {
             try
             {
@@ -107,7 +125,7 @@ namespace IssuerOfClaims.Services
 
                 if (_emailDbServices.Create(nw))
                 {
-                    nw.User = user;
+                    nw.UserId = userId;
                     nw.ClientId = clientId;
 
                     _emailDbServices.Update(nw);
@@ -120,21 +138,14 @@ namespace IssuerOfClaims.Services
             }
         }
 
-        public async Task<ConfirmEmail> GetChangePasswordEmailByCodeAsync(string code)
+        private async Task CreateConfirmEmailAsync(Guid userId, Guid clientId, string code, string purpose, int expiredTimeInMinutes)
         {
-            var changePasswordEmail = await _emailDbServices.GetByCodeAsync(code);
-
-            if (!changePasswordEmail.Purpose.Equals(ConfirmEmailPurpose.ChangePassword))
-                throw new InvalidOperationException("something inside this process is wrong!");
-            if (!changePasswordEmail.ExpiryTime.HasValue || changePasswordEmail.ExpiryTime < DateTime.Now)
-                throw new InvalidOperationException("error with email's expired time!");
-
-            return changePasswordEmail;
+            await Task.Factory.StartNew(() => CreateConfirmEmail(userId, code, clientId, purpose, expiredTimeInMinutes), TaskCreationOptions.AttachedToParent);
         }
 
-        public bool UpdateConfirmEmail(ConfirmEmail emailForChangingPassword)
+        private async Task SendMailAsync(string userName, string email, string emailBody)
         {
-            return _emailDbServices.Update(emailForChangingPassword);
+            await Task.Factory.StartNew(() => SendEmail(userName, email, emailBody), TaskCreationOptions.AttachedToParent);
         }
     }
 

@@ -1,4 +1,6 @@
-﻿namespace ServerUltilities.Identity
+﻿using System.Text;
+
+namespace ServerUltilities.Identity
 {
     public static class OidcConstants
     {
@@ -286,6 +288,8 @@
 
         public static class AuthenticationSchemes
         {
+            // TODO: will check again
+            public const string AuthorizationHeaderBasic = "Basic";
             public const string AuthorizationHeaderBearer = "Bearer";
             public const string AuthorizationHeaderDPoP = "DPoP";
 
@@ -361,6 +365,12 @@
         public static class CodeChallengeMethods
         {
             public const string Plain = "plain";
+            public const string Sha256 = "S256";
+        }
+
+        public static class BasicAuthenticationEncodingMethods
+        {
+            public const string Base64_ASCII = "Base64";
             public const string Sha256 = "S256";
         }
 
@@ -467,6 +477,8 @@
             public const string ResponseTypesSupported = "response_types_supported";
             public const string ClaimsSupported = "claims_supported";
             public const string TokenEndpointAuthenticationMethodsSupported = "token_endpoint_auth_methods_supported";
+
+            public const string BasicAuthenticationChallengeMethodSupported = "basic_authentication_encoding_method_supported";
 
             // more capabilities
             public const string ClaimsLocalesSupported = "claims_locales_supported";

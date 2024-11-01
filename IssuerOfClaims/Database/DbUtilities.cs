@@ -5,7 +5,7 @@ namespace IssuerOfClaims.Database
 {
     public static class DbUtilities
     {
-        public static string DatabaseName = "PrintingManagermentIdentity";
+        public static string DatabasePath = "DefaultConnection";
 
     }
 }

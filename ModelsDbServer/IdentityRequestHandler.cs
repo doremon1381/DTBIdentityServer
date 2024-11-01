@@ -30,6 +30,7 @@ namespace ServerDbModels
 
         /// <summary>
         /// Update when everything is done
+        /// <para>Remove IsInLoginSession inside IdentityRequestSession because when the handler session is success, then no need another property inside session</para>
         /// </summary>
         public DateTime? SuccessAt { get; set; } = null;
 

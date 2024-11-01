@@ -56,6 +56,12 @@ namespace ServerUltilities.Identity
             OidcConstants.CodeChallengeMethods.Plain,
             OidcConstants.CodeChallengeMethods.Sha256
         };
+        
+        public static readonly List<string> SupportedBasicAuthenticationEncodingMethods = new List<string>
+        {
+            OidcConstants.CodeChallengeMethods.Plain,
+            OidcConstants.CodeChallengeMethods.Sha256
+        };
 
         public enum ScopeRequirement
         {

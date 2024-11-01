@@ -72,7 +72,7 @@ namespace IssuerOfClaims.Controllers
             VerifyRegisterParameters(parameters.UserName.Value, parameters.Email.Value);
 
             // TODO: will check again
-            var user = _applicationUserManager.CreateUser(parameters);
+            var user = await _applicationUserManager.CreateUserAsync(parameters);
 
             // TODO: https://openid.net/specs/openid-connect-prompt-create-1_0.html#name-authorization-request
             var client = await _clientDbServices.FindAsync(parameters.ClientId.Value);
@@ -140,7 +140,7 @@ namespace IssuerOfClaims.Controllers
             var confirmEmail = user.ConfirmEmails.First(e => e.Purpose == ConfirmEmailPurpose.CreateIdentity);
 
             if (confirmEmail.IsConfirmed == true)
-                return Ok(Utilities.ResponseMessages[DefaultResponseMessage.EmailIsConfirmed].Value);
+                return Ok(ResponseUtilities.ResponseMessages[DefaultResponseMessage.EmailIsConfirmed].Value);
 
             if (ValidateConfirmEmail(confirmEmail.ConfirmCode, confirmEmail.ExpiryTime.Value, code))
             {
@@ -150,7 +150,7 @@ namespace IssuerOfClaims.Controllers
 
             await _applicationUserManager.Current.UpdateAsync(user);
 
-            return Ok(Utilities.ResponseMessages[DefaultResponseMessage.EmailIsConfirmed].Value);
+            return Ok(ResponseUtilities.ResponseMessages[DefaultResponseMessage.EmailIsConfirmed].Value);
         }
 
         private static bool ValidateConfirmEmail(string emailConfirmCode, DateTime emailExpiredTime, string code)

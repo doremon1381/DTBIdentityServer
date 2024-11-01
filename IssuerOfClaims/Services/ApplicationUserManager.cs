@@ -23,7 +23,7 @@ namespace IssuerOfClaims.Services
                 , keyNormalizer, errors, services, logger);
         }
 
-        public UserIdentity CreateUser(RegisterParameters parameters)
+        public async Task<UserIdentity> CreateUserAsync(RegisterParameters parameters)
         {
             var newUser = new UserIdentity
             {
@@ -35,7 +35,7 @@ namespace IssuerOfClaims.Services
                 Gender = parameters.Gender.Value
             };
 
-            Current.CreateAsync(newUser, parameters.Password.Value).Wait();
+            await Current.CreateAsync(newUser, parameters.Password.Value);
 
             return newUser;
         }
@@ -58,17 +58,17 @@ namespace IssuerOfClaims.Services
             return true;
         }
 
-        public UserIdentity GetOrCreateUserByEmail(GoogleJsonWebSignature.Payload payload)
+        public async Task<UserIdentity> GetOrCreateUserByEmailAsync(GoogleJsonWebSignature.Payload payload)
         {
             var user = this.Current.Users.FirstOrDefault(u => u.Email == payload.Email);
 
             if (user == null)
-                user = CreateUser(payload);
+                user = await CreateUser(payload);
 
             return user;
         }
 
-        private UserIdentity CreateUser(GoogleJsonWebSignature.Payload payload)
+        private async Task<UserIdentity> CreateUser(GoogleJsonWebSignature.Payload payload)
         {
             var newUser = new UserIdentity
             {
@@ -78,7 +78,7 @@ namespace IssuerOfClaims.Services
                 Avatar = payload.Picture
             };
 
-            Current.CreateAsync(newUser).Wait();
+            await Current.CreateAsync(newUser);
 
             return newUser;
         }
@@ -87,9 +87,9 @@ namespace IssuerOfClaims.Services
     public interface IApplicationUserManager
     {
         UserManager<UserIdentity> Current { get; }
-        UserIdentity CreateUser(RegisterParameters parameters);
+        Task<UserIdentity> CreateUserAsync(RegisterParameters parameters);
         bool EmailIsUsedForUser(string email);
-        UserIdentity GetOrCreateUserByEmail(GoogleJsonWebSignature.Payload payload);
+        Task<UserIdentity> GetOrCreateUserByEmailAsync(GoogleJsonWebSignature.Payload payload);
         bool HasUser(string userName);
     }
 }

@@ -2,6 +2,7 @@
 using IssuerOfClaims.Models;
 using ServerUltilities.Identity;
 using System.Net;
+using System.Text.RegularExpressions;
 using System.Web;
 using static ServerUltilities.Identity.Constants;
 using static ServerUltilities.Identity.OidcConstants;
@@ -60,6 +61,9 @@ namespace IssuerOfClaims.Models.Request
 
     internal static class ParameterUtilities
     {
+        // TODO: https://www.rhyous.com/2010/06/15/csharp-email-regular-expression/
+        //     : will learn regex later
+        private static string _EmailRegex = "^[\\w!#$%&'*+\\-/=?\\^_`{|}~]+(\\.[\\w!#$%&'*+\\-/=?\\^_`{|}~]+)*@((([\\-\\w]+\\.)+[a-zA-Z]{2,4})|(([0-9]{1,3}\\.){3}[0-9]{1,3}))\\z";
         internal static Dictionary<string, Func<string, string, string>> SpecificMethodForInitiatingParameter = new Dictionary<string, Func<string, string, string>>()
         {
             { AuthorizeRequest.Scope, (str, str1) => { return Uri.UnescapeDataString(str); } },
@@ -69,7 +73,15 @@ namespace IssuerOfClaims.Models.Request
                 return string.IsNullOrEmpty(responseMode) ? GetDefaultResponseModeByResponseType(responseType) : responseMode;
             }},
             { RegisterRequest.FirstName, (str, str1) => { return HttpUtility.UrlDecode(str); } },
-            { RegisterRequest.LastName, (str, str1) => { return HttpUtility.UrlDecode(str); } }
+            { RegisterRequest.LastName, (str, str1) => { return HttpUtility.UrlDecode(str); } },
+            { RegisterRequest.Email, (str, str1) => 
+                {
+                    if (Regex.IsMatch(str, _EmailRegex))
+                        return str;
+                    else
+                        throw new CustomException(ExceptionMessage.EMAIL_IS_WRONG, HttpStatusCode.BadRequest);
+                } 
+            }
         };
 
         internal static Dictionary<string, ParameterPriority> AuthCodeParameterPriority = new Dictionary<string, ParameterPriority>()

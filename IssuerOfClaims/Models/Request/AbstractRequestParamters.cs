@@ -11,7 +11,7 @@ namespace IssuerOfClaims.Models.Request
 {
     public abstract class AbstractRequestParamters<T>
     {
-        protected readonly string[] requestQuery;
+        protected readonly RequestParameterValues requestQuery;
 
         private static readonly Type _currentType = typeof(T);
         private static readonly RequestPurpose _requestPurpose = ParameterUtilities.ParametersForRequest[_currentType];
@@ -64,7 +64,7 @@ namespace IssuerOfClaims.Models.Request
         public AbstractRequestParamters(string? queryString)
         {
             ValidateRequestQuery(queryString);
-            requestQuery = QueryStringToArray(queryString);
+            requestQuery = new RequestParameterValues(queryString);
 
             InitiateProperties();
         }
@@ -87,7 +87,7 @@ namespace IssuerOfClaims.Models.Request
         {
             // TODO: for currently logic, to ensure response mode is set before response type, I run this function first
             if (_responseType != null)
-                SetPropertyValueAsync(_responseType);
+                SetPropertyValue(_responseType);
 
             var tasks = _properties.Select(p =>
             {
@@ -96,7 +96,7 @@ namespace IssuerOfClaims.Models.Request
                 else
                     return Task.Factory.StartNew(() =>
                     {
-                       SetPropertyValueAsync(p);
+                       SetPropertyValue(p);
                     }, TaskCreationOptions.AttachedToParent);
             });
 
@@ -109,11 +109,10 @@ namespace IssuerOfClaims.Models.Request
         /// <param name="setValue"></param>
         /// <param name="property"></param>
         /// <returns></returns>
-        private void SetPropertyValueAsync(PropertyInfo property)
+        private void SetPropertyValue(PropertyInfo property)
         {
             string parameterName = GetNameOfRequestParameter(property.Name);
-            string value = requestQuery.GetFromQueryString(parameterName);
-
+            string value = requestQuery.GetValue(parameterName);
             var parameter = new Parameter(parameterName, _requestPurpose);
 
             if (ParameterUtilities.SpecificMethodForInitiatingParameter.TryGetValue(parameterName, out Func<string, string, string> execute))
@@ -139,7 +138,7 @@ namespace IssuerOfClaims.Models.Request
 
         private static string GetNameOfRequestParameter(string propertyName)
         {
-            var name = _parameterNames.FirstOrDefault(p => p.Name.Equals(propertyName));
+            var name = _parameterNames.FirstOrDefault(p => p.Name.ToUpper().Equals(propertyName.ToUpper()));
             var n = (string)name.GetValue(null);
             return n;
         }
@@ -166,11 +165,6 @@ namespace IssuerOfClaims.Models.Request
         {
             if (string.IsNullOrEmpty(requestQuery))
                 throw new CustomException(ExceptionMessage.QUERYSTRING_NOT_NULL_OR_EMPTY, HttpStatusCode.BadRequest);
-        }
-
-        private static string[] QueryStringToArray(string? queryString)
-        {
-            return queryString.Remove(0, 1).Split("&");
         }
     }
 

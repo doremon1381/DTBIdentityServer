@@ -15,6 +15,7 @@ using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using static ServerUltilities.Identity.OidcConstants;
+using AuthenticationSchemes = ServerUltilities.Identity.OidcConstants.AuthenticationSchemes;
 
 namespace IssuerOfClaims.Services.Authentication
 {
@@ -110,20 +111,44 @@ namespace IssuerOfClaims.Services.Authentication
         private async Task<UserIdentity> GetUserUsingAuthenticationSchemeAsync(string authenticateInfor)
         {
             ValidateAuthenticationInfo(authenticateInfor);
-            // authentication with "Basic access" - username + password
-            if (authenticateInfor.StartsWith(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC))
-                return await BasicAccess_FindUserAsync(authenticateInfor);
-            // authentication with Bearer" token - access token or id token, for now, I'm trying to implement
-            //     , https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
-            else if (authenticateInfor.StartsWith(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BEARER))
-                return await BearerToken_FindUserAsync(authenticateInfor);
+
+            return FindSchemeForAuthentication(authenticateInfor) switch
+            {
+                // authentication with "Basic access" - username + password
+                AuthenticationSchemes.AuthorizationHeaderBasic => await BasicAccess_FindUserAsync(authenticateInfor),
+                // authentication with Bearer" token - access token or id token, for now, I'm trying to implement
+                //     , https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
+                AuthenticationSchemes.AuthorizationHeaderBearer => await BearerToken_FindUserAsync(authenticateInfor),
+                _ => throw new InvalidOperationException(ExceptionMessage.UNHANDLED_AUTHENTICATION_SCHEME)
+            };
+        }
+
+        private static string FindSchemeForAuthentication(string authenticateInfor)
+        {
+            string scheme = authenticateInfor.Split(" ").FirstOrDefault().ToUpper();
+
+            if (scheme.Equals(AuthenticationSchemes.AuthorizationHeaderBasic.ToUpper()))
+            {
+                return AuthenticationSchemes.AuthorizationHeaderBasic;
+            }
+            else if (scheme.Equals(AuthenticationSchemes.AuthorizationHeaderBearer.ToUpper()))
+            {
+                return AuthenticationSchemes.AuthorizationHeaderBearer;
+            }
             else
-                throw new InvalidOperationException(ExceptionMessage.UNHANDLED_AUTHENTICATION_SCHEME);
+            {
+                throw new CustomException(ExceptionMessage.AUTHENTICATION_SCHEME_NOT_SUPPORT);
+            }
+        }
+
+        private static string GetUpper(string input)
+        {
+            return input.ToUpper();
         }
 
         private async Task<UserIdentity> BearerToken_FindUserAsync(string authenticateInfor)
         {
-            var accessToken = authenticateInfor.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BEARER, "").Trim();
+            var accessToken = authenticateInfor.Split(" ").Last().Trim();
             var tokenResponse = await _tokenResponsePerHandlerDbServices.FindByAccessTokenASync(accessToken);
 
             return tokenResponse.IdentityRequestHandler.User;
@@ -131,7 +156,7 @@ namespace IssuerOfClaims.Services.Authentication
 
         private async Task<UserIdentity> BasicAccess_FindUserAsync(string authenticateInfor)
         {
-            var userNamePassword = authenticateInfor.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim().ToBase64Decode();
+            var userNamePassword = authenticateInfor.Split(" ").Last().Trim().ToBase64Decode();
 
             return await FindUserAsync(userNamePassword);
         }
@@ -146,22 +171,24 @@ namespace IssuerOfClaims.Services.Authentication
 
         private static void ValidateAuthenticationInfo(string authenticateInfor)
         {
-            if (string.IsNullOrEmpty(authenticateInfor))
-                throw new CustomException(ExceptionMessage.REQUEST_HEADER_MISSING_IDENTITY_INFO, HttpStatusCode.Unauthorized);
+            var scheme = authenticateInfor.Split(" ").First();
+            if (string.IsNullOrEmpty(scheme))
+                throw new CustomException(ExceptionMessage.REQUEST_HEADER_MISSING_IDENTITY_INFO);
+            //if (scheme.ToUpper().Length)
         }
 
         private void VefifyUser(UserIdentity user, string password)
         {
             if (user == null)
-                throw new CustomException(ExceptionMessage.USER_NULL, HttpStatusCode.NotFound);
+                throw new CustomException(ExceptionMessage.USER_NULL);
 
             if (string.IsNullOrEmpty(user.PasswordHash))
-                throw new CustomException(ExceptionMessage.PASSWORD_NOT_SET, HttpStatusCode.NotFound);
+                throw new CustomException(ExceptionMessage.PASSWORD_NOT_SET);
 
             var valid = _userManager.Current.PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
 
             if (valid == PasswordVerificationResult.Failed)
-                throw new CustomException(ExceptionMessage.WRONG_PASSWORD, HttpStatusCode.BadRequest);
+                throw new CustomException(ExceptionMessage.WRONG_PASSWORD);
         }
 
         private AuthenticationTicket IssueAuthenticationTicket(ClaimsPrincipal claimPrincipal)
@@ -223,7 +250,7 @@ namespace IssuerOfClaims.Services.Authentication
                 claims.Add(new Claim(ClaimTypes.Role, p.Role.RoleCode));
             });
 
-            var principal = new ClaimsPrincipal(new[] { new ClaimsIdentity(claims, IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, user.UserName, ClaimTypes.Role) });
+            var principal = new ClaimsPrincipal(new[] { new ClaimsIdentity(claims, OidcConstants.AuthenticationSchemes.AuthorizationHeaderBasic, user.UserName, ClaimTypes.Role) });
 
             return principal;
         }

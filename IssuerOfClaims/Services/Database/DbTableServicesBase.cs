@@ -15,7 +15,7 @@ namespace IssuerOfClaims.Services.Database
             var builder = new ConfigurationBuilder()
                 .SetBasePath(Environment.CurrentDirectory)
                 .AddJsonFile($"appsettings.json").Build();
-            _ConnectionString = builder.GetConnectionString(DbUtilities.DatabaseName);
+            _ConnectionString = builder.GetConnectionString(DbUtilities.DatabasePath);
         }
 
         public static DbContextManager CreateDbContext()

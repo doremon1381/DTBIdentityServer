@@ -11,6 +11,8 @@ using IssuerOfClaims.Extensions;
 using System.Text;
 using System.Net;
 using IssuerOfClaims.Models;
+using IssuerOfClaims.Models.Request;
+using Google.Apis.Auth;
 
 namespace IssuerOfClaims.Services.Token
 {
@@ -21,8 +23,8 @@ namespace IssuerOfClaims.Services.Token
     {
         private readonly ITokenResponseDbServices _tokenResponseDbServices;
         private readonly ITokenForRequestHandlerDbServices _tokensPerIdentityRequestDbServices;
-        private readonly IIdentityRequestSessionDbServices _identityRequestSessionDbServices;
-        private readonly IIdentityRequestHandlerDbServices _tokenRequestHandlerDbServices;
+        private readonly IIdentityRequestSessionDbServices _requestSessionDbServices;
+        private readonly IIdentityRequestHandlerDbServices _requestHandlerDbServices;
         private readonly GoogleClientConfiguration _googleClientConfiguration;
 
         public TokenManager(ITokenResponseDbServices tokenResponseDbServices
@@ -32,9 +34,9 @@ namespace IssuerOfClaims.Services.Token
         {
             _tokenResponseDbServices = tokenResponseDbServices;
             _tokensPerIdentityRequestDbServices = tokenResponsePerHandlerDbServices;
-            _identityRequestSessionDbServices = tokenRequestSessionDbServices;
+            _requestSessionDbServices = tokenRequestSessionDbServices;
 
-            _tokenRequestHandlerDbServices = tokenRequestHandlerDbServices;
+            _requestHandlerDbServices = tokenRequestHandlerDbServices;
 
             _googleClientConfiguration = googleClientSettings;
         }
@@ -55,7 +57,7 @@ namespace IssuerOfClaims.Services.Token
             else
             {
                 var lastestRefreshTokenBeUsed = refreshToken.TokensPerIdentityRequests.Last();
-                var tokenRequestHandler = await _tokenRequestHandlerDbServices.FindByIdAsync(lastestRefreshTokenBeUsed.IdentityRequestHandlerId);
+                var tokenRequestHandler = await _requestHandlerDbServices.FindByIdAsync(lastestRefreshTokenBeUsed.IdentityRequestHandlerId);
 
                 // create new id token, remove the old, add the new into previous authenticate session
                 // create new access token if it's expired, if access token is created new, remove the old, add the new one into previous authenticate session
@@ -63,10 +65,10 @@ namespace IssuerOfClaims.Services.Token
 
                 var accessToken = RefreshAccessToken_IssuseToken(tokenRequestHandler, tokenRequestHandler.TokensPerRequestHandlers.First(t => t.TokenResponse.TokenType.Equals(OidcConstants.TokenTypes.AccessToken)));
 
-                var idToken = await RefreshAccessToken_IssuseIdToken(tokenRequestHandler);
-                    //tokenRequestHandler.TokensPerRequestHandlers.First(t => t.TokenResponse.TokenType.Equals(OidcConstants.TokenTypes.IdentityToken)));
+                var idToken = await GenerateIdTokenAsync(tokenRequestHandler.User, tokenRequestHandler.RequestSession.Scope, ""
+                    , tokenRequestHandler.Client.ClientId, tokenRequestHandler.SuccessAt.Value.ToString());
 
-                responseBody = await Utilities.CreateTokenResponseStringAsync(accessToken.Token, idToken, accessToken.TokenExpiried);
+                responseBody = await ResponseUtilities.CreateTokenResponseStringAsync(accessToken.Token, idToken, accessToken.TokenExpiried);
             }
 
             return responseBody;
@@ -78,30 +80,6 @@ namespace IssuerOfClaims.Services.Token
                 throw new CustomException(ExceptionMessage.REFRESH_TOKEN_EXPIRED, HttpStatusCode.Unauthorized);
 
             return true;
-        }
-
-        /// <summary>
-        /// TODO: for now
-        /// </summary>
-        /// <param name="currentRequestHandler"></param>
-        /// <returns></returns>
-        private async Task<string> RefreshAccessToken_IssuseIdToken(IdentityRequestHandler currentRequestHandler)
-            //, TokenForRequestHandler tokenResponsePerIdentityRequest)
-        {
-            //TokenResponse idToken = CreateToken(OidcConstants.TokenTypes.IdentityToken);
-            var idTokenValue = await GenerateIdTokenAsync(currentRequestHandler.User, currentRequestHandler.RequestSession.Scope, ""
-                , currentRequestHandler.Client.ClientId, currentRequestHandler.SuccessAt.Value.ToString());
-
-            //idToken.Token = idTokenValue;
-
-            //_tokenResponseDbServices.Update(idToken);
-            // TODO: will check again
-            //_tokenResponseDbServices.Delete(tokenResponsePerIdentityRequest.TokenResponse);
-
-            // TODO: not save idtoken for now, will think about it later
-            //CreateTokenResponsePerIdentityRequest(currentRequestHandler, idToken);
-
-            return idTokenValue;
         }
 
         private TokenResponse RefreshAccessToken_IssuseToken(IdentityRequestHandler tokenRequestHandler, TokenForRequestHandler tokenResponsePerIdentityRequest)
@@ -123,9 +101,9 @@ namespace IssuerOfClaims.Services.Token
         #endregion
 
         #region issue token for authorization request
-        public async Task<string> ACF_IssueToken(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId)
+        public async Task<string> ACF_II_GetResponseAsync(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId)
         {
-            var currentRequestHandler = await _tokenRequestHandlerDbServices.FindByIdAsync(currentRequestHandlerId);
+            var currentRequestHandler = await _requestHandlerDbServices.FindByIdAsync(currentRequestHandlerId);
 
             // TODO: use this temporary
             //TokenResponse idToken = await ACF_CreateIdToken(currentRequestHandler, clientId);
@@ -228,18 +206,22 @@ namespace IssuerOfClaims.Services.Token
 
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
             // TODO: at this step, if accessToken is null, then something is wrong!
-            var responseBody = await Utilities.CreateTokenResponseStringAsync(accessToken.Token, idToken, accessToken.TokenExpiried, refreshToken == null ? "" : refreshToken.Token);
+            var responseBody = await ResponseUtilities.CreateTokenResponseStringAsync(accessToken.Token, idToken, accessToken.TokenExpiried, refreshToken == null ? "" : refreshToken.Token);
 #pragma warning restore CS8602 // Dereference of a possibly null reference.
 
+            await Task.Factory.StartNew(() => ACF_II_BackgroundStuff(currentRequestHandler, refreshToken, accessToken), TaskCreationOptions.AttachedToParent);
+
+            return responseBody;
+        }
+
+        private void ACF_II_BackgroundStuff(IdentityRequestHandler currentRequestHandler, TokenResponse refreshToken, TokenResponse accessToken)
+        {
             CreateTokenResponsePerIdentityRequest(currentRequestHandler, accessToken);
             CreateTokenResponsePerIdentityRequest(currentRequestHandler, refreshToken);
             // TODO: will think about how to handle idtoken, create one for user, update when information of user is changed or sth else
             //CreateTokenResponsePerIdentityRequest(currentRequestHandler, idToken);
 
-            currentRequestHandler.RequestSession.IsInLoginSession = false;
-            _identityRequestSessionDbServices.Update(currentRequestHandler.RequestSession);
-
-            return responseBody;
+            SuccessfulRequestHandle(currentRequestHandler);
         }
 
         // TODO: https://openid.net/specs/openid-connect-core-1_0.html#TokenResponse
@@ -296,17 +278,6 @@ namespace IssuerOfClaims.Services.Token
             _tokenResponseDbServices.Update(tokenResponse);
 
             return tokenResponse;
-        }
-        #endregion
-
-        #region sharing functions
-        private void CreateTokenResponsePerIdentityRequest(IdentityRequestHandler currentRequestHandler, TokenResponse tokenResponse)
-        {
-            TokenForRequestHandler tokensPerIdentityRequest = _tokensPerIdentityRequestDbServices.GetDraftObject();
-            tokensPerIdentityRequest.TokenResponse = tokenResponse;
-            tokensPerIdentityRequest.IdentityRequestHandler = currentRequestHandler;
-
-            _tokensPerIdentityRequestDbServices.Update(tokensPerIdentityRequest);
         }
         #endregion
 
@@ -573,7 +544,34 @@ namespace IssuerOfClaims.Services.Token
         }
         #endregion
 
-        #region Google save token to database
+        #region AuthGoogle, handle Google authentication
+        public async Task<string> AuthGoogle_CreateResponseAsync(SignInGoogleParameters parameters, Client client,
+            GoogleResponse googleResponse,
+            GoogleJsonWebSignature.Payload payload, UserIdentity user)
+        {
+            var response = await ResponseUtilities.CreateTokenResponseStringAsync(googleResponse.AccessToken, googleResponse.IdToken,
+                Utilities.Google_TimeSecondsToDateTime(payload.ExpirationTimeSeconds.Value),
+                ExternalSources.Google,
+                string.IsNullOrEmpty(googleResponse.RefreshToken) ? "" : googleResponse.RefreshToken);
+
+            await Task.Factory.StartNew(() =>
+            {
+                // TODO: associate google info with current user identity inside database, using email to do it
+                //     : priority information inside database, import missing info from google
+                var requestHandler = AuthGoogle_ImportRequestHandlerData(parameters.CodeVerifier.Value, googleResponse.RefreshToken, client, user);
+
+                // at this step, token request session is used for storing data
+                SaveTokenFromExternalSource(googleResponse.AccessToken, googleResponse.RefreshToken, googleResponse.IdToken,
+                    payload.IssuedAtTimeSeconds.Value, payload.ExpirationTimeSeconds.Value, googleResponse.AccessTokenIssueAt,
+                    googleResponse.AccessTokenIssueAt.AddSeconds(googleResponse.ExpiredIn),
+                    requestHandler, ExternalSources.Google);
+                SuccessfulRequestHandle(requestHandler);
+
+            }, TaskCreationOptions.AttachedToParent);
+
+            return response;
+        }
+
         public bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken,
             long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt, DateTime accessTokenExpiredIn
             , IdentityRequestHandler requestHandler, string externalSource)
@@ -592,6 +590,28 @@ namespace IssuerOfClaims.Services.Token
             CreateTokenResponsePerIdentityRequest(requestHandler, _idToken);
 
             return true;
+        }
+
+        private IdentityRequestHandler AuthGoogle_ImportRequestHandlerData(string codeVerifier, string refreshToken, Client client, UserIdentity user)
+        {
+            var requestHandler = GetDraftRequestHandler();
+            requestHandler.User = user;
+            requestHandler.Client = client;
+
+            UpdateRequestHandler(requestHandler);
+
+            GoogleAuth_CreateRequestSession(codeVerifier, refreshToken, requestHandler);
+
+            return requestHandler;
+        }
+
+        private void GoogleAuth_CreateRequestSession(string codeVerifier, string refreshToken, IdentityRequestHandler requestHandler)
+        {
+            var session = CreateRequestSession(requestHandler.Id);
+            session.CodeVerifier = codeVerifier;
+            session.IsOfflineAccess = string.IsNullOrEmpty(refreshToken) ? false : true;
+
+            UpdateRequestSession(session);
         }
 
         private TokenResponse SaveExternalSourceToken(string tokenValue, DateTime? issueAt, DateTime? expiredTime, string externalSource, string tokenType)
@@ -655,43 +675,154 @@ namespace IssuerOfClaims.Services.Token
         #endregion
 
         #region issuse token for implicit grant's response
-        public async Task<string> IGF_IssueTokenAsync(string state, IdentityRequestHandler requestHandler)
+        public async Task<string> IGF_GetResponseAsync(UserIdentity user, AuthCodeParameters parameters, Client client)
         {
-            var accessToken = await Task.Run(() => CreateToken(OidcConstants.TokenTypes.AccessToken));
-            CreateTokenResponsePerIdentityRequest(requestHandler, accessToken);
+            var accessToken = await Task.Factory.StartNew(() => CreateToken(OidcConstants.TokenTypes.AccessToken), TaskCreationOptions.AttachedToParent);
 
-            return accessToken.Token;
+            // TODO: scope is used for getting claims to send to client,
+            //     : for example, if scope is missing email, then in id_token which will be sent to client will not contain email's information 
+            var idToken = await GenerateIdTokenAsync(user, parameters.Scope.Value, parameters.Nonce.Value, client.ClientId);
+
+            int secondsForTokenExpired = 3600;
+            // Check response mode to know what kind of response is going to be used
+            // return a form_post, url fragment or body of response
+            string response = await ResponseUtilities.IGF_CreateResponse(parameters, idToken, accessToken.Token, secondsForTokenExpired);
+
+            await Task.Factory.StartNew(() => IGF_BackgroundStuff(user, client, accessToken), TaskCreationOptions.AttachedToParent);
+
+            return response;
+        }
+
+        private void IGF_BackgroundStuff(UserIdentity user, Client client, TokenResponse accessToken)
+        {
+            // TODO: update must follow order, I will explain late
+            var requestSession = IGF_GetDraftRequestSession(client.AllowedScopes);
+            var requestHandler = IGF_CreateTokenRequestHandler(user, client, requestSession);
+
+            CreateTokenResponsePerIdentityRequest(requestHandler, accessToken);
+            SuccessfulRequestHandle(requestHandler);
+        }
+
+        private IdentityRequestHandler IGF_CreateTokenRequestHandler(UserIdentity user, Client client, IdentityRequestSession requestSession)
+        {
+            var requestHandler = GetDraftRequestHandler();
+            requestHandler.User = user;
+            requestHandler.Client = client;
+            requestHandler.RequestSession = requestSession;
+
+            UpdateRequestHandler(requestHandler);
+
+            return requestHandler;
+        }
+
+        // TODO: will test again
+        private IdentityRequestSession IGF_GetDraftRequestSession(string allowedScopes)
+        {
+            var tokenRequestSession = GetDraftRequestSession();
+
+            tokenRequestSession.Scope = allowedScopes;
+            tokenRequestSession.IsOfflineAccess = false;
+
+            return tokenRequestSession;
+        }
+        #endregion
+
+        #region create request handler for authorization code 
+        public async Task ACF_I_CreateRequestHandler(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode)
+        {
+            var acfProcessSession = GetDraftRequestSession();
+
+            ACF_I_SaveSessionDetails(@params, acfProcessSession, authorizationCode);
+            ACF_I_CreateIdentityRequestHandler(user, client, acfProcessSession);
+        }
+
+        /// <summary>
+        /// TODO: will fix some error when adding transient or scopped dbcontext
+        /// </summary>
+        /// <param name="user"></param>
+        /// <param name="ACFProcessSession"></param>
+        private void ACF_I_CreateIdentityRequestHandler(UserIdentity user, Client client, IdentityRequestSession draftRequestSession)
+        {
+            var requestHandler = GetDraftRequestHandler();
+            requestHandler.User = user;
+            // TODO: will check again
+            requestHandler.Client = client;
+            requestHandler.RequestSession = draftRequestSession;
+
+            // TODO: will check again
+            UpdateRequestHandler(requestHandler);
+        }
+
+        private void ACF_I_SaveSessionDetails(AuthCodeParameters parameters, IdentityRequestSession ACFProcessSession, string authorizationCode)
+        {
+            ACF_I_AddPKCEFromRequest(parameters.CodeChallenge.Value, parameters.CodeChallengeMethod.Value, parameters.CodeChallenge.HasValue, ACFProcessSession);
+            ACF_I_AddOtherSessionData(parameters.Scope.Value, parameters.Nonce.Value, ACFProcessSession, parameters.RedirectUri.Value, authorizationCode);
+        }
+
+        private static void ACF_I_AddOtherSessionData(string scope, string nonce, IdentityRequestSession tokenRequestSession, string redirectUri, string authorizationCode)
+        {
+            tokenRequestSession.AuthorizationCode = authorizationCode;
+            tokenRequestSession.Nonce = nonce;
+            tokenRequestSession.RedirectUri = redirectUri;
+            tokenRequestSession.Scope = scope;
+            tokenRequestSession.IsOfflineAccess = scope.Contains(OidcConstants.StandardScopes.OfflineAccess);
+        }
+
+        private static void ACF_I_AddPKCEFromRequest(string codeChallenge, string codeChallengeMethod, bool codeChallenge_HasValue, IdentityRequestSession tokenRequestSession)
+        {
+            if (codeChallenge_HasValue)
+            {
+                tokenRequestSession.CodeChallenge = codeChallenge;
+                tokenRequestSession.CodeChallengeMethod = codeChallengeMethod;
+            }
+        }
+        #endregion
+
+        #region sharing functions
+        private void CreateTokenResponsePerIdentityRequest(IdentityRequestHandler currentRequestHandler, TokenResponse tokenResponse)
+        {
+            TokenForRequestHandler tokensPerIdentityRequest = _tokensPerIdentityRequestDbServices.GetDraftObject();
+            tokensPerIdentityRequest.TokenResponse = tokenResponse;
+            tokensPerIdentityRequest.IdentityRequestHandler = currentRequestHandler;
+
+            _tokensPerIdentityRequestDbServices.Update(tokensPerIdentityRequest);
+        }
+
+        private void SuccessfulRequestHandle(IdentityRequestHandler requestHandler)
+        {
+            requestHandler.SuccessAt = DateTime.UtcNow;
+            UpdateRequestHandler(requestHandler);
         }
         #endregion
 
         public IdentityRequestSession CreateRequestSession(Guid requestHandlerId)
         {
-            return _identityRequestSessionDbServices.CreateTokenRequestSession(requestHandlerId);
+            return _requestSessionDbServices.CreateTokenRequestSession(requestHandlerId);
         }
 
         public IdentityRequestHandler GetDraftRequestHandler()
         {
-            return _tokenRequestHandlerDbServices.GetDraftObject();
+            return _requestHandlerDbServices.GetDraftObject();
         }
 
         public bool UpdateRequestHandler(IdentityRequestHandler tokenRequestHandler)
         {
-            return _tokenRequestHandlerDbServices.Update(tokenRequestHandler);
+            return _requestHandlerDbServices.Update(tokenRequestHandler);
         }
 
         public bool UpdateRequestSession(IdentityRequestSession tokenRequestSession)
         {
-            return _identityRequestSessionDbServices.Update(tokenRequestSession);
+            return _requestSessionDbServices.Update(tokenRequestSession);
         }
 
         public async Task<IdentityRequestHandler> FindRequestHandlerByAuthorizationCodeASync(string authCode)
         {
-            return await _tokenRequestHandlerDbServices.FindByAuthorizationCodeAsync(authCode);
+            return await _requestHandlerDbServices.FindByAuthorizationCodeAsync(authCode);
         }
 
         public async Task<IdentityRequestSession> FindRequestSessionByIdAsync(int id)
         {
-            return await _identityRequestSessionDbServices.FindByIdAsync(id);
+            return await _requestSessionDbServices.FindByIdAsync(id);
         }
 
         private async Task<TokenResponse> FindRefreshTokenAsync(string refreshToken)
@@ -704,28 +835,32 @@ namespace IssuerOfClaims.Services.Token
             return ReadJsonKey(); // Public key
         }
 
-        public IdentityRequestSession GetDraftRequestSession()
+        private IdentityRequestSession GetDraftRequestSession()
         {
-            return _identityRequestSessionDbServices.GetDraft();
+            return _requestSessionDbServices.GetDraft();
         }
     }
 
     public interface ITokenManager
     {
-        Task<string> ACF_IssueToken(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId);
-        bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken, long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt, DateTime accessTokenExpiredIn, IdentityRequestHandler requestHandler, string externalSource);
+        Task<string> ACF_II_GetResponseAsync(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId);
+        Task ACF_I_CreateRequestHandler(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode);
+        Task<string> IGF_GetResponseAsync(UserIdentity user, AuthCodeParameters parameters, Client client);
         Task<string> IssueTokenByRefreshToken(string incomingRefreshToken);
         Task<string> GenerateIdTokenAsync(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "");
-        IdentityRequestSession GetDraftRequestSession();
-        IdentityRequestSession CreateRequestSession(Guid requestHandlerId);
-        IdentityRequestHandler GetDraftRequestHandler();
-        bool UpdateRequestHandler(IdentityRequestHandler tokenRequestHandler);
-        bool UpdateRequestSession(IdentityRequestSession aCFProcessSession);
+        //bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken, long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt, DateTime accessTokenExpiredIn, IdentityRequestHandler requestHandler, string externalSource);
+        //IdentityRequestSession GetDraftRequestSession();
+        //IdentityRequestSession CreateRequestSession(Guid requestHandlerId);
+        //IdentityRequestHandler GetDraftRequestHandler();
+        //bool UpdateRequestHandler(IdentityRequestHandler tokenRequestHandler);
+        //bool UpdateRequestSession(IdentityRequestSession aCFProcessSession);
+        //Task<TokenResponse> FindRefreshTokenAsync(string refreshToken);
+        //Task<string> RefreshAccessTokenFromExternalSourceAsync(string refreshToken, string externalSource);
         Task<IdentityRequestHandler> FindRequestHandlerByAuthorizationCodeASync(string authCode);
         Task<IdentityRequestSession> FindRequestSessionByIdAsync(int id);
-        //Task<TokenResponse> FindRefreshTokenAsync(string refreshToken);
+        Task<string> AuthGoogle_CreateResponseAsync(SignInGoogleParameters parameters, Client client,
+            GoogleResponse fromGoogle,
+            GoogleJsonWebSignature.Payload payload, UserIdentity user);
         RSAParameters GetPublicKeyJson();
-        //Task<string> RefreshAccessTokenFromExternalSourceAsync(string refreshToken, string externalSource);
-        Task<string> IGF_IssueTokenAsync(string state, IdentityRequestHandler requestHandler);
     }
 }

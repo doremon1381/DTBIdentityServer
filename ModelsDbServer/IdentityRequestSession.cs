@@ -50,11 +50,6 @@ namespace ServerDbModels
         /// For sending token to client
         /// </summary>
         public string TokenType { get; set; } = TokenValidationPrinciples.Bearer;
-        /// <summary>
-        /// TODO: when it was created, it will be the time when loginSession is initiated
-        ///     : when everything is done, in token endpoint, set it to false, the loginSession is closed
-        /// </summary>
-        public bool IsInLoginSession { get; set; } = true;
 
         public bool IsOfflineAccess { get; set; } = false;
 

@@ -31,10 +31,13 @@
         public const string REFRESH_TOKEN_EXPIRED = "Refresh token is expired!";
         public const string RESPONSE_MODE_NOT_ALLOWED = "Response mode is not allowed!";
         public const string EMAIL_IS_MISSING = "email is missing!";
+        public const string EMAIL_IS_WRONG = "email is wrong pattern!";
         public const string EMAIL_IS_EXPIRED = "email is expired!";
         public const string NOT_IMPLEMENTED = "Not implemented!";
         public const string WRONG_IMPLEMENTED = "Not implemented!";
         public const string WRONG_PASSWORD = "Wrong password!";
+        public const string CONFIRM_EMAIL_SEEM_WRONG = "something inside this process is wrong!";
+        public const string CONFIRM_EMAIL_EXPIRED = "error with email's expired time!";
         public const string MISSING_GOOGLE_CLIENT_DETAILS = "Details of google's client is mismatch!";
         public const string MISSING_WEB_SIGIN_DETAILS = "Details of WebSignin's settings is mismatch!";
         public const string UNKNOW_ERROR = "Not yet know error!";
@@ -42,6 +45,8 @@
         public const string PROMPT_VALUE_NOT_VALID = "Prompt's value is not valid!";
         public const string PROMPT_CONSENT_VALUE_NOT_VALID = "Value of prompt's consent is not valid!";
         public const string EMAIL_CONFIRM_CODE_NOT_MATCH = "Confirm code is not match!";
+        public const string NONCE_MUST_HAVE_VALUE_WITH_IMPLICIT_GRANT_FLOW = "In implicit grant flow, nonce must have value inside request query!";
+        public const string AUTHENTICATION_SCHEME_NOT_SUPPORT = "Authentication scheme is not supported!";
 
         public const string CODECHALLENGE_CODECHALLENGEMETHOD_NOT_HAVE_VALUE_SIMUTANEOUSLY = "Code challenge does not have value simutaneosly with code challenge method or vice versa!";
         public const string CODE_CHALLENGE_METHOD_NOT_SUPPORT = "Code challenge method does not supported!";

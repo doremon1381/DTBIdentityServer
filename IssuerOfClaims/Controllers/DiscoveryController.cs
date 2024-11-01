@@ -109,7 +109,10 @@ namespace IssuerOfClaims.Controllers
         /// <param name="discovery"></param>
         private void AddTokenEndpointAuthenticationMethodsSupported(Dictionary<string, object> discovery)
         {
-            discovery.Add(Discovery.TokenEndpointAuthenticationMethodsSupported, new[] { EndpointAuthenticationMethods.BasicAuthentication, EndpointAuthenticationMethods.PostBody });
+            discovery.Add(Discovery.TokenEndpointAuthenticationMethodsSupported, new[] {
+                EndpointAuthenticationMethods.BasicAuthentication,
+                EndpointAuthenticationMethods.PostBody
+            });
         }
 
         private void AddIdTokenEncryptionEncValuesSupported(Dictionary<string, object> discovery)

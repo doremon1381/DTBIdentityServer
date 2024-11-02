@@ -60,4 +60,10 @@
     <ProjectReference Include="..\ServerUltilities\ServerUltilities.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Img\himeko.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

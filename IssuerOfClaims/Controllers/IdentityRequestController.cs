@@ -229,9 +229,8 @@ namespace IssuerOfClaims.Controllers
             string response = await ACF_I_CreateResponseBody(@params, authorizationCode);
 
             // TODO: will check again
-            //await ACF_I_SendResponseAsync(@params, authorizationCode, uriAndMessage);
-            await _tokenManager.ACF_I_CreateRequestHandler(@params, user, client, authorizationCode);
-            
+            await _tokenManager.ACF_I_BackgroundStuff(@params, user, client, authorizationCode);
+
             await ACF_I_SendRedirectResponse(@params, response);
 
             return new EmptyResult();
@@ -261,7 +260,7 @@ namespace IssuerOfClaims.Controllers
             var obj = await _applicationUserManager.Current.GetUserAsync(HttpContext.User);
 
             if (obj == null)
-                throw new InvalidDataException(ExceptionMessage.USER_NULL);
+                throw new CustomException(ExceptionMessage.USER_NULL);
 
             return obj;
         }
@@ -272,7 +271,7 @@ namespace IssuerOfClaims.Controllers
             foreach (var s in variables)
             {
                 if (!client.AllowedScopes.Contains(s))
-                    throw new InvalidDataException(ExceptionMessage.SCOPES_NOT_ALLOWED);
+                    throw new CustomException(ExceptionMessage.SCOPES_NOT_ALLOWED, HttpStatusCode.BadRequest);
             }
             return true;
         }

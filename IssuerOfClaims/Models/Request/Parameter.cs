@@ -48,18 +48,18 @@ namespace IssuerOfClaims.Models.Request
         {
             Priority = requestType switch
             {
-                RequestPurpose.AuthorizationCode => ParameterUtilities.AuthCodeParameterPriority[Name],
-                RequestPurpose.Register => ParameterUtilities.RegisterParamterPriority[Name],
-                RequestPurpose.SignInGoogle => ParameterUtilities.SignInGoogleParamterPriority[Name],
-                RequestPurpose.Token => ParameterUtilities.AuthCodeTokenParamterPriority[Name],
-                RequestPurpose.OfflineAccess => ParameterUtilities.OfflineAccessTokenParamterPriority[Name],
-                RequestPurpose.ChangePassword => ParameterUtilities.ChangePasswordParamterPriority[Name],
+                RequestPurpose.AuthorizationCode => ParameterExtensions.AuthCodeParameterPriority[Name],
+                RequestPurpose.Register => ParameterExtensions.RegisterParamterPriority[Name],
+                RequestPurpose.SignInGoogle => ParameterExtensions.SignInGoogleParamterPriority[Name],
+                RequestPurpose.Token => ParameterExtensions.AuthCodeTokenParamterPriority[Name],
+                RequestPurpose.OfflineAccess => ParameterExtensions.OfflineAccessTokenParamterPriority[Name],
+                RequestPurpose.ChangePassword => ParameterExtensions.ChangePasswordParamterPriority[Name],
                 _ => throw new InvalidDataException($"{Name} : Parameter priority is not set!")
             };
         }
     }
 
-    internal static class ParameterUtilities
+    internal static class ParameterExtensions
     {
         // TODO: https://www.rhyous.com/2010/06/15/csharp-email-regular-expression/
         //     : will learn regex later

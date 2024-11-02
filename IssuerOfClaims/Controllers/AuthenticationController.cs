@@ -216,7 +216,7 @@ namespace IssuerOfClaims.Controllers
             var queryString = HttpContext.Request.QueryString.Value;
             if (queryString == null)
                 return StatusCode((int)HttpStatusCode.BadRequest, ExceptionMessage.QUERYSTRING_NOT_NULL_OR_EMPTY);
-            var queryBody = queryString.Remove(0, 1).Split("&");
+            var queryBody = queryString.RemoveQueryOrFragmentSymbol().Split("&");
 
             string clientId = queryBody.GetFromQueryString(JwtClaimTypes.ClientId);
             if (string.IsNullOrEmpty(clientId))

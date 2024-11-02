@@ -14,7 +14,7 @@ namespace IssuerOfClaims.Models.Request
         protected readonly RequestParameterValues requestQuery;
 
         private static readonly Type _currentType = typeof(T);
-        private static readonly RequestPurpose _requestPurpose = ParameterUtilities.ParametersForRequest[_currentType];
+        private static readonly RequestPurpose _requestPurpose = ParameterExtensions.ParametersForRequest[_currentType];
 
         private static readonly Type _registerRequestType = typeof(RegisterRequest);
         private static readonly Type _authorizeRequestType = typeof(AuthorizeRequest);
@@ -115,7 +115,7 @@ namespace IssuerOfClaims.Models.Request
             string value = requestQuery.GetValue(parameterName);
             var parameter = new Parameter(parameterName, _requestPurpose);
 
-            if (ParameterUtilities.SpecificMethodForInitiatingParameter.TryGetValue(parameterName, out Func<string, string, string> execute))
+            if (ParameterExtensions.SpecificMethodForInitiatingParameter.TryGetValue(parameterName, out Func<string, string, string> execute))
             {
                 if (parameterName.Equals(AuthorizeRequest.ResponseMode))
                 {

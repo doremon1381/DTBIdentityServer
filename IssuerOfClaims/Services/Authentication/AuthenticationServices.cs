@@ -46,6 +46,7 @@ namespace IssuerOfClaims.Services.Authentication
                         return AuthenticateResult.NoResult();
 
                 // TODO: need to change from get user by auth code to verify authcode and get user from username or password
+                //     : need to verify client identity before authentication, will be done later
                 UserIdentity user = await GetUserUsingAuthenticationSchemeAsync(Request.Headers.Authorization.ToString());
 
                 ClaimsPrincipal claimsPrincipal = await CreateClaimPrincipal(user);

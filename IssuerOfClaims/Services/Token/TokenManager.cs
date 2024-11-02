@@ -728,12 +728,15 @@ namespace IssuerOfClaims.Services.Token
         #endregion
 
         #region create request handler for authorization code 
-        public async Task ACF_I_CreateRequestHandler(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode)
+        public async Task ACF_I_BackgroundStuff(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode)
         {
-            var acfProcessSession = GetDraftRequestSession();
+            await Task.Factory.StartNew(() => 
+            {
+                var acfProcessSession = GetDraftRequestSession();
 
-            ACF_I_SaveSessionDetails(@params, acfProcessSession, authorizationCode);
-            ACF_I_CreateIdentityRequestHandler(user, client, acfProcessSession);
+                ACF_I_SaveSessionDetails(@params, acfProcessSession, authorizationCode);
+                ACF_I_CreateIdentityRequestHandler(user, client, acfProcessSession);
+            }, TaskCreationOptions.AttachedToParent);
         }
 
         /// <summary>
@@ -820,7 +823,7 @@ namespace IssuerOfClaims.Services.Token
             return await _requestHandlerDbServices.FindByAuthorizationCodeAsync(authCode);
         }
 
-        public async Task<IdentityRequestSession> FindRequestSessionByIdAsync(int id)
+        private async Task<IdentityRequestSession> FindRequestSessionByIdAsync(int id)
         {
             return await _requestSessionDbServices.FindByIdAsync(id);
         }
@@ -844,20 +847,11 @@ namespace IssuerOfClaims.Services.Token
     public interface ITokenManager
     {
         Task<string> ACF_II_GetResponseAsync(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId);
-        Task ACF_I_CreateRequestHandler(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode);
+        Task ACF_I_BackgroundStuff(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode);
         Task<string> IGF_GetResponseAsync(UserIdentity user, AuthCodeParameters parameters, Client client);
         Task<string> IssueTokenByRefreshToken(string incomingRefreshToken);
         Task<string> GenerateIdTokenAsync(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "");
-        //bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken, long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt, DateTime accessTokenExpiredIn, IdentityRequestHandler requestHandler, string externalSource);
-        //IdentityRequestSession GetDraftRequestSession();
-        //IdentityRequestSession CreateRequestSession(Guid requestHandlerId);
-        //IdentityRequestHandler GetDraftRequestHandler();
-        //bool UpdateRequestHandler(IdentityRequestHandler tokenRequestHandler);
-        //bool UpdateRequestSession(IdentityRequestSession aCFProcessSession);
-        //Task<TokenResponse> FindRefreshTokenAsync(string refreshToken);
-        //Task<string> RefreshAccessTokenFromExternalSourceAsync(string refreshToken, string externalSource);
         Task<IdentityRequestHandler> FindRequestHandlerByAuthorizationCodeASync(string authCode);
-        Task<IdentityRequestSession> FindRequestSessionByIdAsync(int id);
         Task<string> AuthGoogle_CreateResponseAsync(SignInGoogleParameters parameters, Client client,
             GoogleResponse fromGoogle,
             GoogleJsonWebSignature.Payload payload, UserIdentity user);

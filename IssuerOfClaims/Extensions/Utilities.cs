@@ -150,7 +150,7 @@ namespace IssuerOfClaims.Extensions
         }
         #endregion
 
-        #region manipulate appsettings.json
+        #region get information from appsettings.json
         public static GoogleClientConfiguration GetGoogleClientSettings(IConfigurationManager configuration)
         {
             var googleClientConfig = configuration.GetSection(IdentityServerConfiguration.GOOGLE_CLIENT).Get<GoogleClientConfiguration>();

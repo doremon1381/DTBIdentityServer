@@ -1,4 +1,5 @@
 ﻿using IssuerOfClaims.Extensions;
+using Microsoft.AspNetCore.Http;
 using System.Net;
 
 namespace IssuerOfClaims.Models.Request
@@ -16,15 +17,16 @@ namespace IssuerOfClaims.Models.Request
         public RequestParameterValues(string? queryString)
         {
             Validate(queryString);
-            Task.Factory.StartNew(() => InitiateAsync(queryString)).Wait();
+            Task.Factory.StartNew(() => Initiate(queryString), TaskCreationOptions.AttachedToParent).GetAwaiter().GetResult();
         }
 
-        private void InitiateAsync(string queryString)
+        private void Initiate(string queryString)
         {
-            var @params = queryString.Remove(0, 1).Split("&");
+            var @params = queryString.RemoveQueryOrFragmentSymbol().Split("&");
+            var tasks = new List<Task>();
             foreach (var param in @params)
             {
-                Task.Factory.StartNew(async () =>
+                tasks.Add(Task.Factory.StartNew(async () =>
                 {
                     var nameValuePair = param.Split("=");
                     var normalizedName = nameValuePair[0].ToUpper();
@@ -35,8 +37,10 @@ namespace IssuerOfClaims.Models.Request
 
                     _semaphoreSlim.Release();
 
-                }, TaskCreationOptions.AttachedToParent).Wait();
+                }, TaskCreationOptions.AttachedToParent));
             }
+
+            Task.WaitAll(tasks.ToArray());
         }
 
         private bool Validate(string? queryString)

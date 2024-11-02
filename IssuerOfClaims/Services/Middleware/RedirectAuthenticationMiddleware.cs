@@ -25,8 +25,7 @@ namespace IssuerOfClaims.Services.Middleware
                 {
                     // TODO: I still want if there is any exception, parent thread will catch it
                     //     : so I want to wait for a task, not the function inside it, which is run on another thread and know nothing about parent of the task
-                    await Task.Run(() => RedirectToLoginAsync(context.Request.Path.Value, context.Request.Method, context.Request.Query))
-                        .ConfigureAwait(false);
+                    await RedirectToLoginAsync(context.Request.Path.Value, context.Request.Method, context.Request.Query);
 
                     // TODO: will check again
                     context.Response.StatusCode = (int)HttpStatusCode.OK;
@@ -39,10 +38,10 @@ namespace IssuerOfClaims.Services.Middleware
 
         private async Task RedirectToLoginAsync(string path, string method, IQueryCollection queryCollection)
         {
-            var query = await Task.Run(() => CreateRedirectRequestQuery(path, method, queryCollection));
+            var query = await TaskUtilities.RunAttachedToParentTask(() => CreateRedirectRequestQuery(path, method, queryCollection));
 
             // redirect to login 
-            await Task.Run(() => SendRequestAsync(_webSigninSettings.SigninUri, query)).ConfigureAwait(false);
+            await TaskUtilities.RunAttachedToParentTask(() => SendRequestAsync(_webSigninSettings.SigninUri, query));
         }
 
         private static string CreateRedirectRequestQuery(string path, string method, IQueryCollection queryCollection)

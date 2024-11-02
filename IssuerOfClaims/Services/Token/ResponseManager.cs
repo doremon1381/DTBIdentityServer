@@ -19,7 +19,7 @@ namespace IssuerOfClaims.Services.Token
     /// <summary>
     /// Issue id token, refresh token and access token
     /// </summary>
-    public class TokenManager : ITokenManager
+    public class ResponseManager : IResponseManager
     {
         private readonly ITokenResponseDbServices _tokenResponseDbServices;
         private readonly ITokenForRequestHandlerDbServices _tokensPerIdentityRequestDbServices;
@@ -27,7 +27,7 @@ namespace IssuerOfClaims.Services.Token
         private readonly IIdentityRequestHandlerDbServices _requestHandlerDbServices;
         private readonly GoogleClientConfiguration _googleClientConfiguration;
 
-        public TokenManager(ITokenResponseDbServices tokenResponseDbServices
+        public ResponseManager(ITokenResponseDbServices tokenResponseDbServices
             , ITokenForRequestHandlerDbServices tokenResponsePerHandlerDbServices, IIdentityRequestSessionDbServices tokenRequestSessionDbServices
             , IIdentityRequestHandlerDbServices tokenRequestHandlerDbServices
             , GoogleClientConfiguration googleClientSettings)
@@ -101,7 +101,7 @@ namespace IssuerOfClaims.Services.Token
         #endregion
 
         #region issue token for authorization request
-        public async Task<string> ACF_II_GetResponseAsync(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId)
+        public async Task<string> ACF_II_CreateResponseAsync(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId)
         {
             var currentRequestHandler = await _requestHandlerDbServices.FindByIdAsync(currentRequestHandlerId);
 
@@ -209,7 +209,7 @@ namespace IssuerOfClaims.Services.Token
             var responseBody = await ResponseUtilities.CreateTokenResponseStringAsync(accessToken.Token, idToken, accessToken.TokenExpiried, refreshToken == null ? "" : refreshToken.Token);
 #pragma warning restore CS8602 // Dereference of a possibly null reference.
 
-            await Task.Factory.StartNew(() => ACF_II_BackgroundStuff(currentRequestHandler, refreshToken, accessToken), TaskCreationOptions.AttachedToParent);
+            await TaskUtilities.RunAttachedToParentTask(() => ACF_II_BackgroundStuff(currentRequestHandler, refreshToken, accessToken));
 
             return responseBody;
         }
@@ -554,7 +554,7 @@ namespace IssuerOfClaims.Services.Token
                 ExternalSources.Google,
                 string.IsNullOrEmpty(googleResponse.RefreshToken) ? "" : googleResponse.RefreshToken);
 
-            await Task.Factory.StartNew(() =>
+            await TaskUtilities.RunAttachedToParentTask(() =>
             {
                 // TODO: associate google info with current user identity inside database, using email to do it
                 //     : priority information inside database, import missing info from google
@@ -567,7 +567,7 @@ namespace IssuerOfClaims.Services.Token
                     requestHandler, ExternalSources.Google);
                 SuccessfulRequestHandle(requestHandler);
 
-            }, TaskCreationOptions.AttachedToParent);
+            });
 
             return response;
         }
@@ -677,7 +677,7 @@ namespace IssuerOfClaims.Services.Token
         #region issuse token for implicit grant's response
         public async Task<string> IGF_GetResponseAsync(UserIdentity user, AuthCodeParameters parameters, Client client)
         {
-            var accessToken = await Task.Factory.StartNew(() => CreateToken(OidcConstants.TokenTypes.AccessToken), TaskCreationOptions.AttachedToParent);
+            var accessToken = await TaskUtilities.RunAttachedToParentTask(() => CreateToken(OidcConstants.TokenTypes.AccessToken));
 
             // TODO: scope is used for getting claims to send to client,
             //     : for example, if scope is missing email, then in id_token which will be sent to client will not contain email's information 
@@ -688,7 +688,7 @@ namespace IssuerOfClaims.Services.Token
             // return a form_post, url fragment or body of response
             string response = await ResponseUtilities.IGF_CreateResponse(parameters, idToken, accessToken.Token, secondsForTokenExpired);
 
-            await Task.Factory.StartNew(() => IGF_BackgroundStuff(user, client, accessToken), TaskCreationOptions.AttachedToParent);
+            await TaskUtilities.RunAttachedToParentTask(() => IGF_BackgroundStuff(user, client, accessToken));
 
             return response;
         }
@@ -728,15 +728,24 @@ namespace IssuerOfClaims.Services.Token
         #endregion
 
         #region create request handler for authorization code 
-        public async Task ACF_I_BackgroundStuff(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode)
+        public async Task<string> ACF_I_CreateResponseAsync(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode)
         {
-            await Task.Factory.StartNew(() => 
+            var response = await ACF_I_CreateResponseBody(@params, authorizationCode);
+
+            await TaskUtilities.RunAttachedToParentTask(() => 
             {
                 var acfProcessSession = GetDraftRequestSession();
 
                 ACF_I_SaveSessionDetails(@params, acfProcessSession, authorizationCode);
                 ACF_I_CreateIdentityRequestHandler(user, client, acfProcessSession);
-            }, TaskCreationOptions.AttachedToParent);
+            });
+
+            return response;
+        }
+
+        private static async Task<string> ACF_I_CreateResponseBody(AuthCodeParameters @params, string authorizationCode)
+        {
+            return await TaskUtilities.RunAttachedToParentTask(() => ResponseUtilities.ACF_I_CreateRedirectContent("", @params.ResponseMode.Value, @params.State.Value, authorizationCode, @params.Scope.Value, @params.Prompt.Value));
         }
 
         /// <summary>
@@ -844,10 +853,10 @@ namespace IssuerOfClaims.Services.Token
         }
     }
 
-    public interface ITokenManager
+    public interface IResponseManager
     {
-        Task<string> ACF_II_GetResponseAsync(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId);
-        Task ACF_I_BackgroundStuff(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode);
+        Task<string> ACF_II_CreateResponseAsync(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId);
+        Task<string> ACF_I_CreateResponseAsync(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode);
         Task<string> IGF_GetResponseAsync(UserIdentity user, AuthCodeParameters parameters, Client client);
         Task<string> IssueTokenByRefreshToken(string incomingRefreshToken);
         Task<string> GenerateIdTokenAsync(UserIdentity user, string scopeStr, string nonce, string clientid, string authTime = "");

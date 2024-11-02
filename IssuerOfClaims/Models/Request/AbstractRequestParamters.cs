@@ -94,10 +94,10 @@ namespace IssuerOfClaims.Models.Request
                 if (p.Name.Equals(_responseTypeName))
                     return Task.Run(() => { });
                 else
-                    return Task.Factory.StartNew(() =>
+                    return TaskUtilities.RunAttachedToParentTask(() =>
                     {
                        SetPropertyValue(p);
-                    }, TaskCreationOptions.AttachedToParent);
+                    });
             });
 
             Task.WaitAll(tasks.ToArray());

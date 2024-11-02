@@ -17,7 +17,7 @@ namespace IssuerOfClaims.Models.Request
         public RequestParameterValues(string? queryString)
         {
             Validate(queryString);
-            Task.Factory.StartNew(() => Initiate(queryString), TaskCreationOptions.AttachedToParent).GetAwaiter().GetResult();
+            TaskUtilities.RunAttachedToParentTask(() => Initiate(queryString)).GetAwaiter().GetResult();
         }
 
         private void Initiate(string queryString)
@@ -26,7 +26,7 @@ namespace IssuerOfClaims.Models.Request
             var tasks = new List<Task>();
             foreach (var param in @params)
             {
-                tasks.Add(Task.Factory.StartNew(async () =>
+                tasks.Add(TaskUtilities.RunAttachedToParentTask(async () =>
                 {
                     var nameValuePair = param.Split("=");
                     var normalizedName = nameValuePair[0].ToUpper();
@@ -37,7 +37,7 @@ namespace IssuerOfClaims.Models.Request
 
                     _semaphoreSlim.Release();
 
-                }, TaskCreationOptions.AttachedToParent));
+                }));
             }
 
             Task.WaitAll(tasks.ToArray());

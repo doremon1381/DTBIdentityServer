@@ -140,12 +140,12 @@ namespace IssuerOfClaims.Services
 
         private async Task CreateConfirmEmailAsync(Guid userId, Guid clientId, string code, string purpose, int expiredTimeInMinutes)
         {
-            await Task.Factory.StartNew(() => CreateConfirmEmail(userId, code, clientId, purpose, expiredTimeInMinutes), TaskCreationOptions.AttachedToParent);
+            await TaskUtilities.RunAttachedToParentTask(() => CreateConfirmEmail(userId, code, clientId, purpose, expiredTimeInMinutes));
         }
 
         private async Task SendMailAsync(string userName, string email, string emailBody)
         {
-            await Task.Factory.StartNew(() => SendEmail(userName, email, emailBody), TaskCreationOptions.AttachedToParent);
+            await TaskUtilities.RunAttachedToParentTask(() => SendEmail(userName, email, emailBody));
         }
     }
 

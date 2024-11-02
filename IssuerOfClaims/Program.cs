@@ -55,7 +55,7 @@ namespace IssuerOfClaims
             builder.Services.AddTransient<ITokenForRequestHandlerDbServices, TokenForRequestHandlerDbServices>();
             builder.Services.AddTransient<IIdentityRequestHandlerDbServices, IdentityRequestHandlerDbServices>();
             builder.Services.AddTransient<IEmailServices, EmailServices>();
-            builder.Services.AddTransient<ITokenManager, TokenManager>();
+            builder.Services.AddTransient<IResponseManager, ResponseManager>();
 
             // TODO: will add later
             builder.Services.AddIdentityCore<UserIdentity>()

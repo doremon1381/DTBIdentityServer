@@ -41,14 +41,14 @@ namespace IssuerOfClaims.Controllers
 
         private readonly IApplicationUserManager _applicationUserManager;
         //private readonly IConfigurationManager _configuration;
-        private readonly ITokenManager _tokenManager;
+        private readonly IResponseManager _responseManager;
         private readonly IClientDbServices _clientDbServices;
         private readonly GoogleClientConfiguration _googleClientConfiguration;
         //private readonly WebSigninSettings _webSigninSettings;
 
         public IdentityRequestController(ILogger<IdentityRequestController> logger, IConfigurationManager configuration
             , IApplicationUserManager userManager
-            , ITokenManager tokenManager, IEmailServices emailServices
+            , IResponseManager tokenManager, IEmailServices emailServices
             , IClientDbServices clientDbServices, GoogleClientConfiguration googleClientConfiguration)
         {
             _logger = logger;
@@ -57,7 +57,7 @@ namespace IssuerOfClaims.Controllers
             _applicationUserManager = userManager;
             _clientDbServices = clientDbServices;
 
-            _tokenManager = tokenManager;
+            _responseManager = tokenManager;
 
             _googleClientConfiguration = googleClientConfiguration;
             //_webSigninSettings = webSigninSettings;
@@ -226,10 +226,7 @@ namespace IssuerOfClaims.Controllers
 
             string authorizationCode = IssueAuthorizationCode();
 
-            string response = await ACF_I_CreateResponseBody(@params, authorizationCode);
-
-            // TODO: will check again
-            await _tokenManager.ACF_I_BackgroundStuff(@params, user, client, authorizationCode);
+            string response = await _responseManager.ACF_I_CreateResponseAsync(@params, user, client, authorizationCode);
 
             await ACF_I_SendRedirectResponse(@params, response);
 
@@ -242,11 +239,6 @@ namespace IssuerOfClaims.Controllers
             HttpContext.Response.StatusCode = 302;
             await HttpContext.Response.WriteAsync(response);
             //await HttpContext.Response.CompleteAsync(); // Ensure response is completed
-        }
-
-        private static async Task<string> ACF_I_CreateResponseBody(AuthCodeParameters @params, string authorizationCode)
-        {
-            return await Task.Factory.StartNew(() => ResponseUtilities.ACF_I_CreateRedirectContent("", @params.ResponseMode.Value, @params.State.Value, authorizationCode, @params.Scope.Value, @params.Prompt.Value), TaskCreationOptions.AttachedToParent);
         }
 
         private string IssueAuthorizationCode()
@@ -353,7 +345,7 @@ namespace IssuerOfClaims.Controllers
 
             IGF_ValidateNonce(parameters.Nonce.Value);
 
-            var response = await _tokenManager.IGF_GetResponseAsync(user, parameters, client);
+            var response = await _responseManager.IGF_GetResponseAsync(user, parameters, client);
 
             await IGF_SendRedirectResponse(parameters, response);
 
@@ -464,7 +456,7 @@ namespace IssuerOfClaims.Controllers
 
             OfflineAccessTokenParameters parameters = new OfflineAccessTokenParameters(requestBody);
 
-            var tokenResponses = await _tokenManager.IssueTokenByRefreshToken(parameters.RefreshToken.Value);
+            var tokenResponses = await _responseManager.IssueTokenByRefreshToken(parameters.RefreshToken.Value);
 
             return StatusCode((int)HttpStatusCode.OK, tokenResponses);
         }
@@ -478,7 +470,7 @@ namespace IssuerOfClaims.Controllers
 
             // TODO: for now, every request, by default in scop will have openid, so ignore this part of checking now
             //     : Verify that the Authorization Code used was issued in response to an OpenID Connect Authentication Request(so that an ID Token will be returned from the Token Endpoint).
-            var tokenRequestHandler = await _tokenManager.FindRequestHandlerByAuthorizationCodeASync(parameters.Code.Value);
+            var tokenRequestHandler = await _responseManager.FindRequestHandlerByAuthorizationCodeASync(parameters.Code.Value);
             // TODO: will change to use email when allow using identity from another source
             UserIdentity user = await ACF_II_GetAndVerifyUserIdentity(tokenRequestHandler.User.UserName);
             var client = await ACF_II_GetAndVerifyClientAsync(parameters.ClientId.Value, parameters.ClientSecret.Value, tokenRequestHandler);
@@ -487,7 +479,7 @@ namespace IssuerOfClaims.Controllers
             ACF_II_VerifyCodeChallenger(parameters.CodeVerifier.Value, tokenRequestHandler);
 
             // TODO: issue token from TokenManager
-            var response = await _tokenManager.ACF_II_GetResponseAsync(user.Id, client.Id, client.ClientId, tokenRequestHandler.Id);
+            var response = await _responseManager.ACF_II_CreateResponseAsync(user.Id, client.Id, client.ClientId, tokenRequestHandler.Id);
 
             // TODO: https://openid.net/specs/openid-connect-core-1_0.html#TokenResponse
             //     : will think about it later, for now, I follow the openid specs
@@ -641,7 +633,7 @@ namespace IssuerOfClaims.Controllers
             // TODO: create new user or map google user infor to current, get unique user by email
             var user = await _applicationUserManager.GetOrCreateUserByEmailAsync(payload);
 
-            var response = await _tokenManager.AuthGoogle_CreateResponseAsync(parameters, client, result, payload, user);
+            var response = await _responseManager.AuthGoogle_CreateResponseAsync(parameters, client, result, payload, user);
 
             // TODO: will need to create new user if current user with this email is not have
             //     : after that, create login session object and save to db
@@ -778,7 +770,7 @@ namespace IssuerOfClaims.Controllers
         [AllowAnonymous]
         public ActionResult GetPublicKeyForVerifyingIdToken()
         {
-            var publicKey = _tokenManager.GetPublicKeyJson();
+            var publicKey = _responseManager.GetPublicKeyJson();
 
             return StatusCode((int)HttpStatusCode.OK, JsonConvert.SerializeObject(publicKey, Formatting.Indented));
         }

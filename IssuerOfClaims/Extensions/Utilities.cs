@@ -8,6 +8,8 @@ using IssuerOfClaims.Models;
 using System.Net;
 using System.Web;
 using ServerUltilities.Identity;
+using Microsoft.AspNetCore.Http;
+using System.IO;
 
 namespace IssuerOfClaims.Extensions
 {
@@ -108,48 +110,6 @@ namespace IssuerOfClaims.Extensions
             return content;
         }
 
-        #region discovery endpoint to json
-        public static async Task<string> CreateDiscoveryResponseAsync(Dictionary<string, string> dictionary)
-        {
-            Dictionary<JsonEncodedText, JsonEncodedText> valuePairs = await Task.Run(() => ConverDiscoveryEndpointsToUTF8(dictionary));
-
-            string json = await CreateDiscoveryEndpointsJsonStringAsync(valuePairs);
-
-            return json;
-        }
-
-        private static async Task<string> CreateDiscoveryEndpointsJsonStringAsync(Dictionary<JsonEncodedText, JsonEncodedText> valuePairs)
-        {
-            using var stream = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(stream))
-            {
-                writer.WriteStartObject();
-
-                foreach (var key in valuePairs.Keys)
-                {
-                    writer.WriteString(key, valuePairs[key]);
-                }
-                writer.WriteEndObject();
-
-                await writer.FlushAsync();
-            }
-
-            return Encoding.UTF8.GetString(stream.ToArray());
-        }
-
-        private static Dictionary<JsonEncodedText, JsonEncodedText> ConverDiscoveryEndpointsToUTF8(Dictionary<string, string> dictionary)
-        {
-            var dic = new Dictionary<JsonEncodedText, JsonEncodedText>();
-
-            foreach (var key in dictionary.Keys)
-            {
-                dic.Add(JsonEncodedText.Encode(key), JsonEncodedText.Encode(dictionary[key]));
-            }
-
-            return dic;
-        }
-        #endregion
-
         #region get information from appsettings.json
         public static GoogleClientConfiguration GetGoogleClientSettings(IConfigurationManager configuration)
         {
@@ -195,6 +155,19 @@ namespace IssuerOfClaims.Extensions
                 throw new CustomException(ExceptionMessage.MISSING_GOOGLE_CLIENT_DETAILS);
         }
         #endregion
+    }
+
+    public class TaskUtilities
+    {
+        public static async Task<T> RunAttachedToParentTask<T>(Func<T> func)
+        {
+            return await Task.Factory.StartNew<T>(func, TaskCreationOptions.AttachedToParent);
+        }
+
+        public static async Task RunAttachedToParentTask(Action action)
+        {
+            await Task.Factory.StartNew(action, TaskCreationOptions.AttachedToParent);
+        }
     }
 
     public enum DefaultResponseMessage

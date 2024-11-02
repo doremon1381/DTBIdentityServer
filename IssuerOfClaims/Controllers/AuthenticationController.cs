@@ -22,10 +22,10 @@ namespace IssuerOfClaims.Controllers
     {
         private readonly IClientDbServices _clientDbServices;
         private readonly IApplicationUserManager _applicationUserManager;
-        private readonly ITokenManager _tokenManager;
+        private readonly IResponseManager _tokenManager;
         private readonly IEmailServices _emailServices;
 
-        public AuthenticationController(IClientDbServices clientDbServices, IApplicationUserManager applicationUserManager, ITokenManager tokenManager, IEmailServices emailServices)
+        public AuthenticationController(IClientDbServices clientDbServices, IApplicationUserManager applicationUserManager, IResponseManager tokenManager, IEmailServices emailServices)
         {
             _clientDbServices = clientDbServices;
             _applicationUserManager = applicationUserManager;

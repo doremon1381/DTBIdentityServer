@@ -1,4 +1,5 @@
 ﻿using IssuerOfClaims.Database;
+using IssuerOfClaims.Extensions;
 using IssuerOfClaims.Models;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
@@ -45,14 +46,14 @@ namespace IssuerOfClaims.Services.Database
 
         public static async Task UsingDbSetAsync(Action<DbSet<TEntity>> callback)
         {
-            await Task.Factory.StartNew(() =>
+            await TaskUtilities.RunAttachedToParentTask(() =>
             {
                 using (var dbContext = CreateDbContext())
                 {
                     var dbSet = dbContext.GetDbSet<TEntity>();
                     callback(dbSet);
                 }
-            }, TaskCreationOptions.AttachedToParent);
+            });
             // TODO: will think about it later
             //await task.ContinueWith(t =>
             //{

@@ -9,3 +9,4 @@ ServerUltilities/bin/
 ServerUltilities/obj/
 ModelsDbServer/bin/
 IssuerOfClaims/Logs/
+IssuerOfClaims/Certificate/

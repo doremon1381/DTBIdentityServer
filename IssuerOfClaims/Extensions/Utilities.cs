@@ -10,6 +10,10 @@ using System.Web;
 using ServerUltilities.Identity;
 using Microsoft.AspNetCore.Http;
 using System.IO;
+using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Cryptography;
 
 namespace IssuerOfClaims.Extensions
 {
@@ -157,7 +161,7 @@ namespace IssuerOfClaims.Extensions
         #endregion
     }
 
-    public class TaskUtilities
+    public static class TaskUtilities
     {
         public static async Task<T> RunAttachedToParentTask<T>(Func<T> func)
         {
@@ -168,6 +172,169 @@ namespace IssuerOfClaims.Extensions
         {
             await Task.Factory.StartNew(action, TaskCreationOptions.AttachedToParent);
         }
+    }
+
+    public static class RSAEncryptUtilities
+    {
+        #region Implement RsaSha256, powered by copilot
+        private static readonly object lockObj = new object();
+        /// <summary>
+        /// for this pair, key is rsa private key, value is rsa public key
+        /// </summary>
+        /// <returns></returns>
+        public static (RSAParameters PrivateKey, RSAParameters PublicKey) CreateRsaPublicKeyAndPrivateKey()
+        {
+            RSAParameters publicKey;
+            RSAParameters privateKey;
+
+            if (KeyCanNotBeReused())
+            {
+                using (RSACryptoServiceProvider rsa = new RSACryptoServiceProvider())
+                {
+                    // Get the public and private key
+                    publicKey = rsa.ExportParameters(false); // Public key
+                    privateKey = rsa.ExportParameters(true); // Private key
+
+                    // Store or distribute these keys securely                
+                }
+
+                ExportJsonKey(publicKey);
+                ExportJsonKey(privateKey, isPublicKey: false);
+            }
+            else
+            {
+                publicKey = ReadJsonKey(); // Public key
+                privateKey = ReadJsonKey(isPublicKey: false); // Private key
+            }
+
+            return new(privateKey, publicKey);
+        }
+
+        private static bool KeyCanNotBeReused(bool isPublicKey = true)
+        {
+            FileInfo keyFile = new FileInfo(GetKeyFilePath(isPublicKey));
+
+            if (keyFile.Exists)
+            {
+                return keyFile.LastWriteTimeUtc.AddDays(15) <= DateTime.Now;
+            }
+
+            return true;
+        }
+
+        private static string GetKeyFilePath(bool isPublicKey)
+        {
+            return isPublicKey switch
+            {
+                true => $"{Environment.CurrentDirectory}\\Services\\Token\\RsaSha256Keys\\Rsa_publicKey.json",
+                false => $"{Environment.CurrentDirectory}\\Services\\Token\\RsaSha256Keys\\Rsa_privateKey.json",
+            };
+        }
+
+        private static void ExportJsonKey(RSAParameters key, bool isPublicKey = true)
+        {
+            FileInfo keyFile = new FileInfo(GetKeyFilePath(isPublicKey));
+
+            using (FileStream fs = keyFile.Open(FileMode.OpenOrCreate))
+            {
+                var contents = JsonConvert.SerializeObject(key);
+                Byte[] bytes = new UTF8Encoding(true).GetBytes(contents);
+
+                fs.Write(bytes, 0, bytes.Length);
+            }
+        }
+
+        public static RSAParameters ReadJsonKey(bool isPublicKey = true)
+        {
+            FileInfo keyFile = new FileInfo(GetKeyFilePath(isPublicKey));
+            RSAParameters result = default;
+            if (keyFile.Exists)
+            {
+                StringBuilder text = new StringBuilder();
+                using (var stream = keyFile.OpenText())
+                {
+                    text.Append(stream.ReadToEnd());
+                }
+                result = JsonConvert.DeserializeObject<RSAParameters>(text.ToString());
+            }
+            // TODO: will check again
+            else
+                throw new CustomException("public key is missing!", HttpStatusCode.InternalServerError);
+
+            return result;
+        }
+
+        private static async Task<object> GetJsonPublicKeyAsync(RSAParameters publicKey)
+        {
+            var jsonObj = JsonConvert.SerializeObject(publicKey);
+            return jsonObj;
+        }
+
+        // Encrypt using recipient's public key
+        private static byte[] Encrypt(byte[] data, RSAParameters publicKey)
+        {
+            using (RSACryptoServiceProvider rsa = new RSACryptoServiceProvider())
+            {
+                rsa.ImportParameters(publicKey);
+                return rsa.Encrypt(data, true); // Use OAEP padding for security
+            }
+        }
+
+        // Decrypt using recipient's private key
+        private static byte[] Decrypt(byte[] encryptedData, RSAParameters privateKey)
+        {
+            using (RSACryptoServiceProvider rsa = new RSACryptoServiceProvider())
+            {
+                rsa.ImportParameters(privateKey);
+                return rsa.Decrypt(encryptedData, true);
+            }
+        }
+
+        // Sign data using SHA-256 and RSA
+        private static byte[] SignData(byte[] data, RSAParameters privateKey)
+        {
+            using (RSACryptoServiceProvider rsa = new RSACryptoServiceProvider())
+            {
+                rsa.ImportParameters(privateKey);
+                using (SHA256 sha256 = SHA256.Create())
+                {
+                    byte[] hash = sha256.ComputeHash(data);
+                    return rsa.SignHash(hash, CryptoConfig.MapNameToOID(SecurityAlgorithms.Sha256));
+                }
+            }
+        }
+
+        // Verify signature
+        private static bool VerifySignature(byte[] data, byte[] signature, RSAParameters publicKey)
+        {
+            using (RSACryptoServiceProvider rsa = new RSACryptoServiceProvider())
+            {
+                rsa.ImportParameters(publicKey);
+                using (SHA256 sha256 = SHA256.Create())
+                {
+                    byte[] hash = sha256.ComputeHash(data);
+                    return rsa.VerifyHash(hash, CryptoConfig.MapNameToOID(SecurityAlgorithms.Sha256), signature);
+                }
+            }
+        }
+
+        public static void VeriryJwtSignature(RSAParameters publicKey, string token)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+
+            // Verify JWT signature
+            var validationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new RsaSecurityKey(publicKey),
+                ValidateIssuer = false, // Customize as needed
+                ValidateAudience = false, // Customize as needed
+            };
+
+            var claimsPrincipal = tokenHandler.ValidateToken(token, validationParameters, out _);
+            // 'claimsPrincipal' contains the validated claims
+        }
+        #endregion
     }
 
     public enum DefaultResponseMessage
@@ -196,6 +363,7 @@ namespace IssuerOfClaims.Extensions
     {
         public const string Path = "path";
         public const string OauthEndpoint = "endpoint";
+        public const string Flow = "flow";
         public const string Equal = "=";
         public const string Method = "method";
         public const string And = "&";

@@ -1,7 +1,5 @@
-﻿using EFCoreSecondLevelCacheInterceptor;
-using IssuerOfClaims.Extensions;
+﻿using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using ServerDbModels;
 using System.Net;
 
@@ -15,7 +13,7 @@ namespace IssuerOfClaims.Services.Database
         {
         }
 
-        public async Task<IdentityRequestHandler> FindByAuthorizationCodeAsync(string authorizationCode)
+        public async Task<IdentityRequestHandler> FindByAuthCodeAsync(string authorizationCode)
         {
             IdentityRequestHandler obj = null;
             await UsingDbSetAsync((_tokenRequestHandlers) =>
@@ -81,7 +79,7 @@ namespace IssuerOfClaims.Services.Database
 
     public interface IIdentityRequestHandlerDbServices : IDbContextBase<IdentityRequestHandler>
     {
-        Task<IdentityRequestHandler> FindByAuthorizationCodeAsync(string authorizationCode);
+        Task<IdentityRequestHandler> FindByAuthCodeAsync(string authorizationCode);
         Task<IdentityRequestHandler> FindByIdAsync(Guid currentRequestHandlerId);
         IdentityRequestHandler GetDraftObject();
     }

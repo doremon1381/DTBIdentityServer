@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Text;
 using static ServerUltilities.Identity.Constants;
+using static ServerUltilities.Identity.OidcConstants;
 
 namespace IssuerOfClaims.Services.Middleware
 {
@@ -48,14 +49,25 @@ namespace IssuerOfClaims.Services.Middleware
         {
             StringBuilder query = new StringBuilder();
             query.Append($"{QS.Path}{QS.Equal}{Uri.EscapeDataString(path)}");
-            //query.Append($"{QS.And}{QS.OauthEndpoint}{QS.Equal}{context.Request.RouteValues.First().Value}");
+            query.Append($"{QS.And}{QS.Flow}{QS.Equal} {GetMappingFlow(queryCollection)}");
             query.Append($"{QS.And}{QS.Method}{QS.Equal}" + method);
             foreach (var item in queryCollection)
             {
-                query.Append($"&{item.Key}={item.Value}");
+                // TODO: format string if acceptable
+                query.Append($"&{item.Key.ToLower()}={item.Value}");
             }
 
             return query.ToString();
+        }
+
+        private static string GetMappingFlow(IQueryCollection queryCollection)
+        {
+            var responeType = queryCollection.FirstOrDefault(q => q.Key.ToUpper().Equals(AuthorizeRequest.ResponseType.ToUpper()));
+
+            if (string.IsNullOrEmpty(responeType.Value))
+                throw new CustomException("Authentication for request is not accepted!");
+
+            return ResponseTypeToGrantTypeMapping[responeType.Value];
         }
 
         //TODO: temporary

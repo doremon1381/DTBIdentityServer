@@ -40,27 +40,26 @@ namespace IssuerOfClaims.Controllers
         private readonly ILogger<IdentityRequestController> _logger;
 
         private readonly IApplicationUserManager _applicationUserManager;
-        //private readonly IConfigurationManager _configuration;
         private readonly IResponseManager _responseManager;
+        private readonly IIdentityRequestHandlerServices _requestHandlerServices;
         private readonly IClientDbServices _clientDbServices;
         private readonly GoogleClientConfiguration _googleClientConfiguration;
-        //private readonly WebSigninSettings _webSigninSettings;
 
         public IdentityRequestController(ILogger<IdentityRequestController> logger, IConfigurationManager configuration
             , IApplicationUserManager userManager
-            , IResponseManager tokenManager, IEmailServices emailServices
+            , IResponseManager responseManager
+            , IIdentityRequestHandlerServices requestHandlerServices
             , IClientDbServices clientDbServices, GoogleClientConfiguration googleClientConfiguration)
         {
             _logger = logger;
-            //_configuration = configuration;
 
             _applicationUserManager = userManager;
             _clientDbServices = clientDbServices;
 
-            _responseManager = tokenManager;
+            _responseManager = responseManager;
+            _requestHandlerServices = requestHandlerServices;
 
             _googleClientConfiguration = googleClientConfiguration;
-            //_webSigninSettings = webSigninSettings;
         }
 
         #region catch authorize request
@@ -470,10 +469,11 @@ namespace IssuerOfClaims.Controllers
 
             // TODO: for now, every request, by default in scop will have openid, so ignore this part of checking now
             //     : Verify that the Authorization Code used was issued in response to an OpenID Connect Authentication Request(so that an ID Token will be returned from the Token Endpoint).
-            var tokenRequestHandler = await _responseManager.FindRequestHandlerByAuthorizationCodeASync(parameters.Code.Value);
+            var tokenRequestHandler = await _requestHandlerServices.FindByAuthCodeAsync(parameters.Code.Value);
+
             // TODO: will change to use email when allow using identity from another source
-            UserIdentity user = await ACF_II_GetAndVerifyUserIdentity(tokenRequestHandler.User.UserName);
-            var client = await ACF_II_GetAndVerifyClientAsync(parameters.ClientId.Value, parameters.ClientSecret.Value, tokenRequestHandler);
+            UserIdentity user = await ACF_II_VerifyAndGetUserIdentity(tokenRequestHandler.User.UserName);
+            var client = await ACF_II_VerifyAndGetClientAsync(parameters.ClientId.Value, parameters.ClientSecret.Value, tokenRequestHandler);
 
             ACF_II_VerifyRedirectUris(parameters.RedirectUri.Value, tokenRequestHandler.RequestSession.RedirectUri);
             ACF_II_VerifyCodeChallenger(parameters.CodeVerifier.Value, tokenRequestHandler);
@@ -489,7 +489,7 @@ namespace IssuerOfClaims.Controllers
         }
 
         // TODO: will test again
-        private async Task<UserIdentity> ACF_II_GetAndVerifyUserIdentity(string userName)
+        private async Task<UserIdentity> ACF_II_VerifyAndGetUserIdentity(string userName)
         {
             var obj = await _applicationUserManager.Current.Users
                     .Include(u => u.IdentityRequestHandlers)
@@ -549,7 +549,7 @@ namespace IssuerOfClaims.Controllers
         }
 
         // TODO: will test again
-        private async Task<Client> ACF_II_GetAndVerifyClientAsync(string clientId, string clientSecret, IdentityRequestHandler tokenRequestHandler)
+        private async Task<Client> ACF_II_VerifyAndGetClientAsync(string clientId, string clientSecret, IdentityRequestHandler tokenRequestHandler)
         {
             Client client = await _clientDbServices.FindAsync(clientId, clientSecret);
 
@@ -770,7 +770,8 @@ namespace IssuerOfClaims.Controllers
         [AllowAnonymous]
         public ActionResult GetPublicKeyForVerifyingIdToken()
         {
-            var publicKey = _responseManager.GetPublicKeyJson();
+            // TODO: using temporary
+            var publicKey = RSAEncryptUtilities.ReadJsonKey();
 
             return StatusCode((int)HttpStatusCode.OK, JsonConvert.SerializeObject(publicKey, Formatting.Indented));
         }

@@ -14,6 +14,7 @@ using ServerUltilities.Identity;
 using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using static ServerUltilities.Identity.Constants;
 using static ServerUltilities.Identity.OidcConstants;
 using AuthenticationSchemes = ServerUltilities.Identity.OidcConstants.AuthenticationSchemes;
 
@@ -40,10 +41,19 @@ namespace IssuerOfClaims.Services.Authentication
             try
             {
                 var endpointMetadata = Context.GetEndpoint()?.Metadata;
+                var authorizationHeader = Request.Headers.Authorization.ToString();
                 // TODO: if there is information for authentication inside header, go to authentication 
-                if (IfAuthenticateInfoIsEmpty(Request.Headers.Authorization.ToString()))
+                if (IfAuthenticateInfoIsEmpty(authorizationHeader))
                     if (IsGoingToAnonymousControllerOrEndpoint(endpointMetadata))
                         return AuthenticateResult.NoResult();
+
+                // TODO: if "/oauth2/authorize" endpoint has Authentication header using basic scheme
+                //     : , then server will response for that request an exception: "Authorization scheme is not support in this endpoint!".
+                //if (AuthorizeRequestWithAuthorizationHeader(authorizationHeader, Context.Request.Path.Value))
+                //{
+                //    Context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                //    return AuthenticateResult.Fail(ExceptionMessage.AUTHORIZATION_BASIC_NOT_SUPPORT_FOR_AUTHORIZE_ENDPOINT);
+                //}
 
                 // TODO: need to change from get user by auth code to verify authcode and get user from username or password
                 //     : need to verify client identity before authentication, will be done later
@@ -64,6 +74,14 @@ namespace IssuerOfClaims.Services.Authentication
                 Set401StatusCode();
                 return AuthenticateResult.Fail(ex);
             }
+        }
+
+        private static bool AuthorizeRequestWithAuthorizationHeader(string authorizationHeader, string path)
+        {
+            if (FindSchemeForAuthentication(authorizationHeader).Equals(AuthenticationSchemes.AuthorizationHeaderBasic)
+                && path.Equals(ProtocolRoutePaths.Authorize))
+                return true;
+            return false;
         }
 
         private void Set401StatusCode()

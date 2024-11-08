@@ -2,6 +2,7 @@
 using IssuerOfClaims.Extensions;
 using IssuerOfClaims.Models;
 using Microsoft.EntityFrameworkCore;
+using Org.BouncyCastle.Tls;
 using ServerDbModels;
 using System.Net;
 
@@ -19,7 +20,7 @@ namespace IssuerOfClaims.Services.Database
             _ConnectionString = builder.GetConnectionString(DbUtilities.DatabasePath);
         }
 
-        public static DbContextManager CreateDbContext()
+        private static DbContextManager CreateDbContext()
         {
             var contextOptions = new DbContextOptionsBuilder<DbContextManager>()
                  .UseSqlServer(_ConnectionString)
@@ -29,11 +30,16 @@ namespace IssuerOfClaims.Services.Database
             return dbContext;
         }
 
+        internal static Func<DbContextManager, IEnumerable<TEntity>> CompileDynamicQuery(Func<DbSet<TEntity>, IQueryable<TEntity>> query)
+        {
+            return EF.CompileQuery((DbContextManager dbcontext) => query(dbcontext.GetDbSet<TEntity>()));
+        }
+
         /// <summary>
         /// TODO: for now, Savechanges() is automatically used after callback, will check it late
         /// </summary>
         /// <param name="callback"></param>
-        public static void UsingDbSetWithSaveChanges(Action<DbSet<TEntity>> callback)
+        internal static void UsingDbSetWithSaveChanges(Action<DbSet<TEntity>> callback)
         {
             using (var dbContext = CreateDbContext())
             {
@@ -44,7 +50,7 @@ namespace IssuerOfClaims.Services.Database
             }
         }
 
-        public static async Task UsingDbSetAsync(Action<DbSet<TEntity>> callback)
+        internal static async Task UsingDbSetAsync(Action<DbSet<TEntity>> callback)
         {
             await TaskUtilities.RunAttachedToParentTask(() =>
             {
@@ -76,12 +82,15 @@ namespace IssuerOfClaims.Services.Database
         //    }
         //}
 
-        public static void UsingDbContext(Action<DbContextManager> callback)
+        internal static async Task UsingDbContextAsync(Action<DbContextManager> callback)
         {
-            using (var dbContext = CreateDbContext())
+            await TaskUtilities.RunAttachedToParentTask(() =>
             {
-                callback(dbContext);
-            }
+                using (var dbContext = CreateDbContext())
+                {
+                    callback(dbContext);
+                }
+            });
         }
 
         public List<TEntity> GetAll()

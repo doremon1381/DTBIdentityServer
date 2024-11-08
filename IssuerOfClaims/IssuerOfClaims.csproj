@@ -7,12 +7,20 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Certificate\**" />
+    <Content Remove="Certificate\**" />
+    <EmbeddedResource Remove="Certificate\**" />
+    <None Remove="Certificate\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Remove="Database\Model\GrantType.cs" />
     <Compile Remove="Extensions\StringExtensions.cs" />
     <Compile Remove="Models\Constants.cs" />
     <Compile Remove="Models\IdentityServerConstants.cs" />
     <Compile Remove="Models\JwtClaimTypes.cs" />
     <Compile Remove="Models\OidcConstants.cs" />
+    <Compile Remove="Services\Database\RoleDbServices.cs" />
     <Compile Remove="Services\PrMIdentityServer.cs" />
     <Compile Remove="Services\PrMIdentityServerExtensions.cs" />
     <Compile Remove="Services\PrMIdentityServerServicesCollectionExtensions.cs" />

@@ -22,13 +22,19 @@ namespace IssuerOfClaims.Controllers
     {
         private readonly IClientDbServices _clientDbServices;
         private readonly IApplicationUserManager _applicationUserManager;
-        private readonly IResponseManager _tokenManager;
+        private readonly ITokenServices _tokenManager;
+        //private readonly IResponseManager _responseManager;
         private readonly IEmailServices _emailServices;
 
-        public AuthenticationController(IClientDbServices clientDbServices, IApplicationUserManager applicationUserManager, IResponseManager tokenManager, IEmailServices emailServices)
+        public AuthenticationController(IClientDbServices clientDbServices
+            , IApplicationUserManager applicationUserManager
+            //, IResponseManager tokenManager
+            , ITokenServices tokenManager
+            , IEmailServices emailServices)
         {
             _clientDbServices = clientDbServices;
             _applicationUserManager = applicationUserManager;
+            //_responseManager = tokenManager;
             _tokenManager = tokenManager;
             _emailServices = emailServices;
         }
@@ -36,7 +42,20 @@ namespace IssuerOfClaims.Controllers
         #region Login
         [HttpPost("signin")]
         [Authorize]
-        public ActionResult SignIn()
+        public async Task<ActionResult> SignIn_Post()
+        {
+            // Get user
+            var principal = HttpContext.User;
+            var user = await _applicationUserManager.Current.GetUserAsync(principal);
+
+            // gather request information, redirect to prompt view if it's need
+            // TODO: for test
+            return Ok(new { Prompt = "consent" });
+        }
+
+        [HttpGet("signin")]
+        [Authorize]
+        public ActionResult SignIn_Get()
         {
             // Get user
             // gather request information, redirect to prompt view if it's need

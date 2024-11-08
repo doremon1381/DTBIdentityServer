@@ -10,6 +10,8 @@ using IssuerOfClaims.Services.Database;
 using IssuerOfClaims.Services.Middleware;
 using IssuerOfClaims.Services.Token;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,12 +31,12 @@ namespace IssuerOfClaims
 
             builder.Services.AddControllers();
             builder.Services
-                .AddDbContext<IDbContextManager, DbContextManager>((serviceProvider,optionsAction) =>
+                .AddDbContextPool<IDbContextManager, DbContextManager>((serviceProvider, optionsAction) =>
                 {
                     optionsAction
                     .UseSqlServer(builder.Configuration.GetConnectionString(DbUtilities.DatabasePath));
                     //.AddInterceptors(serviceProvider.GetRequiredService<SecondLevelCacheInterceptor>());
-                }, ServiceLifetime.Transient);
+                });
 
             builder.Services.AddLogging(options =>
             {
@@ -46,15 +48,18 @@ namespace IssuerOfClaims
             builder.Services.AddSingleton<GoogleClientConfiguration>(Utilities.GetGoogleClientSettings(builder.Configuration));
             builder.Services.AddSingleton<WebSigninSettings>(webSigninSettings);
             builder.Services.AddSingleton<MailSettings>(builder.Configuration.GetSection(IdentityServerConfiguration.MAILSETTINGS).Get<MailSettings>());
+            builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, AuthorizationMiddlewareResultHandler>();
             // TODO: will change later
             builder.Services.AddTransient<IClientDbServices, ClientDbServices>();
-            builder.Services.AddTransient<IRoleDbServices, RoleDbServices>();
+            //builder.Services.AddTransient<IRoleDbServices, RoleDbServices>();
             builder.Services.AddTransient<IConfirmEmailDbServices, ConfirmEmailDbServices>();
             builder.Services.AddTransient<ITokenResponseDbServices, TokenResponseDbServices>();
             builder.Services.AddTransient<IIdentityRequestSessionDbServices, IdentityRequestSessionDbServices>();
             builder.Services.AddTransient<ITokenForRequestHandlerDbServices, TokenForRequestHandlerDbServices>();
             builder.Services.AddTransient<IIdentityRequestHandlerDbServices, IdentityRequestHandlerDbServices>();
             builder.Services.AddTransient<IEmailServices, EmailServices>();
+            builder.Services.AddTransient<ITokenServices, TokenServices>();
+            builder.Services.AddTransient<IIdentityRequestHandlerServices, RequestHanderServices>();
             builder.Services.AddTransient<IResponseManager, ResponseManager>();
 
             // TODO: will add later
@@ -116,9 +121,9 @@ namespace IssuerOfClaims
             //           .AddInterceptors(new SecondLevelCacheInterceptor()));
 
             //builder.Services.AddEFSecondLevelCache(options =>
-            //    options.UseMemoryCacheProvider()
-            //           //.DisableLogging(true)
-            //           .CacheAllQueries(CacheExpirationMode.Absolute, TimeSpan.FromMinutes(5)));
+            //        options.UseMemoryCacheProvider()
+            //       //.DisableLogging(true)
+            //       .CacheAllQueries(CacheExpirationMode.Absolute, TimeSpan.FromMinutes(30)));
 
             // TODO: configure serilog, will learn about it later
             Log.Logger = new LoggerConfiguration()
@@ -127,6 +132,17 @@ namespace IssuerOfClaims
                 .CreateLogger();
 
             builder.Host.UseSerilog();
+
+            // TODO: will add certificate later
+            //builder.WebHost.ConfigureKestrel(serverOptions =>
+            //{
+            //    string certPath = builder.Configuration.GetSection("profiles:IssuerOfClaims:environmentVariables:CERTIFICATE_PATH").Value;
+            //    string certPassword = builder.Configuration.GetSection("profiles:IssuerOfClaims:environmentVariables:CERTIFICATE_PASSWORD").Value;
+            //    serverOptions.ListenAnyIP(7180, listenOptions =>
+            //    {
+            //        listenOptions.UseHttps(certPath, certPassword);
+            //    });
+            //});
 
             var app = builder.Build();
             // TODO: use for initiate clients in database

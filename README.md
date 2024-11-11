@@ -23,12 +23,15 @@ Updating for support from other email service providers will be later.<br>
 - Clone this repo. <br>
 - Run <em><strong>IssuerOfClaims.sln</strong></em> in <em><strong>"IssuerOfClaims"</strong></em> folder of the cloned repo. <br>
 - Migration database before using a database. (https://learn.microsoft.com/en-us/ef/core/managing-schemas/migrations/?tabs=dotnet-core-cli).<br>
-- Build and run <br>
+- Build. <be>
 
-### <strong>4. Endpoints currently suport</strong> <br>
+### <strong>4. Before running this server</strong> <br>
+- Open Command Prompt, run <em><strong>LoginStuff</strong></em> using "npm run dev". (Because I use Vuejs to create login view.) <br>
+
+### <strong>5. Endpoints currently suport</strong> <br>
 - Run <em><strong>IssuerOfClaims.sln</strong></em> and goto discovery endpoint (<em>https://{yourDomain}/.well-known/openid-configuration</em>). <br>
 
-### <strong>5. Ongoing</strong> <br>
+### <strong>6. Ongoing</strong> <br>
 - Other endpoints. <br>
 - Adding device registration. <be>
 - Update login, consent, and user information UI. <br>

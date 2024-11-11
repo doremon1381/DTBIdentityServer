@@ -140,7 +140,7 @@ namespace IssuerOfClaims.Services.Token
         private static IDictionary<string, object> CreateClaimsForIdToken(UserIdentity user, string nonce, string authTime, string scope, string clientId)
         {
             var claims = new List<Claim>();
-            var scopeVariables = scope.Split(" ");
+            var scopeVariables = scope.Split(" ").Select(s => s.ToLower());
 
             // TODO: will add more
             if (scopeVariables.Contains(IdentityServerConstants.StandardScopes.OpenId))

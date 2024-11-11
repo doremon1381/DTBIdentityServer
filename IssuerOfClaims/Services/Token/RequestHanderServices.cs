@@ -284,10 +284,6 @@ namespace IssuerOfClaims.Services.Token
 
     public interface IIdentityRequestHandlerServices
     {
-        IdentityRequestSession CreateRequestSession(Guid requestHandlerId);
-        IdentityRequestHandler GetDraftRequestHandler();
-        bool UpdateRequestHandler(IdentityRequestHandler tokenRequestHandler);
-        bool UpdateRequestSession(IdentityRequestSession tokenRequestSession);
         Task<IdentityRequestHandler> FindByAuthCodeAsync(string authCode);
         Task<TokenForRequestHandler> FindLastTokensPerIdentityRequestAsync(Guid userId, Guid idOfClient, bool needAccessToken);
         bool DeleteTokenResponse(TokenForRequestHandler tokenForRequestHandler);

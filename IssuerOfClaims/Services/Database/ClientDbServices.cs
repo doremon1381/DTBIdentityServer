@@ -1,7 +1,6 @@
 ﻿using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
-using System.Management;
 using System.Net;
 
 namespace IssuerOfClaims.Services.Database

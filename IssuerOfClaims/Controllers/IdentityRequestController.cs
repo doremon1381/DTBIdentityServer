@@ -237,7 +237,7 @@ namespace IssuerOfClaims.Controllers
             HttpContext.Response.Headers.Append("location", string.Format("{0}{1}", @params.RedirectUri.Value, response));
             HttpContext.Response.StatusCode = 302;
             await HttpContext.Response.WriteAsync(response);
-            //await HttpContext.Response.CompleteAsync(); // Ensure response is completed
+            await HttpContext.Response.CompleteAsync(); // Ensure response is completed
         }
 
         private string IssueAuthorizationCode()

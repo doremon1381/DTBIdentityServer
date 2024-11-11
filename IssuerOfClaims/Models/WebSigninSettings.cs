@@ -2,6 +2,7 @@
 {
     public record WebSigninSettings(
         string Origin,
+        string AllowedMethods,
         string SigninUri,
         string ConsentPromptUri,
         string RegisterUri, 

@@ -23,18 +23,15 @@ namespace IssuerOfClaims.Controllers
         private readonly IClientDbServices _clientDbServices;
         private readonly IApplicationUserManager _applicationUserManager;
         private readonly ITokenServices _tokenManager;
-        //private readonly IResponseManager _responseManager;
         private readonly IEmailServices _emailServices;
 
         public AuthenticationController(IClientDbServices clientDbServices
             , IApplicationUserManager applicationUserManager
-            //, IResponseManager tokenManager
             , ITokenServices tokenManager
             , IEmailServices emailServices)
         {
             _clientDbServices = clientDbServices;
             _applicationUserManager = applicationUserManager;
-            //_responseManager = tokenManager;
             _tokenManager = tokenManager;
             _emailServices = emailServices;
         }
@@ -48,9 +45,18 @@ namespace IssuerOfClaims.Controllers
             var principal = HttpContext.User;
             var user = await _applicationUserManager.Current.GetUserAsync(principal);
 
+            var encoded = await Utilities.SerializeFormAsync(HttpContext.Request.Body);
+            var query = encoded.Remove(0,1).Replace("path=","").ToBase64Decode().Split("&");
+            var clientId = query.First(q => q.StartsWith("client_id")).Replace("client_id=","");
+
+            // TODO: verify client
+            var client = await _clientDbServices.FindAsync(clientId);
+
             // gather request information, redirect to prompt view if it's need
+            var idToken = await _tokenManager.GenerateIdTokenAsync(user, "openid", string.Empty, client.ClientId);
+
             // TODO: for test
-            return Ok(new { Prompt = "consent" });
+            return Ok(idToken);
         }
 
         [HttpGet("signin")]

@@ -8,11 +8,14 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using ServerDbModels;
 using ServerUltilities.Extensions;
 using ServerUltilities.Identity;
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text.Encodings.Web;
 using static ServerUltilities.Identity.Constants;
 using static ServerUltilities.Identity.OidcConstants;
@@ -138,6 +141,7 @@ namespace IssuerOfClaims.Services.Authentication
                 // authentication with Bearer" token - access token or id token, for now, I'm trying to implement
                 //     , https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
                 AuthenticationSchemes.AuthorizationHeaderBearer => await BearerToken_FindUserAsync(authenticateInfor),
+                AuthenticationSchemes.AuthorizationHeaderPop => await PopHeader_FindUserAsync(authenticateInfor),
                 _ => throw new InvalidOperationException(ExceptionMessage.UNHANDLED_AUTHENTICATION_SCHEME)
             };
         }
@@ -160,25 +164,6 @@ namespace IssuerOfClaims.Services.Authentication
             }
         }
 
-        private static string GetUpper(string input)
-        {
-            return input.ToUpper();
-        }
-
-        private async Task<UserIdentity> BearerToken_FindUserAsync(string authenticateInfor)
-        {
-            var accessToken = authenticateInfor.Split(" ").Last().Trim();
-            var tokenResponse = await _tokenResponsePerHandlerDbServices.FindByAccessTokenASync(accessToken);
-
-            return tokenResponse.IdentityRequestHandler.User;
-        }
-
-        private async Task<UserIdentity> BasicAccess_FindUserAsync(string authenticateInfor)
-        {
-            var userNamePassword = authenticateInfor.Split(" ").Last().Trim().ToBase64Decode();
-
-            return await FindUserAsync(userNamePassword);
-        }
 
         private static bool IfAuthenticateInfoIsEmpty(string authenticateInfor)
         {
@@ -228,6 +213,23 @@ namespace IssuerOfClaims.Services.Authentication
             }
         }
 
+        #region bearer token
+        private async Task<UserIdentity> BearerToken_FindUserAsync(string authenticateInfor)
+        {
+            var accessToken = authenticateInfor.Split(" ").Last().Trim();
+            var tokenResponse = await _tokenResponsePerHandlerDbServices.FindByAccessTokenASync(accessToken);
+
+            return tokenResponse.IdentityRequestHandler.User;
+        }
+        #endregion
+
+        #region basic access
+        private async Task<UserIdentity> BasicAccess_FindUserAsync(string authenticateInfor)
+        {
+            var userNamePassword = authenticateInfor.Split(" ").Last().Trim().ToBase64Decode();
+
+            return await FindUserAsync(userNamePassword);
+        }
         private async Task<UserIdentity> FindUserAsync(string userNamePassword)
         {
             string userName = userNamePassword.Split(":")[0];
@@ -242,6 +244,38 @@ namespace IssuerOfClaims.Services.Authentication
 
             return user;
         }
+        #endregion
+
+        #region Pop
+        private async Task<UserIdentity> PopHeader_FindUserAsync(string authenticateInfor)
+        {
+            var jwt = authenticateInfor.Split(" ").First().Trim();
+            // TODO: get public key, verify, get user
+            var userName = VerifyJwtTokenAndGetUserName(jwt);
+
+            return await _userManager.Current.FindByNameAsync(userName);
+        }
+
+        private static string VerifyJwtTokenAndGetUserName(string jwt)
+        {
+            RSAParameters publicKey = RSAEncryptUtilities.ReadJsonKey();
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+
+            // verify token
+            var validateToken = new TokenValidationParameters()
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new RsaSecurityKey(publicKey),
+                ValidateIssuer = false,
+                ValidateAudience = false
+            };
+
+            ClaimsPrincipal userPrincipal = tokenHandler.ValidateToken(jwt, validateToken, out _);
+
+            return userPrincipal.Claims.First(c => c.Type.Equals(JwtClaimTypes.Subject)).Value;
+        }
+        #endregion
 
         /// <summary>
         /// TODO: For now, use ClaimTypes of NetCore
@@ -253,7 +287,7 @@ namespace IssuerOfClaims.Services.Authentication
         {
             var claims = new List<Claim>
             {
-                new Claim("Username", user.UserName),
+                new Claim(JwtClaimTypes.Subject, user.UserName),
                 new Claim(ClaimTypes.Name, user.FullName),
                 new Claim(ClaimTypes.AuthenticationMethod, AuthenticationMethods.Password),
                 new Claim(ClaimTypes.Email, user.Email),

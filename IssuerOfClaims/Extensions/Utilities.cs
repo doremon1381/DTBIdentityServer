@@ -1,15 +1,9 @@
 ﻿using System.Drawing.Imaging;
 using System.Drawing;
-using static ServerUltilities.Identity.OidcConstants;
-using System.Text.Json;
 using System.Text;
-using static ServerUltilities.Identity.IdentityServerConstants;
 using IssuerOfClaims.Models;
 using System.Net;
-using System.Web;
 using ServerUltilities.Identity;
-using Microsoft.AspNetCore.Http;
-using System.IO;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using System.IdentityModel.Tokens.Jwt;
@@ -159,6 +153,11 @@ namespace IssuerOfClaims.Extensions
                 throw new CustomException(ExceptionMessage.MISSING_GOOGLE_CLIENT_DETAILS);
         }
         #endregion
+
+        public static bool IsOptions(this string httpMethod)
+        {
+            return httpMethod.Equals("OPTIONS");
+        }
     }
 
     public static class TaskUtilities

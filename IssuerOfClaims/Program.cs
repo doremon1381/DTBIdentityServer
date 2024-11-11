@@ -104,16 +104,6 @@ namespace IssuerOfClaims
             {
                 mvcOptions.Conventions.Add(new ControllerNameAttributeConvention());
             });
-            builder.Services.AddCors(options =>
-            {
-                options.AddPolicy(name: "AllowFrontEnd",
-                    policy =>
-                    {
-                        policy.WithOrigins(webSigninSettings.Origin)
-                            .WithMethods("PUT", "DELETE", "GET", "POST", "OPTIONS")
-                            .AllowAnyHeader();
-                    });
-            });
 
             // Configure EF Core with second-level cache
             //builder.Services.AddDbContext<DbContextManager>(options =>
@@ -160,7 +150,8 @@ namespace IssuerOfClaims
             app.UseHttpsRedirection();
             app.UseStaticFiles();
             app.UseRouting();
-            app.UseCors("AllowFrontEnd");
+            //app.UseCors("AllowFrontEnd");
+            app.UseMiddleware<ApplyCORSMiddleware>();
 
             app.UseAuthentication();
             // TODO: redirect to login web when catch 401 response

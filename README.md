@@ -30,6 +30,7 @@ Updating for support from other email service providers will be later.<br>
 
 ### <strong>5. Ongoing</strong> <br>
 - Other endpoints. <br>
+- Adding device registration. <be>
 - Update login, consent, and user information UI. <br>
 - Other updates in the future (adding new endpoint may need to update code logic or database). <br>
 - Apply some changes to use Redis. <br>

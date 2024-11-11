@@ -53,7 +53,7 @@ function IsGoingToAuthorizeEndpoint(endpoint: LocationQueryValue | LocationQuery
 function ConvertLocationQueryToString(query: LocationQuery): string {
   const temp =
     `${AuthorizeRequest.ResponseType}=${query.response_type}` +
-    `&${AuthorizeRequest.ResponseMode}=${query.response_mode}` +
+    `&${AuthorizeRequest.ResponseMode}=${query.response_mode === undefined ? "" : query.response_mode}` +
     `&${AuthorizeRequest.Scope}=${encodeURI(query.scope)}` +
     `&${AuthorizeRequest.RedirectUri}=${query.redirect_uri}` +
     `&${AuthorizeRequest.ClientId}=${query.client_id}` +
@@ -108,8 +108,6 @@ export const useAuthStore = defineStore({
           Authorization: 'Basic ' + authorization
         }, `path=${useAuthenticationFlow.path}`,
         (response) => {
-          //authorizationCodeResponse.value = response.data.code;
-          //console.log(response);
           if (response.status === 200) {
             // save to local storage part of
             // store user details and jwt in local storage to keep user logged in between page refreshes
@@ -119,7 +117,6 @@ export const useAuthStore = defineStore({
 
             // Open consent view if prompt="consent" inside request
             router.push({ path: '/oauth/consent', query: { path: useAuthenticationFlow.path } });
-            //return;
           }
         }
       );

@@ -2,9 +2,12 @@
 import favicon from '@/assets/images/favicon.svg';
 import { ref, defineProps } from 'vue';
 import type { LocationQuery } from 'vue-router';
-import { useAxiosGet } from '@/extensions/RequestUltilities';
+import { useAxiosGet, useAxiosPostWithHeaders } from '@/extensions/RequestUltilities';
 import { OauthEndpoint } from '@/stores/Utilities';
 //import { Static } from '../IdentityServerInformation';
+import { useAuthStore } from '@/stores/auth';
+import { Base64ToString } from '@/extensions/RNGCryptoUltilities';
+import { router } from '@/router';
 
 const props = defineProps<{
   path: LocationQuery
@@ -14,11 +17,18 @@ const client = ref("CLIENT");
 const temp = `By continuing, Google will share your name, email address, language preference, and profile picture with IssuerOfClaims.
 See IssuerOfClaims’s Privacy Policy and Terms of Service.You can manage Sign in with Google in your Google Account.`;
 
-function Click()
-{
-  console.log(props.path);
-  useAxiosGet(OauthEndpoint.AuthorizeEndpoint + `?path=${props.path}`, (response) => {
+function Click() {
+  // console.log(props.path.path);
+  // console.log(Base64ToString(props.path.path));
+  const useAuth = useAuthStore();
+
+  useAxiosPostWithHeaders(OauthEndpoint.AuthorizeEndpoint, {
+    Authorization: `pop ${useAuth.user}`
+  }, `${Base64ToString(props.path.path)}`, (response) => {
     console.log(response);
+  }, undefined, (error) => {
+    console.log(error);
+    router.push('/close-tab');
   });
 }
 

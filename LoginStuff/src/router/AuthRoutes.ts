@@ -30,6 +30,11 @@ const AuthRoutes = {
       name: 'Error 404',
       path: '/pages/error',
       component: () => import('@/views/pages/maintenance/error/Error404Page.vue')
+    },
+    {
+      name: 'Close',
+      path: '/close-tab',
+      component: () => import('@/views/CloseTab.vue')
     }
   ]
 };

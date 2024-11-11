@@ -118,9 +118,9 @@ namespace IssuerOfClaims.Services.Token
                 // TODO: replace ClaimIDentity by JwtClaim
                 var tokenDescriptor = new SecurityTokenDescriptor
                 {
-                    IssuedAt = DateTime.UtcNow,
+                    IssuedAt = DateTime.Now,
                     // TODO: idtoken will be used in short time
-                    Expires = DateTime.UtcNow.AddMinutes(15),
+                    Expires = DateTime.Now.AddMinutes(15),
                     SigningCredentials = new SigningCredentials(new RsaSecurityKey(allKeys.PrivateKey), SecurityAlgorithms.RsaSha256),
                     Claims = claims,
                 };

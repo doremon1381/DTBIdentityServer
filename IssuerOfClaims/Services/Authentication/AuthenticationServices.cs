@@ -141,6 +141,7 @@ namespace IssuerOfClaims.Services.Authentication
                 // authentication with Bearer" token - access token or id token, for now, I'm trying to implement
                 //     , https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
                 AuthenticationSchemes.AuthorizationHeaderBearer => await BearerToken_FindUserAsync(authenticateInfor),
+                // TODO: for now, I use id token inside pop authorization header, will update later
                 AuthenticationSchemes.AuthorizationHeaderPop => await PopHeader_FindUserAsync(authenticateInfor),
                 _ => throw new InvalidOperationException(ExceptionMessage.UNHANDLED_AUTHENTICATION_SCHEME)
             };
@@ -157,6 +158,10 @@ namespace IssuerOfClaims.Services.Authentication
             else if (scheme.Equals(AuthenticationSchemes.AuthorizationHeaderBearer.ToUpper()))
             {
                 return AuthenticationSchemes.AuthorizationHeaderBearer;
+            }
+            else if (scheme.Equals(AuthenticationSchemes.AuthorizationHeaderPop.ToUpper()))
+            {
+                return AuthenticationSchemes.AuthorizationHeaderPop;
             }
             else
             {
@@ -249,7 +254,7 @@ namespace IssuerOfClaims.Services.Authentication
         #region Pop
         private async Task<UserIdentity> PopHeader_FindUserAsync(string authenticateInfor)
         {
-            var jwt = authenticateInfor.Split(" ").First().Trim();
+            var jwt = authenticateInfor.Split(" ")[1].Trim();
             // TODO: get public key, verify, get user
             var userName = VerifyJwtTokenAndGetUserName(jwt);
 
@@ -273,7 +278,7 @@ namespace IssuerOfClaims.Services.Authentication
 
             ClaimsPrincipal userPrincipal = tokenHandler.ValidateToken(jwt, validateToken, out _);
 
-            return userPrincipal.Claims.First(c => c.Type.Equals(JwtClaimTypes.Subject)).Value;
+            return userPrincipal.Claims.First(c => c.Type.Equals(ClaimTypes.NameIdentifier)).Value;
         }
         #endregion
 

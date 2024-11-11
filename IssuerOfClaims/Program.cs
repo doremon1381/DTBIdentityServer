@@ -76,11 +76,9 @@ namespace IssuerOfClaims
             //    apiVersionOptions.ReportApiVersions = true;
             //});
 
-            //builder.Services.AddDistributedMemoryCache();
             builder.Services.AddAuthentication(options =>
             {
                 options.DefaultScheme = OidcConstants.AuthenticationSchemes.AuthorizationHeaderBearer;
-                //options.DefaultForbidScheme = JwtBearerDefaults.AuthenticationScheme;
             })
             //.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme,
             .AddScheme<JwtBearerOptions, AuthenticationServices>(OidcConstants.AuthenticationSchemes.AuthorizationHeaderBearer,
@@ -150,7 +148,6 @@ namespace IssuerOfClaims
             app.UseHttpsRedirection();
             app.UseStaticFiles();
             app.UseRouting();
-            //app.UseCors("AllowFrontEnd");
             app.UseMiddleware<ApplyCORSMiddleware>();
 
             app.UseAuthentication();

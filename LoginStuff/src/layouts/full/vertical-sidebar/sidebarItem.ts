@@ -1,21 +1,21 @@
 import {
-  CircleIcon,
+  //CircleIcon,
   // WindmillIcon,
   // TypographyIcon,
   // ShadowIcon,
   // PaletteIcon,
-  KeyIcon,
+  //KeyIcon,
   // BugIcon,
   // DashboardIcon,
   // UserOffIcon,
   UsersGroupIcon,
-  Home2Icon,
-  PictureInPictureOnIcon,
-  UserPlusIcon,
-  BrandDeliverooIcon,
-  BrandAppstoreIcon,
-  DatabaseExportIcon,
-  BrandOfficeIcon,
+  // Home2Icon,
+  // PictureInPictureOnIcon,
+  // UserPlusIcon,
+  // BrandDeliverooIcon,
+  // BrandAppstoreIcon,
+  // DatabaseExportIcon,
+  // BrandOfficeIcon,
   // BrandChromeIcon,
   // HelpIcon
 } from 'vue-tabler-icons';
@@ -34,51 +34,14 @@ export interface menu {
   disabled?: boolean;
   type?: string;
   subCaption?: string;
-  forAdmin?: boolean;
 }
 
 const sidebarItem: menu[] = [
-  // { header: 'Dashboard' }, 
+  { header: 'Dashboard' }, 
   {
-    title: 'Default',
-    icon: Home2Icon,
-    to: '/dashboard/default'
-  },
-  {
-    title: "Thống kê",
-    icon: DatabaseExportIcon,
-    to: "/statistic"
-  },
-  {
-    title: "Quản lý Kho",
-    icon: BrandAppstoreIcon,
-    to: "/storage"
-  },
-  {
-    title: "Quản lý giao hàng",
-    icon: BrandDeliverooIcon,
-    to: "/delivery"
-  },
-  {
-    title: "Quản lý dự án",
-    icon: PictureInPictureOnIcon,
-    to: "/projects"
-  },
-  {
-    title: "Quản lý nhân viên",
+    title: "User details",
     icon: UsersGroupIcon,
-    to: "/users",
-    forAdmin: true
-  },
-  {
-    title: "Quản lý khách hàng",
-    icon: UserPlusIcon,
-    to: "/customers"
-  },
-  {
-    title: "Quản lý phòng ban",
-    icon: BrandOfficeIcon,
-    to: "/offices"
+    to: "/user"
   },
   // { divider: true },
   // { header: 'Pages' },

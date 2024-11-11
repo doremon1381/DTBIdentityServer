@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import Logo from '@/layouts/full/logo/LogoDark.vue';
-import AuthRegister from '../authForms/AuthRegister.vue';
+import AuthConsent from '../authForms/AuthConsent.vue';
+import { useRouter } from 'vue-router';
+
+const request = useRouter();
+const path = request.currentRoute.value.query;
+
 </script>
 
 <template>
@@ -10,22 +15,16 @@ import AuthRegister from '../authForms/AuthRegister.vue';
       <v-container>
         <div class="pa-7 pa-sm-12">
           <v-row justify="center">
-            <v-col cols="12" lg="10" xl="6" md="7">
-              <v-card elevation="0" class="loginBox">
+            <v-col cols="12" lg="10" xl="8">
+              <v-card elevation="0" class="consentBox">
                 <v-card variant="outlined">
-                  <v-card-text class="pa-9">
+                  <!-- <v-card-text class="pa-9"> -->
+                    <v-card-text class="pa-0">
                     <!---Left Part Logo -->
-                    <v-row>
-                      <v-col cols="12" class="text-center">
-                        <Logo />
-                        <h2 class="text-secondary text-h2 mt-8">Sign up</h2>
-                        <!-- <h4 class="text-disabled text-h4 mt-3">Enter credentials to continue</h4> -->
-                      </v-col>
-                    </v-row>
                     <!---Left Part Logo -->
 
                     <!---Left Part Form-->
-                    <AuthRegister />
+                    <AuthConsent :path="path"/>
                     <!---Left Part Form-->
                   </v-card-text>
                 </v-card>
@@ -39,8 +38,8 @@ import AuthRegister from '../authForms/AuthRegister.vue';
   </v-row>
 </template>
 <style lang="scss">
-.loginBox {
-  max-width: 475px;
+.consentBox {
+  max-width: auto;
   margin: 0 auto;
 }
 </style>

@@ -9,6 +9,7 @@ import { PerfectScrollbarPlugin } from 'vue3-perfect-scrollbar';
 import VueApexCharts from 'vue3-apexcharts';
 import VueTablerIcons from 'vue-tabler-icons';
 //import store from '@/vuexStore.js'
+import { piniaSessionStorage } from './stores/piniaSessionStorage';
 //import { fakeBackend } from '@/utils/helpers/fake-backend';
 
 // print
@@ -16,9 +17,12 @@ import print from 'vue3-print-nb';
 
 const app = createApp(App);
 //fakeBackend();
-app.use(router);
+const pinia = createPinia();
+pinia.use(piniaSessionStorage);
+
 app.use(PerfectScrollbarPlugin);
-app.use(createPinia());
+app.use(pinia);
+app.use(router);
 app.use(VueTablerIcons);
 app.use(print);
 app.use(VueApexCharts);

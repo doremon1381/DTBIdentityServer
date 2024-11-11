@@ -57,6 +57,29 @@ function useAxiosGetWithHeaders(uri: string, headers: RawAxiosRequestHeaders, ha
    //return data;
 }
 
+
+function useAxiosPostWithHeaders(uri: string, headers: RawAxiosRequestHeaders, data: any, handleResponse: HR, nextRequest?: NX, errorHandler?: NX)
+{
+   axios.post(uri, data, {
+       headers
+   }).then(response => {
+       //data.value = response.data;
+       handleResponse(response);
+   }).catch(error => {
+       //console.log(error);
+       if (errorHandler != undefined)
+            errorHandler(error);
+       // TODO: if 401, use router to redirect
+       if (error.status == 401)
+            router.push('/auth/login')
+   }).then(()=> {
+    if (nextRequest != undefined)
+        nextRequest();
+   });
+
+   //return data;
+}
+
 function useAxiosGetWithAccessToken(api: string, handleResponse: HR, nextRequest?: NX, errorHandler?: ER)
 {
    const data = useAuthStore();
@@ -105,4 +128,4 @@ function useAxiosPostWithAccessToken(api: string, requestBody, handleResponse: H
     });
 }
 
- export { useAxiosGet, useAxiosGetWithHeaders, useAxiosGetWithAccessToken, useAxiosPostWithAccessToken, webServerTestRequest };
+ export { useAxiosGet, useAxiosGetWithHeaders, useAxiosGetWithAccessToken, useAxiosPostWithAccessToken, useAxiosPostWithHeaders, webServerTestRequest };

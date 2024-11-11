@@ -2,6 +2,7 @@ import { fileURLToPath, URL } from 'url';
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import vuetify from 'vite-plugin-vuetify';
+import viteBasicSslPlugin from "@vitejs/plugin-basic-ssl";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -15,7 +16,8 @@ export default defineConfig({
     }),
     vuetify({
       autoImport: true
-    })
+    }),
+    viteBasicSslPlugin()
   ],
   resolve: {
     alias: {
@@ -40,5 +42,10 @@ export default defineConfig({
           global: 'globalThis',
       },
     },
+  },
+  // TODO: will change later
+  server: {
+    port: 7181,
+    https: true
   }
 });

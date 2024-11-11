@@ -1,6 +1,17 @@
-<script setup lang="ts">
+<script setup>
 import Logo from '@/layouts/full/logo/LogoDark.vue';
 import AuthLogin from '../authForms/AuthLogin.vue';
+import { useRouter } from 'vue-router';
+//import { ref } from 'vue';
+import { router } from '@/router'
+
+const request = useRouter();
+console.log(request.currentRoute.value.query);
+
+const query = request.currentRoute.value.query;
+if (query.path !== "/oauth2/authorize")
+  router.push('/pages/error');
+
 </script>
 
 <template>
@@ -25,7 +36,7 @@ import AuthLogin from '../authForms/AuthLogin.vue';
                     <!---Left Part Logo -->
 
                     <!---Left Part Form-->
-                    <AuthLogin />
+                    <AuthLogin :query="query" />
                     <!---Left Part Form-->
                   </v-card-text>
                 </v-card>

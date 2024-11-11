@@ -13,17 +13,6 @@ import { useAuthStore } from '@/stores/auth';
 const customizer = useCustomizerStore();
 const sidebarMenu = shallowRef(sidebarItems);
 const auth = useAuthStore();
-const isAdmin = auth.user.scope.includes("admin");
-//console.log(isAdmin);
-
-function isVisibleForAdmin(item : menu) : boolean {
-  if (item.forAdmin != null){
-    return isAdmin ? true : false;
-  }
-  else {
-    return true;
-  }
-}
 
 </script>
 
@@ -58,7 +47,7 @@ function isVisibleForAdmin(item : menu) : boolean {
           <!---If Has Child -->
           <NavCollapse class="leftPadding" :item="item" :level="0" v-else-if="item.children" />
           <!---Single Item-->
-          <NavItem :item="item" v-else class="leftPadding" v-show="isVisibleForAdmin(item)" />
+          <NavItem :item="item" v-else class="leftPadding" />
           <!---End Single Item-->
         </template>
       </v-list>

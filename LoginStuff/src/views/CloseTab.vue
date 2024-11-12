@@ -10,6 +10,6 @@
         // Optionally, you can try to close the tab here 
         setTimeout(() => {
             window.location.href = "https://www.google.com";
-        }, 3000);
+        }, 5000);
     }
 } </script>

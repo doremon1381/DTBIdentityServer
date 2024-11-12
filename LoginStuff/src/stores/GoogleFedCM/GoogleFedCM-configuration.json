@@ -1,0 +1,6 @@
+{
+    "accounts_endpoint": "https://accounts.idp.example/accounts",
+    "client_metadata_endpoint": "https://accounts.idp.example/client_metadata",
+    "id_assertion_endpoint": "https://accounts.idp.example/assertion"
+  }
+  

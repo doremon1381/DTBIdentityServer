@@ -24,6 +24,7 @@ using IssuerOfClaims.Models.Request;
 using System.Net.WebSockets;
 using static ServerUltilities.Identity.Constants;
 using System.Diagnostics;
+using Azure;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -120,7 +121,11 @@ namespace IssuerOfClaims.Controllers
 
             // TODO: will test again
             await Task.Run(() => ValidateRedirectUris(parameters.RedirectUri.Value, client));
-            ValidateConsentPrompt(parameters.ConsentGranted.Value);
+            if (!ValidateConsentPrompt(parameters.ConsentGranted.Value))
+            {
+                await RedirectIfAccessToResourcesIsNotAllowed(HttpContext, parameters.RedirectUri.Value, parameters.State.Value);
+                return new EmptyResult();
+            }
 
             // Authentication by using one of these flows
             switch (GetMappingGrantType(parameters.ResponseType.Value))
@@ -138,12 +143,31 @@ namespace IssuerOfClaims.Controllers
             }
         }
 
-        private void ValidateConsentPrompt(string consentValue)
+        private static async Task RedirectIfAccessToResourcesIsNotAllowed(HttpContext context, string redirectUri, string state)
+        {
+            // TODO: send request as redirect response to redirect uri
+            //     : with query string has error=access_denied
+            var location = CreateDeniedResponseLocation(redirectUri, state);
+
+            context.Response.Headers.Append("location", location);
+            context.Response.StatusCode = 302;
+            await context.Response.CompleteAsync(); // Ensure response is completed
+        }
+
+        private static string CreateDeniedResponseLocation(string redirectUri, string state)
+        {
+            var stateValue = string.IsNullOrEmpty(state) ? "" : $"&state={state}";
+
+            return $"{redirectUri}?error=access_denied{stateValue}";
+        }
+
+        private static bool ValidateConsentPrompt(string consentValue)
         {
             if (consentValue.Equals(PromptConsentResult.NotAllow))
             {
-                throw new CustomException(AuthorizeErrors.AccessDenied, HttpStatusCode.FailedDependency);
+                return false;
             }
+            return true;
         }
 
         private static string GetMappingGrantType(string responseType)

@@ -96,26 +96,19 @@ namespace IssuerOfClaims.Models.Request
             ValidateScope();
             ValidatePKCEParameters();
             ValidateResponseType();
-            //ValidatePrompt();
-
-            // TODO: will change later
-            SetDefaultPrompt();
+            ValidatePrompt();
         }
 
         private void ValidatePrompt()
         {
+            // TODO: will check again
             if (Prompt.HasValue)
             {
                 if (!Constants.SupportedPromptModes.Contains(Prompt.Value))
                     throw new CustomException(ExceptionMessage.PROMPT_VALUE_NOT_VALID, HttpStatusCode.BadRequest);
-                if (Constants.SupportConsentGrantedValue.Contains(ConsentGranted.Value))
+                if (Prompt.Value.Equals(PromptModes.Consent) && !Constants.SupportConsentGrantedValue.Contains(ConsentGranted.Value))
                     throw new CustomException(ExceptionMessage.PROMPT_CONSENT_VALUE_NOT_VALID, HttpStatusCode.BadRequest);
             }
-        }
-
-        private void SetDefaultPrompt()
-        {
-            Prompt.SetValue(PromptModes.None);
         }
 
         private void ValidateScope()

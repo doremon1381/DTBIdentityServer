@@ -12,7 +12,7 @@ import { useAxiosGetWithHeaders, useAxiosPostWithHeaders } from '@/extensions/Re
 import { LoginEndpoint, RegisterEndpoint } from '@/extensions/IdentityServer';
 import { useAuthenticationFlowStore } from '../stores/AuthenticationFlow';
 import type { LocationQuery, LocationQueryValue } from 'vue-router';
-import { AuthorizeRequest } from '../stores/Utilities';
+import { AuthorizeRequest, OauthEndpoint } from '../stores/Utilities';
 
 // const authorizeEndpoint = "https://localhost:7180/oauth2/authorize";
 // const clientId = "ManagermentServer";
@@ -53,7 +53,7 @@ function IsGoingToAuthorizeEndpoint(endpoint: LocationQueryValue | LocationQuery
 function ConvertLocationQueryToString(query: LocationQuery): string {
   const temp =
     `${AuthorizeRequest.ResponseType}=${query.response_type}` +
-    `&${AuthorizeRequest.ResponseMode}=${query.response_mode === undefined ? "" : query.response_mode}` +
+    `&${AuthorizeRequest.ResponseMode}=${query.response_mode === undefined ? '' : query.response_mode}` +
     `&${AuthorizeRequest.Scope}=${encodeURI(query.scope)}` +
     `&${AuthorizeRequest.RedirectUri}=${query.redirect_uri}` +
     `&${AuthorizeRequest.ClientId}=${query.client_id}` +
@@ -68,6 +68,25 @@ function ConvertLocationQueryToString(query: LocationQuery): string {
 
 function CreateLoginUri(uri: string, path: string): string {
   return `${uri}?path=${path}`;
+}
+
+function SendAuthRequest(user, path: string, prompt: string) {
+  useAxiosPostWithHeaders(
+    OauthEndpoint.AuthorizeEndpoint,
+    {
+      Authorization: `pop ${user}`
+    },
+    `${Base64ToString(path)}&consent_granted=${prompt}`,
+    (response) => {
+      console.log(response);
+      router.push('/close-tab');
+    },
+    undefined,
+    (error) => {
+      console.log(error);
+      router.push('/close-tab');
+    }
+  );
 }
 
 let incomingQueryParamtersAsBase64 = '';
@@ -98,15 +117,16 @@ export const useAuthStore = defineStore({
       useAuthenticationFlow.path = incomingQueryParamtersAsBase64;
       //useAuthenticationFlow.flow = 'Oauth2';
 
-      console.log(useAuthenticationFlow.path);
-      console.log(Base64ToString(useAuthenticationFlow.path));
+      // console.log(useAuthenticationFlow.path);
+      // console.log(Base64ToString(useAuthenticationFlow.path));
 
       // return user_code and redirect to device authentication?
       useAxiosPostWithHeaders(
         `${LoginEndpoint}`,
         {
           Authorization: 'Basic ' + authorization
-        }, `path=${useAuthenticationFlow.path}`,
+        },
+        `path=${useAuthenticationFlow.path}`,
         (response) => {
           if (response.status === 200) {
             // save to local storage part of
@@ -115,8 +135,21 @@ export const useAuthStore = defineStore({
             localStorage.setItem('user', JSON.stringify(response.data));
             console.log(localStorage.getItem('user'));
 
-            // Open consent view if prompt="consent" inside request
-            router.push({ path: '/oauth/consent', query: { path: useAuthenticationFlow.path } });
+            const params = Base64ToString(useAuthenticationFlow.path);
+            const prompt = params.split('&').find((q) => q.startsWith('prompt'))?.replace('prompt=', '');
+            console.log(prompt);
+            if (prompt === 'none') {
+              SendAuthRequest(this.user, useAuthenticationFlow.path, prompt);
+            } else if (prompt === 'login') {
+              // TODO: for now, in this step, it is already inside login process, will think about openid oauth flow later
+            } else if (prompt === 'consent') {
+              //Open consent view if prompt="consent" inside request
+              router.push({ path: '/oauth/consent', query: { path: useAuthenticationFlow.path } });
+            } else if (prompt === 'select_account') {
+              // TODO: ignore this part for now, will update later
+            } else {
+              return;
+            }
           }
         }
       );

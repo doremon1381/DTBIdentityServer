@@ -52,7 +52,8 @@ namespace IssuerOfClaims.Controllers
             // TODO: verify client
             var client = await _clientDbServices.FindAsync(clientId);
 
-            // gather request information, redirect to prompt view if it's need
+            // TODO: need to change to apply jwt token PoP, for now, I just create an encrypt jwt token using asymmetrickey and ignore rfc7800 specs
+            //     : more information: https://datatracker.ietf.org/doc/html/rfc7800
             var idToken = await _tokenManager.GenerateIdTokenAsync(user, "openid", string.Empty, client.ClientId);
 
             // TODO: for test

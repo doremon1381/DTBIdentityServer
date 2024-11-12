@@ -4,6 +4,7 @@ import Google from '@/assets/images/auth/social-google.svg';
 import { useAuthStore } from '@/stores/auth';
 import { Form } from 'vee-validate';
 import type { LocationQuery } from 'vue-router';
+import { OAuth2Client } from 'google-auth-library';
 
 const props = defineProps<{
   query: LocationQuery;
@@ -34,10 +35,20 @@ function validate(values, { setErrors }) {
   //.catch((error) => setErrors({ apiError: error }));
 }
 
+function RequestToGoogle() {
+  console.log('done');
+
+  const oauth2 = new OAuth2Client();
+}
+
+// function HandleError() {
+//   console.log("login failed!");
+// }
+
 </script>
 
 <template>
-  <v-btn block color="primary" variant="outlined" class="text-lightText googleBtn">
+  <v-btn @click="RequestToGoogle" block color="primary" variant="outlined" class="text-lightText googleBtn">
     <img :src="Google" alt="google" />
     <span class="ml-2">Sign in with Google</span></v-btn>
   <v-row>

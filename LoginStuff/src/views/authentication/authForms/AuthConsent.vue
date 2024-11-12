@@ -17,15 +17,17 @@ const client = ref("CLIENT");
 const temp = `By continuing, Google will share your name, email address, language preference, and profile picture with IssuerOfClaims.
 See IssuerOfClaims’s Privacy Policy and Terms of Service.You can manage Sign in with Google in your Google Account.`;
 
-function Click() {
+function Click(allowAccess: boolean) {
   // console.log(props.path.path);
   // console.log(Base64ToString(props.path.path));
   const useAuth = useAuthStore();
+  const promptValue = allowAccess ? 'granted': 'not_allow';
 
   useAxiosPostWithHeaders(OauthEndpoint.AuthorizeEndpoint, {
     Authorization: `pop ${useAuth.user}`
-  }, `${Base64ToString(props.path.path)}`, (response) => {
+  }, `${Base64ToString(props.path.path)}&consent_granted=${promptValue}`, (response) => {
     console.log(response);
+    router.push('/close-tab');
   }, undefined, (error) => {
     console.log(error);
     router.push('/close-tab');
@@ -66,8 +68,8 @@ function Click() {
       </template>
       <template v-slot:actions>
         <div class="d-flex">
-          <v-btn>Cancel</v-btn>
-          <v-btn @click="Click">Ok</v-btn>
+          <v-btn @click="Click(false)">Cancel</v-btn>
+          <v-btn @click="Click(true)">Ok</v-btn>
         </div>
       </template>
     </v-card>

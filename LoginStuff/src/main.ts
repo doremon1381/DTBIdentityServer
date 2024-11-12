@@ -8,15 +8,19 @@ import "@mdi/font/css/materialdesignicons.css";
 import { PerfectScrollbarPlugin } from 'vue3-perfect-scrollbar';
 import VueApexCharts from 'vue3-apexcharts';
 import VueTablerIcons from 'vue-tabler-icons';
-//import store from '@/vuexStore.js'
+import GoogleSignInPlugin from 'vue3-google-signin';
 import { piniaSessionStorage } from './stores/piniaSessionStorage';
 //import { fakeBackend } from '@/utils/helpers/fake-backend';
 
 // print
 import print from 'vue3-print-nb';
+import { GoogleClientId } from './extensions/IdentityServer';
 
 const app = createApp(App);
 //fakeBackend();
+app.use(GoogleSignInPlugin, {
+    clientId: GoogleClientId
+});
 const pinia = createPinia();
 pinia.use(piniaSessionStorage);
 

@@ -52,11 +52,11 @@ namespace IssuerOfClaims.Services.Authentication
 
                 // TODO: if "/oauth2/authorize" endpoint has Authentication header using basic scheme
                 //     : , then server will response for that request an exception: "Authorization scheme is not support in this endpoint!".
-                //if (AuthorizeRequestWithAuthorizationHeader(authorizationHeader, Context.Request.Path.Value))
-                //{
-                //    Context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                //    return AuthenticateResult.Fail(ExceptionMessage.AUTHORIZATION_BASIC_NOT_SUPPORT_FOR_AUTHORIZE_ENDPOINT);
-                //}
+                if (AuthorizeRequestWithAuthorizationHeader(authorizationHeader, Context.Request.Path.Value))
+                {
+                    Context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    return AuthenticateResult.Fail(ExceptionMessage.AUTHORIZATION_BASIC_NOT_SUPPORT_FOR_AUTHORIZE_ENDPOINT);
+                }
 
                 // TODO: need to change from get user by auth code to verify authcode and get user from username or password
                 //     : need to verify client identity before authentication, will be done later

@@ -29,7 +29,7 @@ Updating for support from other email service providers will be later.<br>
 - Open Command Prompt, run <em><strong>LoginStuff</strong></em> using "npm run dev". (Because I use Vuejs to create login view.) <br>
 
 ### <strong>5. Endpoints currently suport</strong> <br>
-- Run <em><strong>IssuerOfClaims.sln</strong></em> and goto discovery endpoint (<em>https://{yourDomain}/.well-known/openid-configuration</em>). <br>
+- Run <em><strong>IssuerOfClaims.sln</strong></em> and goto discovery endpoint (by default, it is <em>https://localhost:7180/.well-known/openid-configuration</em>). <br>
 
 ### <strong>6. Ongoing</strong> <br>
 - Other endpoints. <br>

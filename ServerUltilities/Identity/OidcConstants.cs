@@ -291,6 +291,9 @@ namespace ServerUltilities.Identity
             // TODO: will check again
             public const string AuthorizationHeaderBasic = "Basic";
             public const string AuthorizationHeaderBearer = "Bearer";
+            // TODO: add this scheme for now
+            public const string AuthorizationHeaderIdToken = "id_token";
+            // TODO: add this scheme for now
             public const string AuthorizationHeaderDPoP = "DPoP";
 
             public const string FormPostBearer = "access_token";

@@ -109,9 +109,9 @@ namespace IssuerOfClaims.Services.Token
             try
             {
                 // TODO: use rsa256 instead of hs256 for now
-                var claims = await TaskUtilities.RunAttachedToParentTask(() => CreateClaimsForIdToken(user, nonce, authTime, scope, clientId));
+                var claims = await Task.Run(() => CreateClaimsForIdToken(user, nonce, authTime, scope, clientId));
 
-                var allKeys = await TaskUtilities.RunAttachedToParentTask(() => RSAEncryptUtilities.CreateRsaPublicKeyAndPrivateKey());
+                var allKeys = await Task.Run(() => RSAEncryptUtilities.CreateRsaPublicKeyAndPrivateKey());
 
                 // TODO: will add rsa key to database
 

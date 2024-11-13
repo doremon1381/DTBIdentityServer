@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, defineProps } from 'vue';
+import { ref, defineProps, onBeforeMount } from 'vue';
 import Google from '@/assets/images/auth/social-google.svg';
 import { useAuthStore } from '@/stores/auth';
 import { Form } from 'vee-validate';
 import type { LocationQuery } from 'vue-router';
-import { OAuth2Client } from 'google-auth-library';
+//import { OAuth2Client } from 'google-auth-library';
 
 const props = defineProps<{
   query: LocationQuery;
@@ -38,13 +38,20 @@ function validate(values, { setErrors }) {
 function RequestToGoogle() {
   console.log('done');
 
-  const oauth2 = new OAuth2Client();
+  //const oauth2Client = new OAuth2Client(clientId, clientSecret, redirectUri);
 }
 
-// function HandleError() {
-//   console.log("login failed!");
-// }
+// TODO: comment for now
+// onBeforeMount(async () => {
+//   const authStore = useAuthStore();
 
+//   const user = authStore.user;
+//   console.log(user !== undefined);
+
+//   if (user !== undefined) {
+//     authStore.redirectToConsentView();
+//   }
+// })
 </script>
 
 <template>

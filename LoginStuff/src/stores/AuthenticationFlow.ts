@@ -5,7 +5,7 @@ interface AuthenticationFlow{
     path: string
 }
 
-export const useAuthenticationFlowStore = defineStore<'authenticationFlow', AuthenticationFlow>({
+export const useAuthenticationParametersStore = defineStore<'authenticationFlow', AuthenticationFlow>({
     id: 'authenticationFlow',
     state: () : AuthenticationFlow => ({
         flow: "",

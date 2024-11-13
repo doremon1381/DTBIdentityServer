@@ -195,7 +195,7 @@ namespace IssuerOfClaims.Services.Token
             var responseBody = await ResponseUtilities.CreateTokenResponseStringAsync(accessToken.Token, idToken, accessToken.TokenExpiried, refreshToken == null ? "" : refreshToken.Token);
 #pragma warning restore CS8602 // Dereference of a possibly null reference.
 
-            await _requestHandlerServices.ACF_II_BackgroundStuff(currentRequestHandler, refreshToken, accessToken);
+            await _requestHandlerServices.ACF_II_BackgroundStuffAsync(currentRequestHandler, refreshToken, accessToken);
 
             return responseBody;
         }
@@ -211,7 +211,7 @@ namespace IssuerOfClaims.Services.Token
                 ExternalSources.Google,
                 string.IsNullOrEmpty(googleResponse.RefreshToken) ? "" : googleResponse.RefreshToken);
 
-            await _requestHandlerServices.AuthGoogle_BackgroundStuff(parameters.CodeVerifier.Value, googleResponse, payload, client, user);
+            await _requestHandlerServices.AuthGoogle_BackgroundStuffAsync(parameters.CodeVerifier.Value, googleResponse, payload, client, user);
 
             return response;
         }
@@ -270,7 +270,7 @@ namespace IssuerOfClaims.Services.Token
         #region issuse token for implicit grant's response
         public async Task<string> IGF_GetResponseAsync(UserIdentity user, AuthCodeParameters parameters, Client client)
         {
-            var accessToken = await TaskUtilities.RunAttachedToParentTask(() => _requestHandlerServices.CreateToken(OidcConstants.TokenTypes.AccessToken));
+            var accessToken = await Task.Run(() => _requestHandlerServices.CreateToken(OidcConstants.TokenTypes.AccessToken));
 
             // TODO: scope is used for getting claims to send to client,
             //     : for example, if scope is missing email, then in id_token which will be sent to client will not contain email's information 
@@ -281,7 +281,7 @@ namespace IssuerOfClaims.Services.Token
             // return a form_post, url fragment or body of response
             string response = await ResponseUtilities.IGF_CreateResponse(parameters, idToken, accessToken.Token, secondsForTokenExpired);
 
-            await _requestHandlerServices.IGF_BackgroundStuff(user, client, accessToken);
+            await _requestHandlerServices.IGF_BackgroundStuffAsync(user, client, accessToken);
 
             return response;
         }
@@ -291,14 +291,14 @@ namespace IssuerOfClaims.Services.Token
         public async Task<string> ACF_I_CreateResponseAsync(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode)
         {
             var response = await ACF_I_CreateResponseBody(@params, authorizationCode);
-            await _requestHandlerServices.ACF_I_BackgroundStuff(@params, user, client, authorizationCode);
+            await _requestHandlerServices.ACF_I_BackgroundStuffAsync(@params, user, client, authorizationCode);
 
             return response;
         }
 
         private static async Task<string> ACF_I_CreateResponseBody(AuthCodeParameters @params, string authorizationCode)
         {
-            return await TaskUtilities.RunAttachedToParentTask(() => ResponseUtilities.ACF_I_CreateRedirectContent("", @params.ResponseMode.Value, @params.State.Value, authorizationCode, @params.Scope.Value, @params.Prompt.Value));
+            return await Task.Run(() => ResponseUtilities.ACF_I_CreateRedirectContent("", @params.ResponseMode.Value, @params.State.Value, authorizationCode, @params.Scope.Value, @params.Prompt.Value));
         }
 
         #endregion

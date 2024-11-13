@@ -94,7 +94,7 @@ namespace IssuerOfClaims.Models.Request
                 if (p.Name.Equals(_responseTypeName))
                     return Task.Run(() => { });
                 else
-                    return TaskUtilities.RunAttachedToParentTask(() =>
+                    return Task.Run(() =>
                     {
                        SetPropertyValue(p);
                     });

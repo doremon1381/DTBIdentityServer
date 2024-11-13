@@ -26,7 +26,7 @@ namespace IssuerOfClaims.Models.Request
             var tasks = new List<Task>();
             foreach (var param in @params)
             {
-                tasks.Add(TaskUtilities.RunAttachedToParentTask(async () =>
+                tasks.Add(Task.Run(async () =>
                 {
                     var nameValuePair = param.Split("=");
                     var normalizedName = nameValuePair[0].ToUpper();

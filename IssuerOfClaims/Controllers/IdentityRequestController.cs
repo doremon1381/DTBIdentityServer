@@ -188,40 +188,6 @@ namespace IssuerOfClaims.Controllers
         {
             return redirectUris.FirstOrDefault(r => r.Host.Equals(requestUri.Host) && r.AbsolutePath.Equals(requestUri.AbsolutePath)) != null;
         }
-
-        private static async Task RedirectToLoginAsync(HttpContext context, string signinUri)
-        {
-            StringBuilder query = CreateRedirectRequestQuery(context);
-
-            // redirect to login 
-            await SendRequestAsync(signinUri, query.ToString());
-            // TODO: terminate request, will check again
-            context.Response.StatusCode = (int)HttpStatusCode.OK;
-        }
-
-        private static StringBuilder CreateRedirectRequestQuery(HttpContext context)
-        {
-            StringBuilder query = new StringBuilder();
-            query.Append($"{QS.Path}{QS.Equal}{Uri.EscapeDataString(context.Request.Path.Value)}");
-            //query.Append($"{QS.And}{QS.OauthEndpoint}{QS.Equal}{context.Request.RouteValues.First().Value}");
-            query.Append($"{QS.And}{QS.Method}{QS.Equal}" + context.Request.Method);
-            foreach (var item in context.Request.Query)
-            {
-                query.Append($"&{item.Key}={item.Value}");
-            }
-
-            return query;
-        }
-
-        //TODO: temporary
-        private static async Task SendRequestAsync(string loginUri, string query)
-        {
-            Process.Start(new ProcessStartInfo()
-            {
-                FileName = string.Format("{0}/?{1}", loginUri, query),
-                UseShellExecute = true
-            });
-        }
         #endregion
 
         #region Issue authorization code
@@ -646,15 +612,15 @@ namespace IssuerOfClaims.Controllers
             var parameters = new SignInGoogleParameters(requestQuery);
 
             var client = await _clientDbServices.FindAsync(parameters.ClientId.Value, parameters.ClientSecret.Value);
-
             var result = await Google_SendTokenRequestAsync(parameters, _googleClientConfiguration);
-            // TODO: verify Google id token
+
+            // verify Google id token
             GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(result.IdToken);
 
             // TODO: using this function following google example, will check again
             await userinfoCallAsync(result.AccessToken, _googleClientConfiguration.UserInfoUri);
 
-            // TODO: create new user or map google user infor to current, get unique user by email
+            // create new user or map google user info to current user
             var user = await _applicationUserManager.GetOrCreateUserByEmailAsync(payload);
 
             var response = await _responseManager.AuthGoogle_CreateResponseAsync(parameters, client, result, payload, user);
@@ -667,7 +633,7 @@ namespace IssuerOfClaims.Controllers
 
         private async Task<GoogleResponse> Google_SendTokenRequestAsync(SignInGoogleParameters parameters, GoogleClientConfiguration config)
         {
-            string tokenRequestBody = await Google_CreateTokenRequestBodyAsync(parameters, config);
+            string tokenRequestBody = await Task.Run(() => Google_CreateTokenRequestBody(parameters, config));
 
             // sends the request
             HttpWebRequest tokenRequest = (HttpWebRequest)WebRequest.Create(config.TokenUri);
@@ -712,7 +678,7 @@ namespace IssuerOfClaims.Controllers
             return new GoogleResponse(access_token, id_token, refresh_token, accessTokenIssueAt, expired_in);
         }
 
-        private static async Task<string> Google_CreateTokenRequestBodyAsync(SignInGoogleParameters parameters, GoogleClientConfiguration config)
+        private static string Google_CreateTokenRequestBody(SignInGoogleParameters parameters, GoogleClientConfiguration config)
         {
             // builds the request
             return string.Format("code={0}&redirect_uri={1}&client_id={2}&code_verifier={3}&client_secret={4}&scope=&grant_type=authorization_code",

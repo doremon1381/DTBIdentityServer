@@ -140,7 +140,7 @@ namespace IssuerOfClaims.Services
 
         private async Task CreateConfirmEmailAsync(Guid userId, Guid clientId, string code, string purpose, int expiredTimeInMinutes)
         {
-            await TaskUtilities.RunAttachedToParentTask(() => CreateConfirmEmail(userId, code, clientId, purpose, expiredTimeInMinutes));
+            await Task.Run(() => CreateConfirmEmail(userId, code, clientId, purpose, expiredTimeInMinutes));
         }
 
         private async Task SendMailAsync(string userName, string email, string emailBody)

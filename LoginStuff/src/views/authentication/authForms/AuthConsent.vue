@@ -2,7 +2,7 @@
 import favicon from '@/assets/images/favicon.svg';
 import { ref, defineProps } from 'vue';
 import type { LocationQuery } from 'vue-router';
-import { useAxiosGet, useAxiosPostWithHeaders } from '@/extensions/RequestUltilities';
+import { useAxiosPostWithHeaders } from '@/extensions/RequestUltilities';
 import { OauthEndpoint } from '@/stores/Utilities';
 //import { Static } from '../IdentityServerInformation';
 import { useAuthStore } from '@/stores/auth';
@@ -14,8 +14,8 @@ const props = defineProps<{
 }>();
 
 const client = ref("CLIENT");
-const temp = `By continuing, Google will share your name, email address, language preference, and profile picture with IssuerOfClaims.
-See IssuerOfClaims’s Privacy Policy and Terms of Service.You can manage Sign in with Google in your Google Account.`;
+// const temp = `By continuing, Google will share your name, email address, language preference, and profile picture with IssuerOfClaims.
+// See IssuerOfClaims’s Privacy Policy and Terms of Service.You can manage Sign in with Google in your Google Account.`;
 
 function Click(allowAccess: boolean) {
   // console.log(props.path.path);
@@ -24,7 +24,7 @@ function Click(allowAccess: boolean) {
   const promptValue = allowAccess ? 'granted': 'not_allow';
 
   useAxiosPostWithHeaders(OauthEndpoint.AuthorizeEndpoint, {
-    Authorization: `pop ${useAuth.user}`
+    Authorization: `id_token ${useAuth.user}`
   }, `${Base64ToString(props.path.path)}&consent_granted=${promptValue}`, (response) => {
     console.log(response);
     router.push('/close-tab');

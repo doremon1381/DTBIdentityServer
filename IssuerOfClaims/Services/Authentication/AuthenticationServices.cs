@@ -62,7 +62,7 @@ namespace IssuerOfClaims.Services.Authentication
                 //     : need to verify client identity before authentication, will be done later
                 UserIdentity user = await GetUserUsingAuthenticationSchemeAsync(Request.Headers.Authorization.ToString());
 
-                ClaimsPrincipal claimsPrincipal = await CreateClaimPrincipal(user);
+                ClaimsPrincipal claimsPrincipal = await Task.Run(() => CreateClaimPrincipal(user));
                 var ticket = IssueAuthenticationTicket(claimsPrincipal);
 
                 return AuthenticateResult.Success(ticket);
@@ -142,7 +142,7 @@ namespace IssuerOfClaims.Services.Authentication
                 //     , https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
                 AuthenticationSchemes.AuthorizationHeaderBearer => await BearerToken_FindUserAsync(authenticateInfor),
                 // TODO: for now, I use id token inside pop authorization header, will update later
-                AuthenticationSchemes.AuthorizationHeaderPop => await PopHeader_FindUserAsync(authenticateInfor),
+                AuthenticationSchemes.AuthorizationHeaderIdToken => await IdTokenHeader_FindUserAsync(authenticateInfor),
                 _ => throw new InvalidOperationException(ExceptionMessage.UNHANDLED_AUTHENTICATION_SCHEME)
             };
         }
@@ -159,9 +159,9 @@ namespace IssuerOfClaims.Services.Authentication
             {
                 return AuthenticationSchemes.AuthorizationHeaderBearer;
             }
-            else if (scheme.Equals(AuthenticationSchemes.AuthorizationHeaderPop.ToUpper()))
+            else if (scheme.Equals(AuthenticationSchemes.AuthorizationHeaderIdToken.ToUpper()))
             {
-                return AuthenticationSchemes.AuthorizationHeaderPop;
+                return AuthenticationSchemes.AuthorizationHeaderIdToken;
             }
             else
             {
@@ -170,17 +170,17 @@ namespace IssuerOfClaims.Services.Authentication
         }
 
 
-        private static bool IfAuthenticateInfoIsEmpty(string authenticateInfor)
+        private static bool IfAuthenticateInfoIsEmpty(string authenticateInfo)
         {
-            if (string.IsNullOrEmpty(authenticateInfor))
+            if (string.IsNullOrEmpty(authenticateInfo))
                 return true;
 
             return false;
         }
 
-        private static void ValidateAuthenticationInfo(string authenticateInfor)
+        private static void ValidateAuthenticationInfo(string authenticateInfo)
         {
-            var scheme = authenticateInfor.Split(" ").First();
+            var scheme = GetAuthenticationScheme(authenticateInfo);
             if (string.IsNullOrEmpty(scheme))
                 throw new CustomException(ExceptionMessage.REQUEST_HEADER_MISSING_IDENTITY_INFO);
             //if (scheme.ToUpper().Length)
@@ -219,9 +219,9 @@ namespace IssuerOfClaims.Services.Authentication
         }
 
         #region bearer token
-        private async Task<UserIdentity> BearerToken_FindUserAsync(string authenticateInfor)
+        private async Task<UserIdentity> BearerToken_FindUserAsync(string authenticateInfo)
         {
-            var accessToken = authenticateInfor.Split(" ").Last().Trim();
+            var accessToken = GetAuthenticationParameter(authenticateInfo);
             var tokenResponse = await _tokenResponsePerHandlerDbServices.FindByAccessTokenASync(accessToken);
 
             return tokenResponse.IdentityRequestHandler.User;
@@ -252,18 +252,40 @@ namespace IssuerOfClaims.Services.Authentication
         #endregion
 
         #region Pop
-        private async Task<UserIdentity> PopHeader_FindUserAsync(string authenticateInfor)
+        private async Task<UserIdentity> IdTokenHeader_FindUserAsync(string authenticateInfo)
         {
-            var jwt = authenticateInfor.Split(" ")[1].Trim();
+            string jwt = GetAuthenticationParameter(authenticateInfo);
             // TODO: get public key, verify, get user
             var userName = VerifyJwtTokenAndGetUserName(jwt);
 
             return await _userManager.Current.FindByNameAsync(userName);
         }
 
+        /// <summary>
+        /// authenticateInfo has form like : "{scheme} {value}"
+        /// </summary>
+        /// <param name="authenticateInfo"></param>
+        /// <returns></returns>
+        private static string GetAuthenticationParameter(string authenticateInfo)
+        {
+            return authenticateInfo.Split(" ").Last().Trim();
+        }
+
+        /// <summary>
+        /// authenticateInfo has form like : "{scheme} {value}"
+        /// </summary>
+        /// <param name="authenticateInfo"></param>
+        /// <returns></returns>
+        private static string GetAuthenticationScheme(string authenticateInfo)
+        {
+            return authenticateInfo.Split(" ").First().Trim();
+        }
+
         private static string VerifyJwtTokenAndGetUserName(string jwt)
         {
             RSAParameters publicKey = RSAEncryptUtilities.ReadJsonKey();
+
+            var securityKey = new RsaSecurityKey(publicKey);
 
             var tokenHandler = new JwtSecurityTokenHandler();
 
@@ -271,9 +293,10 @@ namespace IssuerOfClaims.Services.Authentication
             var validateToken = new TokenValidationParameters()
             {
                 ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new RsaSecurityKey(publicKey),
                 ValidateIssuer = false,
-                ValidateAudience = false
+                ValidateAudience = false,
+                ValidateLifetime = true,
+                IssuerSigningKey = securityKey,
             };
 
             ClaimsPrincipal userPrincipal = tokenHandler.ValidateToken(jwt, validateToken, out _);
@@ -288,7 +311,7 @@ namespace IssuerOfClaims.Services.Authentication
         /// </summary>
         /// <param name="user"></param>
         /// <returns></returns>
-        private static async Task<ClaimsPrincipal> CreateClaimPrincipal(UserIdentity user)
+        private static ClaimsPrincipal CreateClaimPrincipal(UserIdentity user)
         {
             var claims = new List<Claim>
             {

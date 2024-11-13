@@ -263,7 +263,7 @@ namespace IssuerOfClaims.Extensions
             return result;
         }
 
-        private static async Task<object> GetJsonPublicKeyAsync(RSAParameters publicKey)
+        private static object GetJsonPublicKey(RSAParameters publicKey)
         {
             var jsonObj = JsonConvert.SerializeObject(publicKey);
             return jsonObj;

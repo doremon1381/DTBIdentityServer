@@ -106,7 +106,7 @@ namespace IssuerOfClaims.Services.Token
         #endregion
 
         #region for Google authorization
-        public async Task AuthGoogle_BackgroundStuff(string codeVerifier, GoogleResponse googleResponse, GoogleJsonWebSignature.Payload payload, Client client, UserIdentity user)
+        public async Task AuthGoogle_BackgroundStuffAsync(string codeVerifier, GoogleResponse googleResponse, GoogleJsonWebSignature.Payload payload, Client client, UserIdentity user)
         {
             await TaskUtilities.RunAttachedToParentTask(() =>
             {
@@ -177,7 +177,7 @@ namespace IssuerOfClaims.Services.Token
         #endregion
 
         #region for implicit grant flow
-        public async Task IGF_BackgroundStuff(UserIdentity user, Client client, TokenResponse accessToken)
+        public async Task IGF_BackgroundStuffAsync(UserIdentity user, Client client, TokenResponse accessToken)
         {
             await TaskUtilities.RunAttachedToParentTask(() =>
             {
@@ -215,7 +215,7 @@ namespace IssuerOfClaims.Services.Token
         #endregion
 
         #region for authorization code flow
-        public async Task ACF_I_BackgroundStuff(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode)
+        public async Task ACF_I_BackgroundStuffAsync(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode)
         {
             await TaskUtilities.RunAttachedToParentTask(() =>
             {
@@ -267,7 +267,7 @@ namespace IssuerOfClaims.Services.Token
             }
         }
 
-        public async Task ACF_II_BackgroundStuff(IdentityRequestHandler currentRequestHandler, TokenResponse refreshToken, TokenResponse accessToken)
+        public async Task ACF_II_BackgroundStuffAsync(IdentityRequestHandler currentRequestHandler, TokenResponse refreshToken, TokenResponse accessToken)
         {
             await TaskUtilities.RunAttachedToParentTask(() => 
             {
@@ -289,10 +289,10 @@ namespace IssuerOfClaims.Services.Token
         bool DeleteTokenResponse(TokenForRequestHandler tokenForRequestHandler);
         bool CreateTokenResponsePerIdentityRequest(IdentityRequestHandler currentRequestHandler, TokenResponse tokenResponse);
         Task<IdentityRequestHandler> FindByIdAsync(Guid id);
-        Task AuthGoogle_BackgroundStuff(string codeVerifier, GoogleResponse googleResponse, GoogleJsonWebSignature.Payload payload, Client client, UserIdentity user);
-        Task ACF_I_BackgroundStuff(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode);
-        Task ACF_II_BackgroundStuff(IdentityRequestHandler currentRequestHandler, TokenResponse refreshToken, TokenResponse accessToken);
-        Task IGF_BackgroundStuff(UserIdentity user, Client client, TokenResponse accessToken);
+        Task AuthGoogle_BackgroundStuffAsync(string codeVerifier, GoogleResponse googleResponse, GoogleJsonWebSignature.Payload payload, Client client, UserIdentity user);
+        Task ACF_I_BackgroundStuffAsync(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode);
+        Task ACF_II_BackgroundStuffAsync(IdentityRequestHandler currentRequestHandler, TokenResponse refreshToken, TokenResponse accessToken);
+        Task IGF_BackgroundStuffAsync(UserIdentity user, Client client, TokenResponse accessToken);
         #region token
         Task<TokenResponse> FindRefreshTokenAsync(string incomingRefreshToken);
         Task<string> GenerateIdTokenAsync(UserIdentity user, string scope, string nonce, string clientId, string successAt = "");

@@ -1,6 +1,4 @@
-﻿using IssuerOfClaims.Controllers.Ultility;
-using ServerUltilities.Extensions;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using ServerDbModels;
 using ServerUltilities;
@@ -9,7 +7,6 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using IssuerOfClaims.Services.Database;
@@ -23,8 +20,7 @@ using Google.Apis.Auth;
 using IssuerOfClaims.Models.Request;
 using System.Net.WebSockets;
 using static ServerUltilities.Identity.Constants;
-using System.Diagnostics;
-using Azure;
+using IssuerOfClaims.Controllers.Attributes;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -135,6 +131,7 @@ namespace IssuerOfClaims.Controllers
                 case GrantType.ClientCredentials:
                     throw new CustomException(ExceptionMessage.NOT_IMPLEMENTED, HttpStatusCode.NotImplemented);
                 case GrantType.Hybrid:
+                    // TODO: for now
                     throw new CustomException(ExceptionMessage.NOT_IMPLEMENTED, HttpStatusCode.NotImplemented);
                 case GrantType.AuthorizationCode:
                     return await IssueAuthorizationCodeAsync(parameters);
@@ -208,7 +205,7 @@ namespace IssuerOfClaims.Controllers
             //     : by using AuthenticateHanlder, in this step, authenticated is done
             //     : get user, create authorization code, save it to login session and out
 
-            var user = await ACF_I_VerifyAndGetUserAsync();
+            var user = await VerifyAndGetUserFromContextAsync();
             var client = await _clientDbServices.FindAsync(@params.ClientId.Value);
 
             ACF_I_ValidateScopes(@params.Scope.Value, client);
@@ -236,14 +233,18 @@ namespace IssuerOfClaims.Controllers
             return RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(32);
         }
 
-        private async Task<UserIdentity> ACF_I_VerifyAndGetUserAsync()
+        private async Task<UserIdentity> VerifyAndGetUserFromContextAsync()
         {
-            var obj = await _applicationUserManager.Current.GetUserAsync(HttpContext.User);
+            var user = await _applicationUserManager.Current.GetUserAsync(HttpContext.User);
+            VerifyUser(user);
 
-            if (obj == null)
+            return user;
+        }
+
+        private static void VerifyUser(UserIdentity? user)
+        {
+            if (user == null)
                 throw new CustomException(ExceptionMessage.USER_NULL);
-
-            return obj;
         }
 
         private static bool ACF_I_ValidateScopes(string scopes, Client client)
@@ -327,9 +328,8 @@ namespace IssuerOfClaims.Controllers
             var principal = HttpContext.User;
 
             // TODO: at this step, user cannot be null
-#pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
-            UserIdentity user = await _applicationUserManager.Current.GetUserAsync(principal);
-#pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
+            UserIdentity? user = await VerifyAndGetUserFromContextAsync();
+
             var client = await _clientDbServices.FindAsync(parameters.ClientId.Value);
 
             IGF_ValidateNonce(parameters.Nonce.Value);
@@ -349,16 +349,8 @@ namespace IssuerOfClaims.Controllers
             HttpContext.Response.StatusCode = (int)HttpStatusCode.Redirect;
             // TODO: will learn how to use this function
             await WriteHtmlAsync(HttpContext.Response, response);
-        }
-
-        private void IGF_SendRequestToRedirectUri(string redirectUri, string responseMessage)
-        {
-            var uri = new Uri(redirectUri);
-
-            HttpClient client = new HttpClient();
-            client.BaseAddress = uri;
-            client.Timeout = TimeSpan.FromSeconds(10);
-            client.GetAsync(responseMessage);
+            // ensure everything is sent to client
+            await HttpContext.Response.CompleteAsync();
         }
 
         /// <summary>
@@ -665,9 +657,9 @@ namespace IssuerOfClaims.Controllers
                 access_token = result["access_token"];
                 id_token = result["id_token"];
                 result.TryGetValue("refresh_token", out refresh_token);
-                result.TryGetValue("expires_in", out string temp);
+                result.TryGetValue("expires_in", out string expiresIn);
 
-                expired_in = double.Parse($"{temp}");
+                expired_in = double.Parse($"{expiresIn}");
                 accessTokenIssueAt = DateTime.Now;
                 // TODO: validate at_hash from id_token is OPTIONAL in some flows (hybrid flow,...),
                 //     : I will check when to implement it later, now, better it has than it doesn't

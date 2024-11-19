@@ -22,13 +22,14 @@ namespace IssuerOfClaims.Services.Middleware
         {
             // TODO: for now, only allow oauth2/authorize enpoint to be redirect if has 401 error after verify authentication header of request, I will think about it later
             string endpoint = context.Request.Path.Value;
-            string requestPath = context.Request.Path.Value;
-            string method = context.Request.Method;
-            var query = context.Request.Query;
 
             if (endpoint.Equals(ProtocolRoutePaths.Authorize))
                 if (context.Response.StatusCode == (int)HttpStatusCode.Unauthorized)
                 {
+                    string requestPath = context.Request.Path.Value;
+                    string method = context.Request.Method;
+                    var query = context.Request.Query;
+
                     // TODO: I still want if there is any exception, parent thread will catch it
                     //     : so I want to wait for a task, not the function inside it, which is run on another thread and know nothing about parent of the task
                     var queryString = await Task.Run(() => CreateRedirectRequestQuery(requestPath, method, query));

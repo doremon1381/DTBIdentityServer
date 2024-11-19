@@ -2,7 +2,6 @@
 using static ServerUltilities.Identity.Constants;
 using System.Net;
 using System.Reflection;
-using IssuerOfClaims.Controllers.Ultility;
 using Microsoft.AspNetCore.Authorization;
 using Newtonsoft.Json;
 using static ServerUltilities.Identity.OidcConstants;
@@ -11,6 +10,7 @@ using System.Net.Http.Headers;
 using System.Drawing.Imaging;
 using System.Drawing;
 using IssuerOfClaims.Extensions;
+using IssuerOfClaims.Controllers.Attributes;
 
 namespace IssuerOfClaims.Controllers
 {

@@ -1,0 +1,4 @@
+- move distributed cache to redis.
+- add PoP authentication scheme, currently test tcp and ssl.
+- clean code, for better understanding about it.
+- will support hybrid flow, client credentials flow and modify implicit grant flow to make it work properly.

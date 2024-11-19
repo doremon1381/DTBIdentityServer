@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc.ApplicationModels;
 
-namespace IssuerOfClaims.Controllers.Ultility
+namespace IssuerOfClaims.Controllers.Attributes
 {
     public class ControllerNameAttributeConvention : IControllerModelConvention
     {

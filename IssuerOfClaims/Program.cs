@@ -1,6 +1,4 @@
-using EFCoreSecondLevelCacheInterceptor;
-using Google;
-using IssuerOfClaims.Controllers.Ultility;
+using IssuerOfClaims.Controllers.Attributes;
 using IssuerOfClaims.Database;
 using IssuerOfClaims.Extensions;
 using IssuerOfClaims.Models;
@@ -11,15 +9,11 @@ using IssuerOfClaims.Services.Middleware;
 using IssuerOfClaims.Services.Token;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Serilog;
 using ServerDbModels;
 using ServerUltilities.Identity;
-using System;
 
 namespace IssuerOfClaims
 {
@@ -134,7 +128,7 @@ namespace IssuerOfClaims
 
             var app = builder.Build();
             // TODO: use for initiate clients in database
-            AuthorizationResources.CreateClient(builder.Configuration);
+            //AuthorizationResources.CreateClient(builder.Configuration);
             SetupPipline(app);
             // I intentionally separate app.run with setupPipline
             // , it's not official protocol as far as I know

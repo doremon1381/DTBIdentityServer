@@ -437,6 +437,12 @@ namespace ServerUltilities.Identity
             public const string ClientId = "client_id";
         }
 
+        public static class ForgotPasswordRequest
+        {
+            public const string ClientId = "client_id";
+            public const string Email = "email";
+        }
+
         internal static Dictionary<string, string> RouteMappingWithOpenIDAction = new Dictionary<string, string>()
         {
             { "Authorization", "Authorization" }

@@ -1,9 +1,7 @@
 ﻿using IssuerOfClaims.Extensions;
-using ServerUltilities.Extensions;
 using System.Linq.Expressions;
 using System.Net;
 using System.Reflection;
-using System.Web;
 using static ServerUltilities.Identity.Constants;
 using static ServerUltilities.Identity.OidcConstants;
 
@@ -11,15 +9,16 @@ namespace IssuerOfClaims.Models.Request
 {
     public abstract class AbstractRequestParamters<T>
     {
-        protected readonly RequestParameterValues requestQuery;
+        private readonly RequestParameterValues _queryParameters;
 
         private static readonly Type _currentType = typeof(T);
-        private static readonly RequestPurpose _requestPurpose = ParameterExtensions.ParametersForRequest[_currentType];
+        private static readonly OauthRequest _oauthRequest = ParameterExtensions.ParametersForRequest[_currentType];
 
         private static readonly Type _registerRequestType = typeof(RegisterRequest);
         private static readonly Type _authorizeRequestType = typeof(AuthorizeRequest);
         private static readonly Type _signInGoogleRequestType = typeof(SignInGoogleRequest);
         private static readonly Type _changePasswordRequestType = typeof(ChangePasswordRequest);
+        private static readonly Type _forgotPasswordRequestType = typeof(ForgotPasswordRequest);
         private static readonly Type _tokenRequestType = typeof(TokenRequest);
 
         private static readonly string _responseTypeName = nameof(AuthorizeRequest.ResponseType);
@@ -44,6 +43,8 @@ namespace IssuerOfClaims.Models.Request
                 BindingFlags.Public | BindingFlags.Static),
             nameof(ChangePasswordParameters) => _changePasswordRequestType.GetFields(
                 BindingFlags.Public | BindingFlags.Static),
+            nameof(ForgotPasswordParameters) => _forgotPasswordRequestType.GetFields(
+                BindingFlags.Public | BindingFlags.Static),
             // TODO: will check it later
             _ => throw new InvalidOperationException()
         };
@@ -55,16 +56,18 @@ namespace IssuerOfClaims.Models.Request
             nameof(SignInGoogleParameters) => GetProperties(_currentType),
             nameof(AuthCodeTokenParameters) => GetProperties(_currentType),
             nameof(OfflineAccessTokenParameters) => GetProperties(_currentType),
+            nameof(ChangePasswordParameters) => GetProperties(_currentType),
+            nameof(ForgotPasswordParameters) => GetProperties(_currentType),
             // TODO: will check it later
             _ => throw new InvalidOperationException()
         };
         private static readonly PropertyInfo _responseType = _properties.FirstOrDefault(t => t.Name.Equals("ResponseType"));
 
 
-        public AbstractRequestParamters(string? queryString)
+        public AbstractRequestParamters(string queryString)
         {
             ValidateRequestQuery(queryString);
-            requestQuery = new RequestParameterValues(queryString);
+            _queryParameters = new RequestParameterValues(queryString);
 
             InitiateProperties();
         }
@@ -85,8 +88,9 @@ namespace IssuerOfClaims.Models.Request
 
         private void InitiateProperties()
         {
-            // TODO: for currently logic, to ensure response mode is set before response type, I run this function first
-            if (_responseType != null)
+            // TODO: for currently logic, to ensure response mode is set after response type, I run this function first
+            if (_currentType.Name.Equals(nameof(AuthCodeParameters))
+                && _responseType != null)
                 SetPropertyValue(_responseType);
 
             var tasks = _properties.Select(p =>
@@ -112,8 +116,8 @@ namespace IssuerOfClaims.Models.Request
         private void SetPropertyValue(PropertyInfo property)
         {
             string parameterName = GetNameOfRequestParameter(property.Name);
-            string value = requestQuery.GetValue(parameterName);
-            var parameter = new Parameter(parameterName, _requestPurpose);
+            string value = _queryParameters.GetValue(parameterName);
+            var parameter = new Parameter(parameterName, _oauthRequest);
 
             if (ParameterExtensions.SpecificMethodForInitiatingParameter.TryGetValue(parameterName, out Func<string, string, string> execute))
             {
@@ -168,13 +172,14 @@ namespace IssuerOfClaims.Models.Request
         }
     }
 
-    public enum RequestPurpose
+    public enum OauthRequest
     {
         AuthorizationCode,
         Token,
         Register,
         SignInGoogle,
         OfflineAccess,
-        ChangePassword
+        ChangePassword,
+        ForgotPassword
     }
 }

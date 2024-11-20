@@ -21,7 +21,7 @@ namespace IssuerOfClaims.Models.Request
 
         public bool HasValue => !string.IsNullOrEmpty(Value);
 
-        public Parameter(string name, RequestPurpose requestPurpose)
+        public Parameter(string name, OauthRequest requestPurpose)
         {
             Name = name;
             SetParameterPriority(requestPurpose);
@@ -44,16 +44,17 @@ namespace IssuerOfClaims.Models.Request
             return true;
         }
 
-        private void SetParameterPriority(RequestPurpose requestType)
+        private void SetParameterPriority(OauthRequest requestType)
         {
             Priority = requestType switch
             {
-                RequestPurpose.AuthorizationCode => ParameterExtensions.AuthCodeParameterPriority[Name],
-                RequestPurpose.Register => ParameterExtensions.RegisterParamterPriority[Name],
-                RequestPurpose.SignInGoogle => ParameterExtensions.SignInGoogleParamterPriority[Name],
-                RequestPurpose.Token => ParameterExtensions.AuthCodeTokenParamterPriority[Name],
-                RequestPurpose.OfflineAccess => ParameterExtensions.OfflineAccessTokenParamterPriority[Name],
-                RequestPurpose.ChangePassword => ParameterExtensions.ChangePasswordParamterPriority[Name],
+                OauthRequest.AuthorizationCode => ParameterExtensions.AuthCodeParameterPriority[Name],
+                OauthRequest.Register => ParameterExtensions.RegisterParamterPriority[Name],
+                OauthRequest.SignInGoogle => ParameterExtensions.SignInGoogleParamterPriority[Name],
+                OauthRequest.Token => ParameterExtensions.AuthCodeTokenParamterPriority[Name],
+                OauthRequest.OfflineAccess => ParameterExtensions.OfflineAccessTokenParamterPriority[Name],
+                OauthRequest.ChangePassword => ParameterExtensions.ChangePasswordParamterPriority[Name],
+                OauthRequest.ForgotPassword => ParameterExtensions.ForgotPasswordParamterPriority[Name],
                 _ => throw new InvalidDataException($"{Name} : Parameter priority is not set!")
             };
         }
@@ -130,16 +131,16 @@ namespace IssuerOfClaims.Models.Request
             { SignInGoogleRequest.CodeVerifier, ParameterPriority.OPTIONAL }
         };
 
-        public static Dictionary<Type, RequestPurpose> ParametersForRequest = new Dictionary<Type, RequestPurpose>()
+        public static Dictionary<Type, OauthRequest> ParametersForRequest = new Dictionary<Type, OauthRequest>()
         {
-            { typeof(AuthCodeParameters), RequestPurpose.AuthorizationCode },
-            { typeof(RegisterParameters), RequestPurpose.Register },
+            { typeof(AuthCodeParameters), OauthRequest.AuthorizationCode },
+            { typeof(RegisterParameters), OauthRequest.Register },
             // TODO: will add later
             //{ typeof(TokenParameters), RequestType.Token },
-            { typeof(SignInGoogleParameters), RequestPurpose.SignInGoogle },
-            { typeof(AuthCodeTokenParameters), RequestPurpose.Token },
-            { typeof(OfflineAccessTokenParameters), RequestPurpose.OfflineAccess },
-            { typeof(ChangePasswordParameters), RequestPurpose.ChangePassword },
+            { typeof(SignInGoogleParameters), OauthRequest.SignInGoogle },
+            { typeof(AuthCodeTokenParameters), OauthRequest.Token },
+            { typeof(OfflineAccessTokenParameters), OauthRequest.OfflineAccess },
+            { typeof(ChangePasswordParameters), OauthRequest.ChangePassword },
         };
 
         internal static Dictionary<string, ParameterPriority> AuthCodeTokenParamterPriority = new Dictionary<string, ParameterPriority>()
@@ -166,6 +167,12 @@ namespace IssuerOfClaims.Models.Request
             { ChangePasswordRequest.Code, ParameterPriority.REQRUIRED },
             { ChangePasswordRequest.NewPassword, ParameterPriority.REQRUIRED },
             { ChangePasswordRequest.ClientId, ParameterPriority.REQRUIRED }
+        };
+
+        internal static Dictionary<string, ParameterPriority> ForgotPasswordParamterPriority = new Dictionary<string, ParameterPriority>()
+        {
+            { ForgotPasswordRequest.ClientId, ParameterPriority.REQRUIRED },
+            { ForgotPasswordRequest.Email, ParameterPriority.REQRUIRED }
         };
 
         private static string GetDefaultResponseModeByResponseType(string responseType)

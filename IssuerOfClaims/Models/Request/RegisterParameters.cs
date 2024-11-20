@@ -5,7 +5,6 @@ using ServerUltilities.Identity;
 using System.Net;
 using System.Web;
 using static ServerUltilities.Identity.Constants;
-using static ServerUltilities.Identity.OidcConstants;
 
 namespace IssuerOfClaims.Models.Request
 {
@@ -53,8 +52,8 @@ namespace IssuerOfClaims.Models.Request
         public RegisterParameters(string? queryString, IHeaderDictionary headers) : base(queryString)
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
         {
-            UserName = new Parameter(RegisterRequest.UserName, RequestPurpose.Register);
-            Password = new Parameter(RegisterRequest.Password, RequestPurpose.Register);
+            UserName = new Parameter(RegisterRequest.UserName, OauthRequest.Register);
+            Password = new Parameter(RegisterRequest.Password, OauthRequest.Register);
 
             string? userCredential = headers[RegisterRequest.Register][0];
             SetUserNameAndPassword(userCredential);

@@ -90,7 +90,7 @@ namespace IssuerOfClaims.Models.Request
         #endregion
 
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-        public AuthCodeParameters(string? queryString) : base(queryString)
+        public AuthCodeParameters(string queryString) : base(queryString)
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
         {
             ValidateScope();

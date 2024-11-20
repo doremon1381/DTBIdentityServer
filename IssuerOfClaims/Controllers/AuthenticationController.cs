@@ -240,16 +240,10 @@ namespace IssuerOfClaims.Controllers
         public async Task<ActionResult> ForgotPassword()
         {
             var queryString = HttpContext.Request.QueryString.Value;
-            if (queryString == null)
-                return StatusCode((int)HttpStatusCode.BadRequest, ExceptionMessage.QUERYSTRING_NOT_NULL_OR_EMPTY);
-            var queryBody = queryString.RemoveQueryOrFragmentSymbol().Split("&");
+            var query = new ForgotPasswordParameters(queryString);
 
-            string clientId = queryBody.GetFromQueryString(JwtClaimTypes.ClientId);
-            if (string.IsNullOrEmpty(clientId))
-                return StatusCode((int)HttpStatusCode.BadRequest, ExceptionMessage.CLIENTID_IS_REQUIRED);
-            string email = queryBody.GetFromQueryString(JwtClaimTypes.Email);
-            if (string.IsNullOrEmpty(email))
-                return StatusCode((int)HttpStatusCode.BadRequest, ExceptionMessage.EMAIL_IS_MISSING);
+            string clientId = query.ClientId.Value;
+            string email = query.Email.Value;
 
             var client = await _clientDbServices.FindAsync(clientId);
             if (client == null)

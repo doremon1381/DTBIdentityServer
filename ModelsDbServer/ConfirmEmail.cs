@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ServerDbModels
+namespace IssuerOfClaims.Models.DbModel
 {
     [Table($"{nameof(ConfirmEmail)}s")]
     [PrimaryKey(nameof(Id))]

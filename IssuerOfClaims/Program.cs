@@ -12,7 +12,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
-using ServerDbModels;
+using IssuerOfClaims.Models.DbModel;
 using ServerUltilities.Identity;
 
 namespace IssuerOfClaims

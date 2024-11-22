@@ -1,7 +1,7 @@
 ﻿using IssuerOfClaims.Services.Database;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
-using ServerDbModels;
+using IssuerOfClaims.Models.DbModel;
 using ServerUltilities;
 using ServerUltilities.Identity;
 using System.IdentityModel.Tokens.Jwt;

@@ -6,7 +6,7 @@
         public Parameter NewPassword { get; private set; }
         public Parameter ClientId { get; private set; }
 
-        public ChangePasswordParameters(string? queryString)
+        public ChangePasswordParameters()
         {
         }
     }

@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
-using ServerDbModels;
+using IssuerOfClaims.Models.DbModel;
 using ServerUltilities;
 using ServerUltilities.Identity;
 using System.IdentityModel.Tokens.Jwt;
@@ -121,7 +121,7 @@ namespace IssuerOfClaims.Controllers
 
             // TODO: will test again
             await Task.Run(() => ValidateRedirectUris(parameters.RedirectUri.Value, client));
-            if (!ValidateConsentPrompt(parameters.ConsentGranted.Value))
+            if (ConsentResultIsNotAllowed(parameters.ConsentGranted.Value))
             {
                 await RedirectIfAccessToResourcesIsNotAllowed(HttpContext, parameters.RedirectUri.Value, parameters.State.Value);
                 return new EmptyResult();
@@ -162,13 +162,13 @@ namespace IssuerOfClaims.Controllers
             return $"{redirectUri}?error=access_denied{stateValue}";
         }
 
-        private static bool ValidateConsentPrompt(string consentValue)
+        private static bool ConsentResultIsNotAllowed(string consentValue)
         {
             if (consentValue.Equals(PromptConsentResult.NotAllow))
             {
-                return false;
+                return true;
             }
-            return true;
+            return false;
         }
 
         private static string GetMappingGrantType(string responseType)
@@ -606,7 +606,8 @@ namespace IssuerOfClaims.Controllers
 
             // TODO: add '?' before requestBody to get query form of string
             // , AbtractRequestParamters instances use request query as parameter
-            var parameters = new SignInGoogleParameters(requestQuery);
+            var parameters = new SignInGoogleParametersFactory(requestQuery)
+                .ExtractParametersFromQuery();
 
             var client = await _clientDbServices.FindAsync(parameters.ClientId.Value, parameters.ClientSecret.Value);
             var result = await Google_SendTokenRequestAsync(parameters, _googleClientConfiguration);

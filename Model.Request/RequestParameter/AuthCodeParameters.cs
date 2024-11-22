@@ -86,4 +86,23 @@
 
         }
     }
+
+    //public interface IAuthCodeParameters: IRequestParameters
+    //{
+    //    Parameter State { get;  set; }
+    //    Parameter Scope { get; set; }
+    //    Parameter RedirectUri { get; set; }
+    //    Parameter ClientId { get; set; }
+    //    Parameter ResponseType { get; set; }
+    //    Parameter ResponseMode { get; set; }
+    //    Parameter Prompt { get; set; }
+    //    Parameter ConsentGranted { get; set; }
+    //    Parameter Nonce { get; set; }
+    //    Parameter MaxAge { get; set; }
+    //    Parameter UiLocales { get; set; }
+    //    Parameter IdTokenHint { get; set; }
+    //    Parameter CodeChallenge { get; set; }
+    //    Parameter CodeChallengeMethod { get; set; }
+
+    //}
 }

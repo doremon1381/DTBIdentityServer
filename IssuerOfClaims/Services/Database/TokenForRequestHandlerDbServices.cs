@@ -1,7 +1,7 @@
 ﻿using Azure.Core;
 using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
-using ServerDbModels;
+using IssuerOfClaims.Models.DbModel;
 using ServerUltilities.Extensions;
 using System.Net;
 using static ServerUltilities.Identity.OidcConstants;

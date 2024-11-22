@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using ServerDbModels;
+using IssuerOfClaims.Models.DbModel;
 using ServerUltilities;
 using ServerUltilities.Extensions;
 using ServerUltilities.Identity;

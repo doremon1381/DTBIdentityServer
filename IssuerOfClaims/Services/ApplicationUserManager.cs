@@ -5,7 +5,7 @@ using IssuerOfClaims.Models.Request.RequestParameter;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using ServerDbModels;
+using IssuerOfClaims.Models.DbModel;
 using System.Net;
 
 namespace IssuerOfClaims.Services

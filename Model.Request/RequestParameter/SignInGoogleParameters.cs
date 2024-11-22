@@ -10,7 +10,7 @@ namespace IssuerOfClaims.Models.Request.RequestParameter
         public Parameter ClientId { get; private set; }
         public Parameter ClientSecret { get; private set; }
 
-        public SignInGoogleParameters(string? queryString)
+        public SignInGoogleParameters()
         {
         }
     }

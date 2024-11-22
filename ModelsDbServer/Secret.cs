@@ -1,4 +1,4 @@
-﻿namespace ServerDbModels
+﻿namespace IssuerOfClaims.Models.DbModel
 {
     /// <summary>
     /// Models a client secret with identifier and expiration

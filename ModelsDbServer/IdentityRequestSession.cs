@@ -1,11 +1,11 @@
-﻿using ServerDbModels;
+﻿using IssuerOfClaims.Models.DbModel;
 #if IdentityServer
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 #endif
 
-namespace ServerDbModels
+namespace IssuerOfClaims.Models.DbModel
 {
     /// <summary>
     ///  Store requested parameter for issuing token

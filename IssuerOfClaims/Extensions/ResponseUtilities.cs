@@ -1,6 +1,5 @@
 ﻿using System.Text.Encodings.Web;
 using System.Text;
-using IssuerOfClaims.Models;
 using ServerUltilities.Identity;
 using static ServerUltilities.Identity.OidcConstants;
 using System.Net;
@@ -181,7 +180,7 @@ namespace IssuerOfClaims.Extensions
         }
 
         #region user info to json
-        public static async Task<string> CreateUserInfoResponseAsync(ServerDbModels.UserIdentity user)
+        public static async Task<string> CreateUserInfoResponseAsync(Models.DbModel.UserIdentity user)
         {
             UserInfoValuePairs valuePairs = await Task.Run(() => ConvertUserInfoToUTF8(user.UserName, user.FullName, user.Email, user.EmailConfirmed, user.Avatar));
             string json = await CreateUserInforJsonStringAsync(valuePairs);

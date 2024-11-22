@@ -2,7 +2,7 @@
 using MailKit.Net.Smtp;
 using Microsoft.AspNetCore.WebUtilities;
 using MimeKit;
-using ServerDbModels;
+using IssuerOfClaims.Models.DbModel;
 using ServerUltilities;
 using System.Text.Encodings.Web;
 using System.Text;

@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using ServerDbModels;
+using IssuerOfClaims.Models.DbModel;
 
 namespace IssuerOfClaims.Database
 {
@@ -70,7 +70,6 @@ namespace IssuerOfClaims.Database
         //    return result;
         //}
 
-#if (DEBUG || RELEASE)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Client>()
@@ -90,28 +89,6 @@ namespace IssuerOfClaims.Database
 
             base.OnModelCreating(modelBuilder);
         }
-#else 
-        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        {
-            optionsBuilder.UseSqlServer("Server=DESKTOP-2TRDKFE\\;Database=LAuthentication;trusted_connection=true;TrustServerCertificate=True");
-            base.OnConfiguring(optionsBuilder);
-        }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            //modelBuilder.Entity<CustomClient>()
-            //    .Property(x => x.Properties)
-            //    .HasConversion(
-            //        x => JsonConvert.SerializeObject(x),
-            //        x => JsonConvert.DeserializeObject<IDictionary<string, string>>(x));
-            //        // TODO: need to learn about compare
-            //        new ValueComparer<IDictionary<string, string>>(
-            //            (c1, c2) => c1.SequenceEqual(c2),
-            //            c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
-            //            c => c.ToDictionary<string,string>()));
-            base.OnModelCreating(modelBuilder);
-        }
-#endif
     }
 
     public interface IDbContextManager

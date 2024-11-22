@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ServerDbModels
+namespace IssuerOfClaims.Models.DbModel
 {
     public class DbTableBase<TIdentityKeyType>: IDbTable
     {

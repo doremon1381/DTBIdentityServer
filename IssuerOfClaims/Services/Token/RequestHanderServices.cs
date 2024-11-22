@@ -3,7 +3,7 @@ using IssuerOfClaims.Extensions;
 using IssuerOfClaims.Models;
 using IssuerOfClaims.Models.Request.RequestParameter;
 using IssuerOfClaims.Services.Database;
-using ServerDbModels;
+using IssuerOfClaims.Models.DbModel;
 using ServerUltilities;
 using ServerUltilities.Identity;
 

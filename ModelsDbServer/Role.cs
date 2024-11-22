@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations.Schema;
 #endif
 
-namespace ServerDbModels
+namespace IssuerOfClaims.Models.DbModel
 {
 #if IdentityServer
     [Table($"{nameof(Role)}s")]

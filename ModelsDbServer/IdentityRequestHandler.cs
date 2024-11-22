@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ServerDbModels
+namespace IssuerOfClaims.Models.DbModel
 {
     /// <summary>
     /// Use TokenRequestHandler for receiving request data, storing requested parameter for issuing token and assembling response's value

@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using ServerDbModels;
+using IssuerOfClaims.Models.DbModel;
 using System.Net;
 
 namespace IssuerOfClaims.Services.Database

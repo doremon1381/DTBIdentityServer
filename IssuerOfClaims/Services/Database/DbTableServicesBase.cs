@@ -1,6 +1,6 @@
 ﻿using IssuerOfClaims.Database;
 using Microsoft.EntityFrameworkCore;
-using ServerDbModels;
+using IssuerOfClaims.Models.DbModel;
 using ServerUltilities;
 using System.Net;
 

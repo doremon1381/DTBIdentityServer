@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ServerDbModels
+namespace IssuerOfClaims.Models.DbModel
 {
     /// <summary>
     /// ID token or access token

@@ -1,7 +1,7 @@
 ﻿using IssuerOfClaims.Services.Database;
 using ServerUltilities.Identity;
 using ServerUltilities;
-using ServerDbModels;
+using IssuerOfClaims.Models.DbModel;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;

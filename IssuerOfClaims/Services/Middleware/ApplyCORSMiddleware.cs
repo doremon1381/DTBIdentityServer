@@ -21,8 +21,8 @@ namespace IssuerOfClaims.Services.Middleware
             if (context.Request.Method.IsOptions())
             {
                 context.Response.Headers.AccessControlAllowMethods = _webSigninSettings.AllowedMethods;
-                context.Response.Headers.AccessControlAllowHeaders = "*";
-                context.Response.Headers.AccessControlAllowCredentials = "true";
+                context.Response.Headers.AccessControlAllowHeaders = _webSigninSettings.AllowHeaders;
+                context.Response.Headers.AccessControlAllowCredentials = _webSigninSettings.AllowCredentials;
 
                 context.Response.StatusCode = (int)HttpStatusCode.OK;
                 await context.Response.CompleteAsync();

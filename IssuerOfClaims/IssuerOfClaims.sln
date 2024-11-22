@@ -5,11 +5,11 @@ VisualStudioVersion = 17.9.34728.123
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IssuerOfClaims", "IssuerOfClaims.csproj", "{6FA6F03A-5461-4B37-BA03-F19D54150D6C}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ModelsDbServer", "..\ModelsDbServer\ModelsDbServer.csproj", "{3D19400F-175D-4B8F-B4FC-A66B790A6BD6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Models.DbModel", "..\ModelsDbServer\Models.DbModel.csproj", "{3D19400F-175D-4B8F-B4FC-A66B790A6BD6}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ServerUltilities", "..\ServerUltilities\ServerUltilities.csproj", "{EFCE408E-F801-4E3A-8AAB-2383D0B4F62B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Models.Request", "..\Model.Request\Models.Request.csproj", "{6E20EE42-BA34-48A4-BE95-92B1C3C60301}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Models.Request", "..\Model.Request\Models.Request.csproj", "{6E20EE42-BA34-48A4-BE95-92B1C3C60301}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

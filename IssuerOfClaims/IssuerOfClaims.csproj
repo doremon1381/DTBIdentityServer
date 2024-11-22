@@ -64,7 +64,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Model.Request\Models.Request.csproj" />
-    <ProjectReference Include="..\ModelsDbServer\ModelsDbServer.csproj" />
+    <ProjectReference Include="..\ModelsDbServer\Models.DbModel.csproj" />
     <ProjectReference Include="..\ServerUltilities\ServerUltilities.csproj" />
   </ItemGroup>
 

@@ -1,7 +1,7 @@
 ﻿using IssuerOfClaims.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ServerDbModels;
+using IssuerOfClaims.Models.DbModel;
 using System.Net;
 using IssuerOfClaims.Services.Database;
 using IssuerOfClaims.Services;
@@ -43,7 +43,8 @@ namespace IssuerOfClaims.Controllers
         {
             // Get user
             var principal = HttpContext.User;
-            var user = await _applicationUserManager.Current.GetUserAsync(principal);
+            var user = await _applicationUserManager.Current.GetUserAsync(principal) 
+                ?? throw new CustomException(ExceptionMessage.USER_NULL);
 
             var body = await Utilities.SerializeFormAsync(HttpContext.Request.Body);
             var query = body.Remove(0,1).Replace("path=","").ToBase64Decode().Split("&");
@@ -85,8 +86,10 @@ namespace IssuerOfClaims.Controllers
         [AllowAnonymous]
         public async Task<ActionResult> RegisterIdentity()
         {
+#pragma warning disable CS8604 // Possible null reference argument.
             var parameters = new RegisterParametersFactory(HttpContext.Request.QueryString.Value)
                 .ExtractParametersFromQuery(HttpContext.Request.Headers);
+#pragma warning restore CS8604 // Possible null reference argument.
 
             return await RegisterUserAsync(parameters);
         }
@@ -218,17 +221,18 @@ namespace IssuerOfClaims.Controllers
         public async Task<ActionResult> ChangePasswordAfterEmailConfirm()
         {
             string requestBody = await Utilities.SerializeFormAsync(HttpContext.Request.Body);
-            ChangePasswordParameters parameters = new ChangePasswordParameters(requestBody);
+            var parameters = new ChangePasswordParametersFactory(requestBody)
+                .ExtractParametersFromQuery();
 
             // TODO: need to vefify client from request
             var client = _clientDbServices.FindAsync(parameters.ClientId.Value);
 
             var emailForChangingPassword = await _emailServices.GetChangePasswordEmailByCodeAsync(parameters.Code.Value);
-            var user = emailForChangingPassword.User;
+            var user = emailForChangingPassword.User ?? throw new CustomException(ExceptionMessage.USER_NULL);
 
             // TODO: will check again
-            _applicationUserManager.Current.RemovePasswordAsync(user).Wait();
-            _applicationUserManager.Current.AddPasswordAsync(user, parameters.NewPassword.Value).Wait();
+            await _applicationUserManager.Current.RemovePasswordAsync(user);
+            await _applicationUserManager.Current.AddPasswordAsync(user, parameters.NewPassword.Value);
             emailForChangingPassword.IsConfirmed = true;
 
             _emailServices.UpdateConfirmEmail(emailForChangingPassword);
@@ -241,7 +245,8 @@ namespace IssuerOfClaims.Controllers
         public async Task<ActionResult> ForgotPassword()
         {
             var queryString = HttpContext.Request.QueryString.Value;
-            var query = new ForgotPasswordParameters(queryString);
+            var query = new ForgotPasswordParametersFactory(queryString)
+                .ExtractParametersFromQuery();
 
             string clientId = query.ClientId.Value;
             string email = query.Email.Value;

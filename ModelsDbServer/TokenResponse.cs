@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ServerDbModels
+namespace IssuerOfClaims.Models.DbModel
 {
     [Table($"{nameof(TokenResponse)}s")]
     [PrimaryKey(nameof(Id))]

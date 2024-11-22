@@ -5,7 +5,7 @@
         public Parameter ClientId { get; set; }
         public Parameter Email { get; set; }
 
-        public ForgotPasswordParameters(string query)
+        public ForgotPasswordParameters()
         {
 
         }

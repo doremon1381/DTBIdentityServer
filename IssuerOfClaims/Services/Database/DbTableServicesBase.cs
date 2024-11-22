@@ -1,9 +1,7 @@
 ﻿using IssuerOfClaims.Database;
-using IssuerOfClaims.Extensions;
-using IssuerOfClaims.Models;
 using Microsoft.EntityFrameworkCore;
-using Org.BouncyCastle.Tls;
 using ServerDbModels;
+using ServerUltilities;
 using System.Net;
 
 namespace IssuerOfClaims.Services.Database

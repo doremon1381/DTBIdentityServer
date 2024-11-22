@@ -1,5 +1,4 @@
 ﻿using IssuerOfClaims.Extensions;
-using IssuerOfClaims.Models;
 using IssuerOfClaims.Services.Database;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -10,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using ServerDbModels;
+using ServerUltilities;
 using ServerUltilities.Extensions;
 using ServerUltilities.Identity;
 using System.IdentityModel.Tokens.Jwt;

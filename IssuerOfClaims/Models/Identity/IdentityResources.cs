@@ -1,7 +1,6 @@
-﻿
-using ServerUltilities.Identity;
+﻿using ServerUltilities.Identity;
 
-namespace IssuerOfClaims.Models
+namespace IssuerOfClaims.Models.Identity
 {
     /// <summary>
     /// Convenience class that defines standard identity resources.
@@ -59,7 +58,7 @@ namespace IssuerOfClaims.Models
                 Name = IdentityServerConstants.StandardScopes.Email;
                 DisplayName = "Your email address";
                 Emphasize = true;
-                UserClaims = (Constants.ScopeToClaimsMapping[IdentityServerConstants.StandardScopes.Email].ToList());
+                UserClaims = Constants.ScopeToClaimsMapping[IdentityServerConstants.StandardScopes.Email].ToList();
             }
         }
 

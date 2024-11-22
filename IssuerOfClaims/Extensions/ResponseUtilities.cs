@@ -1,6 +1,5 @@
 ﻿using System.Text.Encodings.Web;
 using System.Text;
-using IssuerOfClaims.Models.Request;
 using IssuerOfClaims.Models;
 using ServerUltilities.Identity;
 using static ServerUltilities.Identity.OidcConstants;
@@ -8,6 +7,9 @@ using System.Net;
 using static ServerUltilities.Identity.IdentityServerConstants;
 using System.Text.Json;
 using System.Web;
+using IssuerOfClaims.Models.Request.RequestParameter;
+using ServerUltilities;
+using ServerUltilities.Extensions;
 
 namespace IssuerOfClaims.Extensions
 {

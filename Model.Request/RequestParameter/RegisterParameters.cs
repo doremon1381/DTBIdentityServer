@@ -1,14 +1,6 @@
-﻿using IssuerOfClaims.Extensions;
-using IssuerOfClaims.Models;
-using ServerUltilities.Extensions;
-using ServerUltilities.Identity;
-using System.Net;
-using System.Web;
-using static ServerUltilities.Identity.Constants;
-
-namespace IssuerOfClaims.Models.Request
+﻿namespace IssuerOfClaims.Models.Request.RequestParameter
 {
-    public class RegisterParameters : AbstractRequestParamters<RegisterParameters>
+    public class RegisterParameters : IRequestParameters
     {
         #region requested parameters
         /// <summary>
@@ -48,35 +40,8 @@ namespace IssuerOfClaims.Models.Request
         public Parameter Gender { get; private set; }
         #endregion
 
-#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-        public RegisterParameters(string? queryString, IHeaderDictionary headers) : base(queryString)
-#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+        public RegisterParameters()
         {
-            UserName = new Parameter(RegisterRequest.UserName, OauthRequest.Register);
-            Password = new Parameter(RegisterRequest.Password, OauthRequest.Register);
-
-            string? userCredential = headers[RegisterRequest.Register][0];
-            SetUserNameAndPassword(userCredential);
-        }
-
-        private void ValidateHeader(string? userCredential)
-        {
-            if (string.IsNullOrEmpty(userCredential))
-                throw new CustomException(ExceptionMessage.REGISTER_INFORMATION_NULL_OR_EMPTY, HttpStatusCode.BadRequest);
-        }
-
-        private void SetUserNameAndPassword(string? userCredential)
-        {
-            ValidateHeader(userCredential);
-
-            var userNamePassword = userCredential.Replace(IdentityServerConfiguration.AUTHENTICATION_SCHEME_BASIC, "").Trim().ToBase64Decode();
-
-            // TODO: will need to validate username and password, from client and server
-            string userName = userNamePassword.Split(":")[0];
-            string password = userNamePassword.Split(":")[1];
-
-            UserName.SetValue(userName);
-            Password.SetValue(password);
         }
     }
 }

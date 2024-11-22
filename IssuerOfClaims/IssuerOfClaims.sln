@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ModelsDbServer", "..\Models
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ServerUltilities", "..\ServerUltilities\ServerUltilities.csproj", "{EFCE408E-F801-4E3A-8AAB-2383D0B4F62B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Models.Request", "..\Model.Request\Models.Request.csproj", "{6E20EE42-BA34-48A4-BE95-92B1C3C60301}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{EFCE408E-F801-4E3A-8AAB-2383D0B4F62B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EFCE408E-F801-4E3A-8AAB-2383D0B4F62B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EFCE408E-F801-4E3A-8AAB-2383D0B4F62B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6E20EE42-BA34-48A4-BE95-92B1C3C60301}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6E20EE42-BA34-48A4-BE95-92B1C3C60301}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6E20EE42-BA34-48A4-BE95-92B1C3C60301}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6E20EE42-BA34-48A4-BE95-92B1C3C60301}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

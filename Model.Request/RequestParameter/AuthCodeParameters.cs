@@ -1,17 +1,9 @@
-﻿using IssuerOfClaims.Extensions;
-using IssuerOfClaims.Models;
-using Microsoft.IdentityModel.Tokens;
-using ServerUltilities.Extensions;
-using ServerUltilities.Identity;
-using System.Net;
-using static ServerUltilities.Identity.OidcConstants;
-
-namespace IssuerOfClaims.Models.Request
+﻿namespace IssuerOfClaims.Models.Request.RequestParameter
 {
     /// <summary>
     /// Implement specs from https://openid.net/specs/openid-connect-core-1_0.html
     /// </summary>
-    public class AuthCodeParameters : AbstractRequestParamters<AuthCodeParameters>
+    public class AuthCodeParameters : IRequestParameters
     {
         #region requested parameters
         /// <summary>
@@ -89,49 +81,9 @@ namespace IssuerOfClaims.Models.Request
         // TODO: will add arc_value parameters
         #endregion
 
-#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-        public AuthCodeParameters(string queryString) : base(queryString)
-#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+        public AuthCodeParameters()
         {
-            ValidateScope();
-            ValidatePKCEParameters();
-            ValidateResponseType();
-            ValidatePrompt();
-        }
 
-        private void ValidatePrompt()
-        {
-            // TODO: will check again
-            if (Prompt.HasValue)
-            {
-                if (!Constants.SupportedPromptModes.Contains(Prompt.Value))
-                    throw new CustomException(ExceptionMessage.PROMPT_VALUE_NOT_VALID, HttpStatusCode.BadRequest);
-                if (Prompt.Value.Equals(PromptModes.Consent) && !Constants.SupportConsentGrantedValue.Contains(ConsentGranted.Value))
-                    throw new CustomException(ExceptionMessage.PROMPT_CONSENT_VALUE_NOT_VALID, HttpStatusCode.BadRequest);
-            }
-        }
-
-        private void ValidateScope()
-        {
-            if (!Scope.Value.Contains(StandardScopes.OpenId))
-                throw new CustomException(ExceptionMessage.AUTHORIZE_SCOPES_MUST_HAVE_OPENID, HttpStatusCode.BadRequest);
-        }
-
-        private void ValidatePKCEParameters()
-        {
-            if (CodeChallengeMethod.HasValue && !CodeChallenge.HasValue
-                || CodeChallenge.HasValue && !CodeChallengeMethod.HasValue)
-                throw new CustomException(ExceptionMessage.CODECHALLENGE_CODECHALLENGEMETHOD_NOT_HAVE_VALUE_SIMUTANEOUSLY, HttpStatusCode.BadRequest);
-        }
-
-        /// <summary>
-        /// TODO: must be used after ResponseType has value
-        /// </summary>
-        /// <exception cref="InvalidDataException"></exception>
-        private void ValidateResponseType()
-        {
-            if (!Constants.SupportedResponseTypes.Contains(ResponseType.Value))
-                throw new CustomException(ExceptionMessage.RESPONSE_TYPE_NOT_SUPPORTED, HttpStatusCode.BadRequest);
         }
     }
 }

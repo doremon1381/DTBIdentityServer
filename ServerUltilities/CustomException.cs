@@ -1,6 +1,6 @@
 ﻿using System.Net;
 
-namespace IssuerOfClaims.Models
+namespace ServerUltilities
 {
     public class CustomException : Exception
     {

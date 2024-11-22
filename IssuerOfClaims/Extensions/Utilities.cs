@@ -8,6 +8,8 @@ using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
+using ServerUltilities;
+using ServerUltilities.Extensions;
 
 namespace IssuerOfClaims.Extensions
 {
@@ -157,19 +159,6 @@ namespace IssuerOfClaims.Extensions
         public static bool IsOptions(this string httpMethod)
         {
             return httpMethod.Equals("OPTIONS");
-        }
-    }
-
-    public static class TaskUtilities
-    {
-        public static async Task<T> RunAttachedToParentTask<T>(Func<T> func)
-        {
-            return await Task.Factory.StartNew<T>(func, TaskCreationOptions.AttachedToParent);
-        }
-
-        public static async Task RunAttachedToParentTask(Action action)
-        {
-            await Task.Factory.StartNew(action, TaskCreationOptions.AttachedToParent);
         }
     }
 

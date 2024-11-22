@@ -1,4 +1,4 @@
-﻿namespace IssuerOfClaims.Models
+﻿namespace IssuerOfClaims.Models.Identity
 {
     public static class IdentityRoles
     {

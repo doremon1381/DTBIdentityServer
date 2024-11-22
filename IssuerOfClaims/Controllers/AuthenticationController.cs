@@ -1,6 +1,4 @@
 ﻿using IssuerOfClaims.Extensions;
-using IssuerOfClaims.Models.Request;
-using IssuerOfClaims.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ServerDbModels;
@@ -9,9 +7,11 @@ using IssuerOfClaims.Services.Database;
 using IssuerOfClaims.Services;
 using IssuerOfClaims.Services.Token;
 using Microsoft.EntityFrameworkCore;
-using ServerUltilities.Identity;
 using ServerUltilities.Extensions;
 using IssuerOfClaims.Controllers.Attributes;
+using ServerUltilities;
+using IssuerOfClaims.Models.Request.Factory;
+using IssuerOfClaims.Models.Request.RequestParameter;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -85,7 +85,8 @@ namespace IssuerOfClaims.Controllers
         [AllowAnonymous]
         public async Task<ActionResult> RegisterIdentity()
         {
-            RegisterParameters parameters = new RegisterParameters(HttpContext.Request.QueryString.Value, HttpContext.Request.Headers);
+            var parameters = new RegisterParametersFactory(HttpContext.Request.QueryString.Value)
+                .ExtractParametersFromQuery(HttpContext.Request.Headers);
 
             return await RegisterUserAsync(parameters);
         }

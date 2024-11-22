@@ -1,4 +1,4 @@
-﻿namespace IssuerOfClaims.Extensions
+﻿namespace ServerUltilities.Extensions
 {
     public static class ExceptionMessage
     {

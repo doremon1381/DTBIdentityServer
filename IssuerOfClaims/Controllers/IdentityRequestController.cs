@@ -17,10 +17,12 @@ using IssuerOfClaims.Services;
 using Microsoft.IdentityModel.Tokens;
 using IssuerOfClaims.Models;
 using Google.Apis.Auth;
-using IssuerOfClaims.Models.Request;
 using System.Net.WebSockets;
 using static ServerUltilities.Identity.Constants;
 using IssuerOfClaims.Controllers.Attributes;
+using IssuerOfClaims.Models.Request.Factory;
+using IssuerOfClaims.Models.Request.RequestParameter;
+using ServerUltilities.Extensions;
 
 namespace IssuerOfClaims.Controllers
 {
@@ -78,7 +80,8 @@ namespace IssuerOfClaims.Controllers
             //  With the way I want to use web application, I will not let more than one user interacts with server in one useragent.
             //  So basically, I can use "none" as prompt value by defualt, but will think about some changes in future.
 
-            AuthCodeParameters parameters = new AuthCodeParameters(HttpContext.Request.QueryString.Value);
+            var parameters = new AuthCodeParametersFactory(HttpContext.Request.QueryString.Value)
+                .ExtractParametersFromQuery();
 
             return await AuthenticationAsync(parameters);
         }
@@ -94,7 +97,8 @@ namespace IssuerOfClaims.Controllers
         {
             var query = await Utilities.SerializeFormAsync(HttpContext.Request.Body);
 
-            AuthCodeParameters parameters = new AuthCodeParameters(query);
+            var parameters = new AuthCodeParametersFactory(query)
+                .ExtractParametersFromQuery();
 
             return await AuthenticationAsync(parameters);
         }
@@ -434,8 +438,8 @@ namespace IssuerOfClaims.Controllers
             // 1. check refresh token type, external or local
             // 2. if local, check expired time, issue token
             // 3. if external, send request to external source to get response
-
-            OfflineAccessTokenParameters parameters = new OfflineAccessTokenParameters(requestBody);
+            var parameters = new OfflineAccessTokenParametersFactory(requestBody)
+                .ExtractParametersFromQuery();
 
             var tokenResponses = await _responseManager.IssueTokenByRefreshToken(parameters.RefreshToken.Value);
 
@@ -447,7 +451,8 @@ namespace IssuerOfClaims.Controllers
             // TODO: get from queryString, authorization code
             //     : get user along with authorization code inside latest login session (of that user)
             //     : create access token and id token, send it to client
-            AuthCodeTokenParameters parameters = new AuthCodeTokenParameters(requestBody);
+            var parameters = new AuthCodeTokenRequestParametersFactory(requestBody)
+                .ExtractParametersFromQuery();
 
             // TODO: for now, every request, by default in scop will have openid, so ignore this part of checking now
             //     : Verify that the Authorization Code used was issued in response to an OpenID Connect Authentication Request(so that an ID Token will be returned from the Token Endpoint).

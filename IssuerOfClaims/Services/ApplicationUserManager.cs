@@ -1,7 +1,7 @@
 ﻿using Google.Apis.Auth;
 using IssuerOfClaims.Extensions;
 using IssuerOfClaims.Models;
-using IssuerOfClaims.Models.Request;
+using IssuerOfClaims.Models.Request.RequestParameter;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;

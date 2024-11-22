@@ -1,9 +1,8 @@
 ﻿using IssuerOfClaims.Extensions;
 using IssuerOfClaims.Models;
-using System.Diagnostics;
+using ServerUltilities;
 using System.Net;
 using System.Text;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 using static ServerUltilities.Identity.Constants;
 using static ServerUltilities.Identity.OidcConstants;
 

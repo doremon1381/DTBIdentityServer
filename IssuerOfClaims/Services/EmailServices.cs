@@ -9,6 +9,7 @@ using System.Text;
 using IssuerOfClaims.Models;
 using ServerUltilities.Identity;
 using IssuerOfClaims.Extensions;
+using ServerUltilities.Extensions;
 
 namespace IssuerOfClaims.Services
 {

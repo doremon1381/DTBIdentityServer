@@ -2,7 +2,7 @@
 using ServerUltilities.Extensions;
 using System.Diagnostics;
 
-namespace IssuerOfClaims.Models
+namespace IssuerOfClaims.Models.Identity
 {
     /// <summary>
     /// Models a user identity resource.
@@ -35,8 +35,8 @@ namespace IssuerOfClaims.Models
         /// <param name="name">The name.</param>
         /// <param name="displayName">The display name.</param>
         /// <param name="userClaims">List of associated user claims that should be included when this resource is requested.</param>
-        /// <exception cref="System.ArgumentNullException">name</exception>
-        /// <exception cref="System.ArgumentException">Must provide at least one claim type - claimTypes</exception>
+        /// <exception cref="ArgumentNullException">name</exception>
+        /// <exception cref="ArgumentException">Must provide at least one claim type - claimTypes</exception>
         public IdentityResource(string name, string displayName, IEnumerable<string> userClaims)
         {
             if (name.IsMissing()) throw new ArgumentNullException(nameof(name));

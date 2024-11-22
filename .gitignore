@@ -10,3 +10,5 @@ ServerUltilities/obj/
 ModelsDbServer/bin/
 IssuerOfClaims/Logs/
 IssuerOfClaims/Certificate/
+Model.Request/bin/
+Model.Request/obj/

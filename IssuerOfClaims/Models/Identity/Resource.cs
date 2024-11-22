@@ -1,7 +1,7 @@
 ﻿using IssuerOfClaims.Extensions;
 using System.Diagnostics;
 
-namespace IssuerOfClaims.Models
+namespace IssuerOfClaims.Models.Identity
 {
     public abstract class Resource
     {

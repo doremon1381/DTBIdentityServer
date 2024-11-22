@@ -1,20 +1,20 @@
-﻿using IssuerOfClaims.Extensions;
-using Microsoft.AspNetCore.Http;
+﻿using ServerUltilities;
+using ServerUltilities.Extensions;
 using System.Net;
 
-namespace IssuerOfClaims.Models.Request
+namespace IssuerOfClaims.Models.Request.RequestParameter
 {
     /// <summary>
     /// The following path of url after question mark (?)
     /// </summary>
-    internal class RequestParameterValues
+    public class RequestParameterValues
     {
         private readonly object @lock = new object();
         private static readonly SemaphoreSlim _semaphoreSlim = new SemaphoreSlim(1, 1);
 
         private readonly Dictionary<string, string> _ParameterValuePairs = new Dictionary<string, string>();
 
-        internal RequestParameterValues(string queryString)
+        public RequestParameterValues(string queryString)
         {
             Validate(queryString);
             TaskUtilities.RunAttachedToParentTask(() => Initiate(queryString)).GetAwaiter().GetResult();
@@ -76,9 +76,9 @@ namespace IssuerOfClaims.Models.Request
         {
             // by default, an element's format is "{key}={value}"
             var keyValuePairs = from element in query.RemoveQueryOrFragmentSymbol().Split(_DefaultSeparateSymbol)
-                       where element != null
-                       let keyValue = element.Split(_EqualSymbol)
-                       select new KeyValuePair<string, string>(keyValue[0], keyValue[1]);
+                                where element != null
+                                let keyValue = element.Split(_EqualSymbol)
+                                select new KeyValuePair<string, string>(keyValue[0], keyValue[1]);
 
             return new Dictionary<string, string>(keyValuePairs);
         }

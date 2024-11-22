@@ -1,5 +1,6 @@
 ﻿using IssuerOfClaims.Extensions;
-using IssuerOfClaims.Models;
+using ServerUltilities;
+using ServerUltilities.Extensions;
 
 namespace IssuerOfClaims.Services.Middleware
 {

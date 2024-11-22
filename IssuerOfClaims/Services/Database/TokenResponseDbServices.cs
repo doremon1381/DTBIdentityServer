@@ -1,6 +1,7 @@
 ﻿using IssuerOfClaims.Extensions;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
+using ServerUltilities.Extensions;
 using ServerUltilities.Identity;
 using System.Net;
 
@@ -76,11 +77,9 @@ namespace IssuerOfClaims.Services.Database
 
     public interface ITokenResponseDbServices : IDbContextBase<TokenResponse>
     {
-        //TokenResponse GetResponseByUserId(int userId);
         TokenResponse CreateAccessToken();
         TokenResponse CreateIdToken();
         TokenResponse CreateRefreshToken();
         Task<TokenResponse> FindAsync(string token, string tokenType);
-        //TokenResponse CreateTokenResponse(TokenRequestHandler session);
     }
 }

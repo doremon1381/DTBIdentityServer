@@ -1,5 +1,4 @@
-﻿using IssuerOfClaims.Database.Model;
-using ServerUltilities.Extensions;
+﻿using ServerUltilities.Extensions;
 using Microsoft.EntityFrameworkCore;
 using ServerDbModels;
 using ServerUltilities.Identity;

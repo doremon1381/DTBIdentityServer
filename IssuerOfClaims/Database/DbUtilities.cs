@@ -1,7 +1,4 @@
-﻿using IssuerOfClaims.Database.Model;
-using ServerUltilities.Identity;
-
-namespace IssuerOfClaims.Database
+﻿namespace IssuerOfClaims.Database
 {
     public static class DbUtilities
     {

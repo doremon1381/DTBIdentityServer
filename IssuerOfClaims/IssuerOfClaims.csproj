@@ -14,7 +14,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="Database\Model\GrantType.cs" />
     <Compile Remove="Extensions\StringExtensions.cs" />
     <Compile Remove="Models\Constants.cs" />
     <Compile Remove="Models\IdentityServerConstants.cs" />

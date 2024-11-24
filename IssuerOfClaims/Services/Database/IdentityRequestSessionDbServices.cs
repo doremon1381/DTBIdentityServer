@@ -36,7 +36,10 @@ namespace IssuerOfClaims.Services.Database
 
             await UsingDbSetAsync(_loginSessions =>
             {
-                obj = _loginSessions.First(t => t.Id.Equals(id));
+                obj = _loginSessions
+                    .Where(t => t.Id.Equals(id))
+                    .AsNoTracking()
+                    .First();
             });
 
             ValidateEntity(obj, HttpStatusCode.NotFound);

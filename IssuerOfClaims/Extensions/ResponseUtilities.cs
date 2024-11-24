@@ -96,7 +96,7 @@ namespace IssuerOfClaims.Extensions
         #endregion
 
         #region for authorization code request
-        public static string ACF_I_CreateRedirectContent(string redirectUri, string responseMode, string state, string authorizationCode, string scope, string prompt)
+        public static string ACF_I_CreateRedirectContent(string responseMode, string state, string authorizationCode, string scope, string prompt, string redirectUri = "")
         {
             string seprate = GetSeparatorByResponseMode(responseMode);
 
@@ -106,6 +106,42 @@ namespace IssuerOfClaims.Extensions
             builder.Append($"&prompt={prompt}");
 
             return builder.ToString();
+        }
+        #endregion
+
+        #region for hybrid flow
+        public static string Hybrid_I_CreateRedirectContent(string responseMode, string responseType, string state, string authorizationCode, string scope, string prompt, string accessToken = "", string idToken = "", string redirectUri = "")
+        {
+            string seprate = GetSeparatorByResponseMode(responseMode);
+
+            StringBuilder builder = new StringBuilder($"{redirectUri}{seprate}code={authorizationCode}");
+            if (responseType.Equals(ResponseTypes.CodeToken)
+                && IsTokenValid(accessToken))
+            {
+                builder.Append($"access_token={accessToken}");
+            }
+            else if (responseType.Equals(ResponseTypes.CodeIdTokenToken)
+                && IsTokenValid(accessToken)
+                && IsTokenValid(idToken))
+            {
+                builder.Append($"access_token={accessToken}")
+                       .Append($"id_token={idToken}");
+            }
+            else if (responseType.Equals(ResponseTypes.CodeIdToken))
+                builder.Append($"id_token={idToken}");
+
+            builder.Append(string.IsNullOrEmpty(state) ? "" : $"&state={state}")
+                   .Append($"&scope={Uri.EscapeDataString(scope)}")
+                   .Append($"&prompt={prompt}");
+
+            return builder.ToString();
+        }
+
+        private static bool IsTokenValid(string token, string function = nameof(Hybrid_I_CreateRedirectContent))
+        {
+            if (string.IsNullOrEmpty(token))
+                throw new CustomException($"{function}: token at this step must have value!");
+            return true;
         }
         #endregion
 

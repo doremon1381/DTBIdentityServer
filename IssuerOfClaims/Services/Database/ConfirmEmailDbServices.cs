@@ -25,7 +25,9 @@ namespace IssuerOfClaims.Services.Database
             {
                 obj = confirmEmails
                 .Include(c => c.User)
-                .First(c => c.ConfirmCode == code);
+                .Where(c => c.ConfirmCode == code)
+                .AsNoTracking()
+                .First();
             });
 
             ValidateEntity(obj, HttpStatusCode.NotFound, $"{nameof(ConfirmEmailDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");

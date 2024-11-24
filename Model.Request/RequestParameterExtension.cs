@@ -16,6 +16,7 @@ namespace IssuerOfClaims.Models.Request
         private static readonly Type _changePasswordRequestType = typeof(ChangePasswordRequest);
         private static readonly Type _forgotPasswordRequestType = typeof(ForgotPasswordRequest);
         private static readonly Type _tokenRequestType = typeof(TokenRequest);
+        //private static readonly Type _hybridRequestType = typeof(HybridRequest);
 
         public static FieldInfo[] ParameterNames(Type type)
         {
@@ -26,11 +27,9 @@ namespace IssuerOfClaims.Models.Request
                     BindingFlags.Public | BindingFlags.Static |
                     // This tells it to get the fields from all base types as well
                     BindingFlags.FlattenHierarchy),
-                nameof(RegisterParameters) => Array.FindAll(_registerRequestType.GetFields(
+                nameof(RegisterParameters) => _registerRequestType.GetFields(
                     // Gets all public and static fields
-                    BindingFlags.Public | BindingFlags.Static |
-                    // This tells it to get the fields from all base types as well
-                    BindingFlags.FlattenHierarchy), (i) => RegisterParameters_MatchPredicate(i.Name)),
+                    BindingFlags.Public | BindingFlags.Static),
                 nameof(SignInGoogleParameters) => _signInGoogleRequestType.GetFields(
                     BindingFlags.Public | BindingFlags.Static),
                 nameof(AuthCodeTokenParameters) => _tokenRequestType.GetFields(
@@ -41,32 +40,11 @@ namespace IssuerOfClaims.Models.Request
                     BindingFlags.Public | BindingFlags.Static),
                 nameof(ForgotPasswordParameters) => _forgotPasswordRequestType.GetFields(
                     BindingFlags.Public | BindingFlags.Static),
+                //nameof(HybridParameters) => _hybridRequestType.GetFields(
+                //    BindingFlags.Public & BindingFlags.Static),
                 // TODO: will check it later
                 _ => throw new InvalidOperationException()
             };
-        }
-
-
-        public static PropertyInfo[] PropertiesOfType(Type type, string name)
-        {
-            //if (name == nameof(RegisterParameters))
-            //    return Array.FindAll(GetParameterProperties(type), (i) => RegisterParameters_MatchPredicate(i.Name));
-            //else
-            return GetParameterProperties(type);
-        }
-
-        private static PropertyInfo[] GetParameterProperties(Type type)
-        {
-            return type.GetProperties().Where(p => p.PropertyType.Equals(typeof(Parameter))).ToArray();
-        }
-
-        private static bool RegisterParameters_MatchPredicate(string name)
-        {
-            // TODO: special case
-            if (name == RegisterRequest.UserName
-                || name == RegisterRequest.Password)
-                return false;
-            return true;
         }
     }
 

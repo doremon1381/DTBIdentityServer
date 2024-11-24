@@ -19,13 +19,15 @@ namespace IssuerOfClaims.Services.Database
             IdentityRequestHandler obj = null;
             await UsingDbSetAsync((_tokenRequestHandlers) =>
             {
-                var obj1 = _tokenRequestHandlers
+                obj = _tokenRequestHandlers
                     .Include(l => l.User)
                     .Include(t => t.Client)
                     .Include(l => l.TokensPerRequestHandlers).ThenInclude(t => t.TokenResponse)
                     .Include(l => l.RequestSession)
-                    .AsSplitQuery();
-                obj = obj1.First(l => l.RequestSession != null && l.RequestSession.AuthorizationCode != null && l.RequestSession.AuthorizationCode.Equals(authorizationCode));
+                    .Where(l => l.RequestSession != null && l.RequestSession.AuthorizationCode != null && l.RequestSession.AuthorizationCode.Equals(authorizationCode))
+                    .AsSplitQuery()
+                    .AsNoTracking()
+                    .First();
             });
 
             ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(IdentityRequestHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
@@ -45,10 +47,12 @@ namespace IssuerOfClaims.Services.Database
                 .Include(t => t.Client)
                 .Include(t => t.RequestSession)
                 .Include(t => t.TokensPerRequestHandlers).ThenInclude(t => t.TokenResponse)
+                .Where(t => t.Id.Equals(currentRequestHandlerId))
                 .AsSplitQuery()
                 // TODO:
                 //.Cacheable()
-                .First(t => t.Id.Equals(currentRequestHandlerId));
+                .AsNoTracking()
+                .First();
             });
 
             ValidateEntity(obj, HttpStatusCode.NotFound, $"{nameof(IdentityRequestHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");

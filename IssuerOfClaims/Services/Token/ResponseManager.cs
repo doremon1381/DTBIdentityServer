@@ -1,12 +1,6 @@
-﻿using IssuerOfClaims.Services.Database;
-using Microsoft.IdentityModel.Tokens;
-using Newtonsoft.Json;
-using IssuerOfClaims.Models.DbModel;
+﻿using IssuerOfClaims.Models.DbModel;
 using ServerUltilities;
 using ServerUltilities.Identity;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Security.Cryptography;
 using IssuerOfClaims.Extensions;
 using System.Text;
 using System.Net;
@@ -14,6 +8,8 @@ using IssuerOfClaims.Models;
 using Google.Apis.Auth;
 using IssuerOfClaims.Models.Request.RequestParameter;
 using ServerUltilities.Extensions;
+using static ServerUltilities.Identity.OidcConstants;
+using TokenResponse = IssuerOfClaims.Models.DbModel.TokenResponse;
 
 namespace IssuerOfClaims.Services.Token
 {
@@ -299,9 +295,39 @@ namespace IssuerOfClaims.Services.Token
 
         private static async Task<string> ACF_I_CreateResponseBody(AuthCodeParameters @params, string authorizationCode)
         {
-            return await Task.Run(() => ResponseUtilities.ACF_I_CreateRedirectContent("", @params.ResponseMode.Value, @params.State.Value, authorizationCode, @params.Scope.Value, @params.Prompt.Value));
+            return await Task.Run(() => ResponseUtilities.ACF_I_CreateRedirectContent(@params.ResponseMode.Value, @params.State.Value, authorizationCode, @params.Scope.Value, @params.Prompt.Value));
         }
+        #endregion
 
+        #region hybrid flow
+        public async Task<string> HybridFlowResponseAsync(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode)
+        {
+            // Create authorization code, caue with every valid response type, authorization code is always belong to the response in hybrid flow
+            // create access token if it 's needed
+            // create id token if it's needed
+
+            string idToken = (@params.ResponseType.Value.Equals(ResponseTypes.CodeIdToken) || @params.ResponseType.Value.Equals(ResponseTypes.CodeIdTokenToken)) 
+                ? await _requestHandlerServices.GenerateIdTokenAsync(user, @params.Scope.Value, @params.Nonce.Value, @params.ClientId.Value)
+                : string.Empty;
+
+            TokenResponse? accessToken = (@params.ResponseType.Value.Equals(ResponseTypes.CodeToken) || @params.ResponseType.Value.Equals(ResponseTypes.CodeIdTokenToken)) 
+                ? _requestHandlerServices.CreateToken(OidcConstants.TokenTypes.AccessToken)
+                : default;
+
+            var response = await Task.Run(()=> ResponseUtilities.Hybrid_I_CreateRedirectContent(
+                @params.ResponseMode.Value, 
+                @params.ResponseType.Value, 
+                @params.State.Value, 
+                authorizationCode, 
+                @params.Scope.Value, 
+                @params.Prompt.Value, 
+                accessToken != null ? accessToken.Token : string.Empty,
+                idToken));
+
+            await _requestHandlerServices.Hybrid_I_BackgroundStuff(@params, user, client, authorizationCode, accessToken);
+
+            return response;
+        }
         #endregion
     }
 
@@ -310,6 +336,7 @@ namespace IssuerOfClaims.Services.Token
         Task<string> ACF_II_CreateResponseAsync(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId);
         Task<string> ACF_I_CreateResponseAsync(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode);
         Task<string> IGF_GetResponseAsync(UserIdentity user, AuthCodeParameters parameters, Client client);
+        Task<string> HybridFlowResponseAsync(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode);
         Task<string> IssueTokenByRefreshToken(string incomingRefreshToken);
         Task<string> AuthGoogle_CreateResponseAsync(SignInGoogleParameters parameters, Client client,
             GoogleResponse fromGoogle,

@@ -65,8 +65,9 @@ namespace IssuerOfClaims.Services.Database
             await UsingDbSetAsync((_TokenResponses) => 
             {
                 obj = _TokenResponses.Include(t => t.TokensPerIdentityRequests)
-                    .Where(t => t.TokenType.Equals(tokenType))
-                    .First(t => t.Token.Equals(token)) ?? new TokenResponse();
+                    .Where(t => t.TokenType.Equals(tokenType) && t.Token.Equals(token))
+                    .AsNoTracking()
+                    .First() ?? new TokenResponse();
             });
 
             ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(TokenResponseDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");

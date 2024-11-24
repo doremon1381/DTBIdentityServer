@@ -22,6 +22,7 @@ namespace IssuerOfClaims.Models.Request
             {
                 return string.IsNullOrEmpty(responseMode) ? GetDefaultResponseModeByResponseType(responseType) : responseMode;
             }},
+            { AuthorizeRequest.ResponseType, (str, str1) => { return Uri.EscapeDataString(str); } },
             { RegisterRequest.FirstName, (str, str1) => { return HttpUtility.UrlDecode(str); } },
             { RegisterRequest.LastName, (str, str1) => { return HttpUtility.UrlDecode(str); } },
             { RegisterRequest.Email, (str, str1) =>
@@ -34,7 +35,7 @@ namespace IssuerOfClaims.Models.Request
             }
         };
 
-        internal static Dictionary<string, ParameterPriority> AuthCodeParameterPriority = new Dictionary<string, ParameterPriority>()
+        internal static Dictionary<string, ParameterPriority> AuthCodeParametersPriority = new Dictionary<string, ParameterPriority>()
         {
             { AuthorizeRequest.Scope, ParameterPriority.REQRUIRED },
             { AuthorizeRequest.ResponseType, ParameterPriority.REQRUIRED },
@@ -52,6 +53,22 @@ namespace IssuerOfClaims.Models.Request
 
             { AuthorizeRequest.ConsentGranted, ParameterPriority.OPTIONAL }
         };
+
+        //internal static Dictionary<string, ParameterPriority> HybridParametersPriority = new Dictionary<string, ParameterPriority>()
+        //{
+        //    { AuthorizeRequest.Scope, ParameterPriority.REQRUIRED },
+        //    { AuthorizeRequest.ResponseType, ParameterPriority.REQRUIRED },
+        //    { AuthorizeRequest.ClientId, ParameterPriority.REQRUIRED },
+        //    { AuthorizeRequest.RedirectUri, ParameterPriority.REQRUIRED },
+        //    { AuthorizeRequest.State, ParameterPriority.RECOMMENDED },
+        //    { AuthorizeRequest.Nonce, ParameterPriority.REQRUIRED },
+        //    { AuthorizeRequest.ResponseMode, ParameterPriority.OPTIONAL },
+        //    { AuthorizeRequest.Prompt, ParameterPriority.OPTIONAL },
+        //    { AuthorizeRequest.MaxAge, ParameterPriority.OPTIONAL },
+        //    { AuthorizeRequest.UiLocales, ParameterPriority.OPTIONAL },
+        //    { AuthorizeRequest.IdTokenHint, ParameterPriority.OPTIONAL },
+        //    { AuthorizeRequest.ConsentGranted, ParameterPriority.OPTIONAL }
+        //};
 
         // TODO: will check again
         internal static Dictionary<string, ParameterPriority> RegisterParamterPriority = new Dictionary<string, ParameterPriority>()
@@ -80,7 +97,7 @@ namespace IssuerOfClaims.Models.Request
             { SignInGoogleRequest.CodeVerifier, ParameterPriority.OPTIONAL }
         };
 
-        public static Dictionary<Type, OauthRequest> ParametersForRequest = new Dictionary<Type, OauthRequest>()
+        internal static Dictionary<Type, OauthRequest> ParametersForRequest = new Dictionary<Type, OauthRequest>()
         {
             { typeof(AuthCodeParameters), OauthRequest.AuthorizationCode },
             { typeof(RegisterParameters), OauthRequest.Register },

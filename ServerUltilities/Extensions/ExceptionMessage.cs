@@ -43,6 +43,8 @@
         public const string UNKNOW_ERROR = "Not yet know error!";
         public const string PASSWORD_NOT_SET = "User password is currently not set!";
         public const string PROMPT_VALUE_NOT_VALID = "Prompt's value is not valid!";
+        public const string EMPTY_RESPONSE_TYPE = "Response type must have value while in hybrid flow process!";
+        public const string EMPTY_NONCE = "Nonce must have value while in hybrid flow process!";
         public const string PROMPT_CONSENT_VALUE_NOT_VALID = "Value of prompt's consent is not valid!";
         public const string EMAIL_CONFIRM_CODE_NOT_MATCH = "Confirm code is not match!";
         public const string AUTHORIZATION_BASIC_NOT_SUPPORT_FOR_AUTHORIZE_ENDPOINT = "Authorization scheme is not support in this endpoint!";

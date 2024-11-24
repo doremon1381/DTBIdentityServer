@@ -1,9 +1,9 @@
 ﻿using Google.Apis.Auth;
 using IssuerOfClaims.Extensions;
 using IssuerOfClaims.Models;
+using IssuerOfClaims.Models.DbModel;
 using IssuerOfClaims.Models.Request.RequestParameter;
 using IssuerOfClaims.Services.Database;
-using IssuerOfClaims.Models.DbModel;
 using ServerUltilities;
 using ServerUltilities.Identity;
 
@@ -60,7 +60,7 @@ namespace IssuerOfClaims.Services.Token
         {
             TokenForRequestHandler tokensPerIdentityRequest = _tokensForIdentityRequestDbServices.GetDraftObject();
             tokensPerIdentityRequest.TokenResponse = tokenResponse;
-            tokensPerIdentityRequest.IdentityRequestHandler = currentRequestHandler;
+            tokensPerIdentityRequest.IdentityRequestHandlerId = currentRequestHandler.Id;
 
             return _tokensForIdentityRequestDbServices.Update(tokensPerIdentityRequest);
         }
@@ -268,16 +268,37 @@ namespace IssuerOfClaims.Services.Token
             }
         }
 
-        public async Task ACF_II_BackgroundStuffAsync(IdentityRequestHandler currentRequestHandler, TokenResponse refreshToken, TokenResponse accessToken)
+        public async Task ACF_II_BackgroundStuffAsync(IdentityRequestHandler requestHandler, TokenResponse refreshToken, TokenResponse accessToken)
         {
             await TaskUtilities.RunAttachedToParentTask(() => 
             {
-                CreateTokenResponsePerIdentityRequest(currentRequestHandler, accessToken);
-                CreateTokenResponsePerIdentityRequest(currentRequestHandler, refreshToken);
+                CreateTokenResponsePerIdentityRequest(requestHandler, accessToken);
+                CreateTokenResponsePerIdentityRequest(requestHandler, refreshToken);
                 // TODO: will think about how to handle idtoken, create one for user, update when information of user is changed or sth else
                 //CreateTokenResponsePerIdentityRequest(currentRequestHandler, idToken);
 
-                SuccessfulRequestHandle(currentRequestHandler);
+                SuccessfulRequestHandle(requestHandler);
+            });
+        }
+        #endregion
+
+        #region hybrid flow
+        public async Task Hybrid_I_BackgroundStuff(AuthCodeParameters parameters, UserIdentity user, Client client, string authorizationCode, TokenResponse? accessToken)
+        {
+            await TaskUtilities.RunAttachedToParentTask(() =>
+            {
+                var acfProcessSession = GetDraftRequestSession();
+
+                ACF_I_SaveSessionDetails(parameters, acfProcessSession, authorizationCode);
+                ACF_I_CreateIdentityRequestHandler(user, client, acfProcessSession);
+
+                // Add access token
+                var requestHandler = _requestHandlerDbServices.FindByAuthCodeAsync(authorizationCode).GetAwaiter().GetResult();
+                if (accessToken != null)
+                {
+                    CreateTokenResponsePerIdentityRequest(requestHandler, accessToken);
+                    SuccessfulRequestHandle(requestHandler);
+                }
             });
         }
         #endregion
@@ -297,8 +318,9 @@ namespace IssuerOfClaims.Services.Token
         #region token
         Task<TokenResponse> FindRefreshTokenAsync(string incomingRefreshToken);
         Task<string> GenerateIdTokenAsync(UserIdentity user, string scope, string nonce, string clientId, string successAt = "");
-        TokenResponse CreateToken(string accessToken);
-        TokenResponse CreateToken(string accessToken, DateTime expiredTime);
+        TokenResponse CreateToken(string tokenType);
+        TokenResponse CreateToken(string tokenType, DateTime expiredTime);
+        Task Hybrid_I_BackgroundStuff(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode, TokenResponse? accessToken);
         #endregion
     }
 }

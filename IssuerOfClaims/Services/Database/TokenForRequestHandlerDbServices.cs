@@ -43,7 +43,7 @@ namespace IssuerOfClaims.Services.Database
                     .Include(t => t.IdentityRequestHandler).ThenInclude(h => h.User)
                     .Where(t => t.TokenResponse.TokenType.Equals(TokenTypes.AccessToken))
                     .AsSplitQuery()
-                    .First(r => r.TokenResponse.Token.Equals(accessToken));
+                    .First();
             });
 
             ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(TokenForRequestHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
@@ -61,10 +61,16 @@ namespace IssuerOfClaims.Services.Database
         /// <returns></returns>
         public async Task<TokenForRequestHandler>? FindLastAsync(Guid userId, Guid clientId, bool needAccessToken = true, bool issuedByLocal = true)
         {
+            //var filter = needAccessToken switch
+            //{
+            //    true => new Func<TokenForRequestHandler, bool>((t) => t.TokenResponse.TokenType.Equals(TokenTypes.AccessToken) && t.TokenResponse.ExternalSource == string.Empty),
+            //    false => new Func<TokenForRequestHandler, bool>((t) => t.TokenResponse.TokenType.Equals(TokenTypes.RefreshToken) && t.TokenResponse.ExternalSource == string.Empty)
+            //};
+                    
             var filter = needAccessToken switch
             {
-                true => new Func<TokenForRequestHandler, bool>((t) => t.TokenResponse.TokenType.Equals(TokenTypes.AccessToken) && t.TokenResponse.ExternalSource == string.Empty),
-                false => new Func<TokenForRequestHandler, bool>((t) => t.TokenResponse.TokenType.Equals(TokenTypes.RefreshToken) && t.TokenResponse.ExternalSource == string.Empty)
+                true => TokenTypes.AccessToken,
+                false => TokenTypes.RefreshToken
             };
 
             TokenForRequestHandler? obj = null;
@@ -73,9 +79,13 @@ namespace IssuerOfClaims.Services.Database
                 obj = _tokenResponses
                         .Include(t => t.TokenResponse)
                         .Include(t => t.IdentityRequestHandler).ThenInclude(h => h.RequestSession)
+                        .Where(t => t.IdentityRequestHandler.UserId == userId 
+                                && t.IdentityRequestHandler.ClientId == clientId
+                                && t.TokenResponse.TokenType.Equals(filter)
+                                && t.TokenResponse.ExternalSource == string.Empty)
+                        .OrderBy(t => t.Id)
                         .AsSplitQuery()
-                        .Where(filter)
-                        .LastOrDefault(t => t.IdentityRequestHandler.UserId == userId && t.IdentityRequestHandler.ClientId == clientId);
+                        .LastOrDefault();
             });
 
             // TODO:

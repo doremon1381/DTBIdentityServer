@@ -10,6 +10,9 @@ namespace IssuerOfClaims.Models.Request.Factory
     public abstract class RequestParametersFactoryBase<T> where T : class, IRequestParameters
     {
         protected static readonly OauthRequest OauthRequest = ParameterExtensions.ParametersForRequest[typeof(T)];
+        /// <summary>
+        /// constructor by default does not have any parameter
+        /// </summary>
         protected static readonly ConstructorInfo Constructor = typeof(T).GetConstructor(new Type[] { });
         protected List<PropertyInfo> PropertiesOfType { get; set; } = new List<PropertyInfo>(typeof(T).GetProperties().Where(p => p.PropertyType.Equals(typeof(Parameter))));
 

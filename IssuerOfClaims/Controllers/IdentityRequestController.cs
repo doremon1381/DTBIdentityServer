@@ -131,12 +131,11 @@ namespace IssuerOfClaims.Controllers
             switch (GetMappingGrantType(parameters.ResponseType.Value))
             {
                 case GrantType.Implicit:
-                    return await ImplicitGrantAsync(parameters);
+                    return await ToImplicitGrantProcessAsync(parameters);
                 case GrantType.ClientCredentials:
                     throw new CustomException(ExceptionMessage.NOT_IMPLEMENTED, HttpStatusCode.NotImplemented);
                 case GrantType.Hybrid:
-                    // TODO: for now
-                    throw new CustomException(ExceptionMessage.NOT_IMPLEMENTED, HttpStatusCode.NotImplemented);
+                    return await ToHybridFlowProcessAsync(parameters);
                 case GrantType.AuthorizationCode:
                     return await IssueAuthorizationCodeAsync(parameters);
                 default:
@@ -191,6 +190,45 @@ namespace IssuerOfClaims.Controllers
         }
         #endregion
 
+        #region hybrid flow
+        private async Task<ActionResult> ToHybridFlowProcessAsync(AuthCodeParameters parameters)
+        {
+            // TODO: comment for now
+            //     : by using AuthenticateHanlder, in this step, authenticated is done
+            //     : get user, create authorization code, save it to login session and out
+
+            // TODO: because I also use AuthCodeParameters to extract parameter from query string in authorization code flow
+            //     : then at this step, need to ensure response type and nonce must have value according to Hybrid flow request validation of OpenID
+            SpecialValidateAuthCodeParametersForHybridFlow(parameters);
+
+            var user = await VerifyAndGetUserFromContextAsync();
+            var client = await _clientDbServices.FindAsync(parameters.ClientId.Value);
+
+            ACF_I_ValidateScopes(parameters.Scope.Value, client);
+
+            string authorizationCode = IssueAuthorizationCode();
+
+            // create return parameters 
+            // TODO: need to create access token, id token before this step
+            //     : adding id token or access token along with respone base on response types of parameters
+            string response = await _responseManager.HybridFlowResponseAsync(parameters, user, client, authorizationCode);
+
+            await ACF_I_SendRedirectResponse(parameters, response);
+
+            return new EmptyResult();
+        }
+
+        private static void SpecialValidateAuthCodeParametersForHybridFlow(AuthCodeParameters parameters)
+        {
+            if (!parameters.ResponseType.HasValue)
+                throw new CustomException($"{nameof(ToHybridFlowProcessAsync)}: {ExceptionMessage.EMPTY_RESPONSE_TYPE}", HttpStatusCode.BadRequest);
+            if (!parameters.Nonce.HasValue)
+                throw new CustomException($"{nameof(ToHybridFlowProcessAsync)}: {ExceptionMessage.EMPTY_NONCE}", HttpStatusCode.BadRequest);
+        }
+
+
+        #endregion
+
         #region Issue authorization code
         /// <summary>
         /// TODO: Authorization Server Authenticates End-User: https://openid.net/specs/openid-connect-core-1_0.html
@@ -216,6 +254,7 @@ namespace IssuerOfClaims.Controllers
 
             string authorizationCode = IssueAuthorizationCode();
 
+            // create return parameters 
             string response = await _responseManager.ACF_I_CreateResponseAsync(@params, user, client, authorizationCode);
 
             await ACF_I_SendRedirectResponse(@params, response);
@@ -231,9 +270,12 @@ namespace IssuerOfClaims.Controllers
             await HttpContext.Response.CompleteAsync(); // Ensure response is completed
         }
 
+        /// <summary>
+        /// Use for now, but may change in the future
+        /// </summary>
+        /// <returns></returns>
         private string IssueAuthorizationCode()
         {
-            // TODO: create authorization code
             return RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(32);
         }
 
@@ -296,7 +338,7 @@ namespace IssuerOfClaims.Controllers
             }
             catch (Exception ex)
             {
-                throw new CustomException(ex.Message, HttpStatusCode.InternalServerError);
+                throw new CustomException(ex.Message);
             }
         }
 
@@ -326,7 +368,7 @@ namespace IssuerOfClaims.Controllers
         /// <param name="clientId"></param>
         /// <param name="headers"></param>
         /// <returns></returns>
-        private async Task<ActionResult> ImplicitGrantAsync(AuthCodeParameters parameters)
+        private async Task<ActionResult> ToImplicitGrantProcessAsync(AuthCodeParameters parameters)
         {
             // TODO: for this situation, Thread and http context may not need
             var principal = HttpContext.User;

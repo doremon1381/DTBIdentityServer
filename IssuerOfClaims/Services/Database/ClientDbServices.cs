@@ -21,7 +21,8 @@ namespace IssuerOfClaims.Services.Database
                 client = _Clients
                     // TODO: temporary
                     .AsNoTracking()
-                    .First(c => c.ClientId.Equals(id) && c.ClientSecrets.Contains(clientSecret));
+                    .Where(c => c.ClientId.Equals(id) && c.ClientSecrets.Contains(clientSecret))
+                    .First();
             });
 
 
@@ -39,7 +40,8 @@ namespace IssuerOfClaims.Services.Database
                 // TODO: temporary
                 .AsNoTracking()
                 .Include(c => c.TokenRequestHandlers).ThenInclude(c => c.RequestSession)
-                .First(c => c.ClientId.Equals(clientId));
+                .Where(c => c.ClientId.Equals(clientId))
+                .First();
             });
 
             ValidateEntity(client, HttpStatusCode.BadRequest, $"{nameof(ClientDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");

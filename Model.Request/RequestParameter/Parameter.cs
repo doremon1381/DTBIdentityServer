@@ -43,7 +43,7 @@ namespace IssuerOfClaims.Models.Request.RequestParameter
         {
             Priority = requestType switch
             {
-                OauthRequest.AuthorizationCode => ParameterExtensions.AuthCodeParameterPriority[Name],
+                OauthRequest.AuthorizationCode => ParameterExtensions.AuthCodeParametersPriority[Name],
                 OauthRequest.Register => ParameterExtensions.RegisterParamterPriority[Name],
                 OauthRequest.SignInGoogle => ParameterExtensions.SignInGoogleParamterPriority[Name],
                 OauthRequest.Token => ParameterExtensions.AuthCodeTokenParamterPriority[Name],
@@ -53,12 +53,5 @@ namespace IssuerOfClaims.Models.Request.RequestParameter
                 _ => throw new InvalidDataException($"{Name} : Parameter priority is not set!")
             };
         }
-    }
-
-    public enum ParameterPriority
-    {
-        OPTIONAL,
-        REQRUIRED,
-        RECOMMENDED
     }
 }

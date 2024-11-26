@@ -55,7 +55,7 @@ namespace IssuerOfClaims.Models.DbModel
 
         [ForeignKey(nameof(IdentityRequestHandlerId))]
         public Guid IdentityRequestHandlerId { get; set; }
-        public IdentityRequestHandler IdentityRequestHandler { get; set; }
+        //public IdentityRequestHandler IdentityRequestHandler { get; set; }
     }
 
 

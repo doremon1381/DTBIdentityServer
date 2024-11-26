@@ -19,7 +19,6 @@ namespace IssuerOfClaims.Services.Database
             await UsingDbSetAsync(_Clients =>
             {
                 client = _Clients
-                    // TODO: temporary
                     .AsNoTracking()
                     .Where(c => c.ClientId.Equals(id) && c.ClientSecrets.Contains(clientSecret))
                     .First();
@@ -37,9 +36,9 @@ namespace IssuerOfClaims.Services.Database
             await UsingDbSetAsync((_Clients) =>
             {
                 client = _Clients
-                // TODO: temporary
                 .AsNoTracking()
-                .Include(c => c.TokenRequestHandlers).ThenInclude(c => c.RequestSession)
+                // TODO: will debug to know how in this step, the query result size can be around 40MB...
+                //.Include(c => c.TokenRequestHandlers).ThenInclude(c => c.RequestSession)
                 .Where(c => c.ClientId.Equals(clientId))
                 .First();
             });

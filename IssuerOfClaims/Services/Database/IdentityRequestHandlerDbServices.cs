@@ -21,8 +21,8 @@ namespace IssuerOfClaims.Services.Database
             {
                 obj = _tokenRequestHandlers
                     .Include(l => l.User)
-                    .Include(t => t.Client)
-                    .Include(l => l.TokensPerRequestHandlers).ThenInclude(t => t.TokenResponse)
+                    //.Include(t => t.Client)
+                    //.Include(l => l.TokensPerRequestHandlers).ThenInclude(t => t.TokenResponse)
                     .Include(l => l.RequestSession)
                     .Where(l => l.RequestSession != null && l.RequestSession.AuthorizationCode != null && l.RequestSession.AuthorizationCode.Equals(authorizationCode))
                     .AsSplitQuery()

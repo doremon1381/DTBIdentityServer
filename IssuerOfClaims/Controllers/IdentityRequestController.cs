@@ -119,7 +119,6 @@ namespace IssuerOfClaims.Controllers
         {
             var client = await _clientDbServices.FindAsync(parameters.ClientId.Value);
 
-            // TODO: will test again
             await Task.Run(() => ValidateRedirectUris(parameters.RedirectUri.Value, client));
             if (ConsentResultIsNotAllowed(parameters.ConsentGranted.Value))
             {
@@ -282,15 +281,8 @@ namespace IssuerOfClaims.Controllers
         private async Task<UserIdentity> VerifyAndGetUserFromContextAsync()
         {
             var user = await _applicationUserManager.Current.GetUserAsync(HttpContext.User);
-            VerifyUser(user);
 
-            return user;
-        }
-
-        private static void VerifyUser(UserIdentity? user)
-        {
-            if (user == null)
-                throw new CustomException(ExceptionMessage.USER_NULL);
+            return user ?? throw new CustomException(ExceptionMessage.USER_NULL);
         }
 
         private static bool ACF_I_ValidateScopes(string scopes, Client client)
@@ -425,15 +417,6 @@ namespace IssuerOfClaims.Controllers
         #endregion
 
         #region Issue token
-        [HttpGet("token")]
-        [Authorize]
-        // 5.3.2.  Successful UserInfo Response: https://openid.net/specs/openid-connect-core-1_0.html#UserInfoResponse
-        public async Task<ActionResult> TokenEndpointAsync()
-        {
-            // TODO
-            return StatusCode(200);
-        }
-
         // TODO: try to implement from
         //     : https://www.oauth.com/oauth2-servers/making-authenticated-requests/refreshing-an-access-token/
         //     : Token Request Validation: https://openid.net/specs/openid-connect-core-1_0.html
@@ -498,17 +481,17 @@ namespace IssuerOfClaims.Controllers
 
             // TODO: for now, every request, by default in scop will have openid, so ignore this part of checking now
             //     : Verify that the Authorization Code used was issued in response to an OpenID Connect Authentication Request(so that an ID Token will be returned from the Token Endpoint).
-            var tokenRequestHandler = await _requestHandlerServices.FindByAuthCodeAsync(parameters.Code.Value);
+            var requestHandler = await _requestHandlerServices.FindByAuthCodeAsync(parameters.Code.Value);
 
             // TODO: will change to use email when allow using identity from another source
-            UserIdentity user = await ACF_II_VerifyAndGetUserIdentity(tokenRequestHandler.User.UserName);
-            var client = await ACF_II_VerifyAndGetClientAsync(parameters.ClientId.Value, parameters.ClientSecret.Value, tokenRequestHandler);
+            UserIdentity user = await ACF_II_VerifyAndGetUserIdentityAsync(requestHandler.User.UserName);
+            var client = await ACF_II_VerifyAndGetClientAsync(parameters.ClientId.Value, parameters.ClientSecret.Value, requestHandler);
 
-            ACF_II_VerifyRedirectUris(parameters.RedirectUri.Value, tokenRequestHandler.RequestSession.RedirectUri);
-            ACF_II_VerifyCodeChallenger(parameters.CodeVerifier.Value, tokenRequestHandler);
+            ACF_II_VerifyRedirectUris(parameters.RedirectUri.Value, requestHandler.RequestSession.RedirectUri);
+            ACF_II_VerifyCodeChallenger(parameters.CodeVerifier.Value, requestHandler);
 
             // TODO: issue token from TokenManager
-            var response = await _responseManager.ACF_II_CreateResponseAsync(user.Id, client.Id, client.ClientId, tokenRequestHandler.Id);
+            var response = await _responseManager.ACF_II_CreateResponseAsync(client.Id, client.ClientId, requestHandler.Id);
 
             // TODO: https://openid.net/specs/openid-connect-core-1_0.html#TokenResponse
             //     : will think about it later, for now, I follow the openid specs
@@ -518,18 +501,9 @@ namespace IssuerOfClaims.Controllers
         }
 
         // TODO: will test again
-        private async Task<UserIdentity> ACF_II_VerifyAndGetUserIdentity(string userName)
+        private async Task<UserIdentity> ACF_II_VerifyAndGetUserIdentityAsync(string userName)
         {
-            var obj = await _applicationUserManager.Current.Users
-                    .Include(u => u.IdentityRequestHandlers)
-                    .Include(u => u.IdentityRequestHandlers).ThenInclude(s => s.Client)
-                    .Include(u => u.IdentityRequestHandlers).ThenInclude(l => l.RequestSession)
-                    .AsSplitQuery()
-                    .FirstOrDefaultAsync(u => u.UserName == userName);
-            if (obj == null)
-                throw new InvalidDataException(ExceptionMessage.USER_NULL);
-
-            return obj;
+            return await _applicationUserManager.GetUserAsync(userName);
         }
 
         private static void ACF_II_VerifyRedirectUris(string redirectUri, string authRequestRedirectUri)
@@ -582,12 +556,10 @@ namespace IssuerOfClaims.Controllers
         {
             Client client = await _clientDbServices.FindAsync(clientId, clientSecret);
 
-            if (tokenRequestHandler.RequestSession != null
-                && !tokenRequestHandler.Client.Id.Equals(client.Id))
-                // TODO: status code may wrong
-                throw new CustomException(ExceptionMessage.CLIENT_OF_TOKEN_REQUEST_IS_DIFFERENT_WITH_AUTH_CODE_REQUEST);
-
-            return client;
+            // TODO: status code may wrong
+            return tokenRequestHandler.ClientId.Equals(client.Id) 
+                ? client 
+                : throw new CustomException(ExceptionMessage.CLIENT_OF_TOKEN_REQUEST_IS_DIFFERENT_WITH_AUTH_CODE_REQUEST);
         }
         #endregion
 

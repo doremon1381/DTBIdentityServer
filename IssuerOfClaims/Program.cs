@@ -25,12 +25,11 @@ namespace IssuerOfClaims
 
             builder.Services.AddControllers();
             builder.Services
-                .AddDbContextPool<IDbContextManager, DbContextManager>((serviceProvider, optionsAction) =>
+                .AddDbContext<IDbContextManager, DbContextManager>((serviceProvider, optionsAction) =>
                 {
-                    optionsAction
-                    .UseSqlServer(builder.Configuration.GetConnectionString(DbUtilities.DatabasePath));
+                    optionsAction.UseSqlServer(builder.Configuration.GetConnectionString(DbUtilities.DatabasePath));
                     //.AddInterceptors(serviceProvider.GetRequiredService<SecondLevelCacheInterceptor>());
-                });
+                }, ServiceLifetime.Transient);
 
             builder.Services.AddLogging(options =>
             {
@@ -74,38 +73,14 @@ namespace IssuerOfClaims
             {
                 options.DefaultScheme = OidcConstants.AuthenticationSchemes.AuthorizationHeaderBearer;
             })
-            //.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme,
             .AddScheme<JwtBearerOptions, AuthenticationServices>(OidcConstants.AuthenticationSchemes.AuthorizationHeaderBearer,
                 options =>
                 {
-                    // TODO: will check later
-                    //options.Authority = "PrMIdentityServer";
-                    //options.Audience = "http://localhost:3010/";
-                    // TODO: currently not useful
-                    //builder.Configuration.Bind("Jwt", options);
-                    //options.TokenValidationParameters = new TokenValidationParameters
-                    //{
-                    //    ValidateIssuer = true,
-                    //    //ValidIssuer = "my-firebase-project",
-                    //    ValidateAudience = true,
-                    //    //ValidAudience = "my-firebase-project",
-                    //    ValidateLifetime = true
-                    //};
                 });
             builder.Services.AddMvc(mvcOptions =>
             {
                 mvcOptions.Conventions.Add(new ControllerNameAttributeConvention());
             });
-
-            // Configure EF Core with second-level cache
-            //builder.Services.AddDbContext<DbContextManager>(options =>
-            //    options.UseSqlServer(builder.Configuration.GetConnectionString(DbUtilities.DatabasePath))
-            //           .AddInterceptors(new SecondLevelCacheInterceptor()));
-
-            //builder.Services.AddEFSecondLevelCache(options =>
-            //        options.UseMemoryCacheProvider()
-            //       //.DisableLogging(true)
-            //       .CacheAllQueries(CacheExpirationMode.Absolute, TimeSpan.FromMinutes(30)));
 
             // TODO: configure serilog, will learn about it later
             Log.Logger = new LoggerConfiguration()

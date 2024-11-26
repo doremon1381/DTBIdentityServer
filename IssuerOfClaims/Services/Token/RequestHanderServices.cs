@@ -46,7 +46,7 @@ namespace IssuerOfClaims.Services.Token
             return await _requestHandlerDbServices.FindByAuthCodeAsync(authCode);
         }
 
-        public IdentityRequestSession GetDraftRequestSession()
+        private IdentityRequestSession GetDraftRequestSession()
         {
             return _requestSessionDbServices.GetDraft();
         }
@@ -82,9 +82,9 @@ namespace IssuerOfClaims.Services.Token
                 _tokensForIdentityRequestDbServices.Delete(tokenForRequestHandler) == true;
         }
 
-        public async Task<TokenForRequestHandler> FindLastTokensPerIdentityRequestAsync(Guid userId, Guid idOfClient, bool needAccessToken)
+        public async Task<TokenForRequestHandler> FindLastTokensPerIdentityRequestAsync(Guid userId, Guid idOfClient, bool isAccessToken)
         {
-            return await _tokensForIdentityRequestDbServices.FindLastAsync(userId, idOfClient, needAccessToken);
+            return await _tokensForIdentityRequestDbServices.FindLastAsync(userId, idOfClient, isAccessToken);
         }
 
         #region token
@@ -307,7 +307,7 @@ namespace IssuerOfClaims.Services.Token
     public interface IIdentityRequestHandlerServices
     {
         Task<IdentityRequestHandler> FindByAuthCodeAsync(string authCode);
-        Task<TokenForRequestHandler> FindLastTokensPerIdentityRequestAsync(Guid userId, Guid idOfClient, bool needAccessToken);
+        Task<TokenForRequestHandler> FindLastTokensPerIdentityRequestAsync(Guid userId, Guid idOfClient, bool isAccessToken);
         bool DeleteTokenResponse(TokenForRequestHandler tokenForRequestHandler);
         bool CreateTokenResponsePerIdentityRequest(IdentityRequestHandler currentRequestHandler, TokenResponse tokenResponse);
         Task<IdentityRequestHandler> FindByIdAsync(Guid id);

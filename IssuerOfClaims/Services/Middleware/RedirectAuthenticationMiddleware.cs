@@ -19,27 +19,34 @@ namespace IssuerOfClaims.Services.Middleware
 
         public override async Task Invoke(HttpContext context)
         {
-            // TODO: for now, only allow oauth2/authorize enpoint to be redirect if has 401 error after verify authentication header of request, I will think about it later
-            string endpoint = context.Request.Path.Value;
+            try
+            {
+                // TODO: for now, only allow oauth2/authorize enpoint to be redirect if has 401 error after verify authentication header of request, I will think about it later
+                string endpoint = context.Request.Path.Value;
 
-            if (endpoint.Equals(ProtocolRoutePaths.Authorize))
-                if (context.Response.StatusCode == (int)HttpStatusCode.Unauthorized)
-                {
-                    string requestPath = context.Request.Path.Value;
-                    string method = context.Request.Method;
-                    var query = context.Request.Query;
+                if (endpoint.Equals(ProtocolRoutePaths.Authorize))
+                    if (context.Response.StatusCode == (int)HttpStatusCode.Unauthorized)
+                    {
+                        string requestPath = context.Request.Path.Value;
+                        string method = context.Request.Method;
+                        var query = context.Request.Query;
 
-                    // TODO: I still want if there is any exception, parent thread will catch it
-                    //     : so I want to wait for a task, not the function inside it, which is run on another thread and know nothing about parent of the task
-                    var queryString = await Task.Run(() => CreateRedirectRequestQuery(requestPath, method, query));
+                        // TODO: I still want if there is any exception, parent thread will catch it
+                        //     : so I want to wait for a task, not the function inside it, which is run on another thread and know nothing about parent of the task
+                        var queryString = await Task.Run(() => CreateRedirectRequestQuery(requestPath, method, query));
 
-                    // TODO: will check again
-                    context.Response.Redirect(string.Format("{0}?{1}", _webSigninSettings.SigninUri, queryString));
-                    // TODO: immediately response, will check again
-                    return;
-                }
+                        // TODO: will check again
+                        context.Response.Redirect(string.Format("{0}?{1}", _webSigninSettings.SigninUri, queryString));
+                        // TODO: immediately response, will check again
+                        return;
+                    }
 
-            await _next(context);
+                await _next(context);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"{nameof(RedirectAuthenticationMiddleware)}: {ex.Message}");
+            }
         }
 
         private static string CreateRedirectRequestQuery(string path, string method, IQueryCollection queryCollection)

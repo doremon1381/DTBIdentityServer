@@ -52,7 +52,7 @@ namespace IssuerOfClaims.Services.Authentication
 
                 // TODO: if "/oauth2/authorize" endpoint has Authentication header using basic scheme
                 //     : , then server will response for that request an exception: "Authorization scheme is not support in this endpoint!".
-                if (AuthorizeRequestWithAuthorizationHeader(authorizationHeader, Context.Request.Path.Value))
+                if (RequestToAuthorizeEndpointWithAuthorizationHeader(authorizationHeader, Context.Request.Path.Value))
                 {
                     Context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
                     return AuthenticateResult.Fail(ExceptionMessage.AUTHORIZATION_BASIC_NOT_SUPPORT_FOR_AUTHORIZE_ENDPOINT);
@@ -79,7 +79,7 @@ namespace IssuerOfClaims.Services.Authentication
             }
         }
 
-        private static bool AuthorizeRequestWithAuthorizationHeader(string authorizationHeader, string path)
+        private static bool RequestToAuthorizeEndpointWithAuthorizationHeader(string authorizationHeader, string path)
         {
             if (FindSchemeForAuthentication(authorizationHeader).Equals(AuthenticationSchemes.AuthorizationHeaderBasic)
                 && path.Equals(ProtocolRoutePaths.Authorize))
@@ -194,17 +194,15 @@ namespace IssuerOfClaims.Services.Authentication
             if (string.IsNullOrEmpty(user.PasswordHash))
                 throw new CustomException(ExceptionMessage.PASSWORD_NOT_SET);
 
-            var valid = _userManager.Current.PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+            var verificationResult = _userManager.Current.PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
 
-            if (valid == PasswordVerificationResult.Failed)
+            if (verificationResult == PasswordVerificationResult.Failed)
                 throw new CustomException(ExceptionMessage.WRONG_PASSWORD);
         }
 
         private AuthenticationTicket IssueAuthenticationTicket(ClaimsPrincipal claimPrincipal)
         {
-            #region authenticate reason
             AddAuthenticateIdentityToContext(claimPrincipal);
-            #endregion
 
             return new AuthenticationTicket(claimPrincipal, Scheme.Name);
         }

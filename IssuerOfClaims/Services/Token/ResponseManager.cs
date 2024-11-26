@@ -86,17 +86,17 @@ namespace IssuerOfClaims.Services.Token
         #endregion
 
         #region issue token for authorization request
-        public async Task<string> ACF_II_CreateResponseAsync(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId)
+        public async Task<string> ACF_II_CreateResponseAsync(Guid idOfClient, string clientId, Guid requestHandlerId)
         {
-            var currentRequestHandler = await _requestHandlerServices.FindByIdAsync(currentRequestHandlerId);
+            var requestHandler = await _requestHandlerServices.FindByIdAsync(requestHandlerId);
 
             // TODO: use this temporary
             //TokenResponse idToken = await ACF_CreateIdToken(currentRequestHandler, clientId);
-            string idToken = await _requestHandlerServices.GenerateIdTokenAsync(currentRequestHandler.User, currentRequestHandler.RequestSession.Scope, currentRequestHandler.RequestSession.Nonce, clientId, clientId);
+            string idToken = await _requestHandlerServices.GenerateIdTokenAsync(requestHandler.User, requestHandler.RequestSession.Scope, requestHandler.RequestSession.Nonce, clientId);
 
             // I want to reuse token response if it is not expired
-            var latestRefreshToken = await _requestHandlerServices.FindLastTokensPerIdentityRequestAsync(userId, idOfClient, needAccessToken: false);
-            var latestAccessToken = await _requestHandlerServices.FindLastTokensPerIdentityRequestAsync(userId, idOfClient, needAccessToken: true);
+            var latestRefreshToken = await _requestHandlerServices.FindLastTokensPerIdentityRequestAsync(requestHandler.User.Id, idOfClient, isAccessToken: false);
+            var latestAccessToken = await _requestHandlerServices.FindLastTokensPerIdentityRequestAsync(requestHandler.User.Id, idOfClient, isAccessToken: true);
 
             TokenResponse refreshToken = null;
             TokenResponse accessToken = null;
@@ -104,7 +104,7 @@ namespace IssuerOfClaims.Services.Token
             // TODO: at this step, need to check offline_access is inside authrization login request is true or fault
             //     : if fault, then response will not include refresh token
             //     : if true, then add refresh token along with response
-            if (currentRequestHandler.RequestSession.IsOfflineAccess)
+            if (requestHandler.RequestSession.IsOfflineAccess)
             {
                 // latest token response does not have refresh token
                 if (latestRefreshToken == null
@@ -154,28 +154,9 @@ namespace IssuerOfClaims.Services.Token
                         accessToken = _requestHandlerServices.CreateToken(OidcConstants.TokenTypes.AccessToken);
                         refreshToken = _requestHandlerServices.CreateToken(OidcConstants.TokenTypes.RefreshToken);
                     }
-                    #region for test
-                    //else if (latestAccessToken.TokenResponse.TokenExpiried > DateTime.Now
-                    //    && latestRefreshToken.TokenResponse.TokenExpiried < DateTime.Now)
-                    //{
-                    //    //var tokenResponse = _tokenResponseDbServices.CreateAccessToken();
-                    //    //currentRequestHandler.TokenResponse = tokenResponse;
-
-                    //    //string access_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
-                    //    //string refresh_token = RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(64);
-
-                    //    //tokenResponse.AccessToken = access_token;
-                    //    //tokenResponse.IdToken = id_token;
-                    //    //tokenResponse.AccessTokenExpiried = DateTime.Now.AddHours(1);
-                    //    //tokenResponse.RefreshToken = refresh_token;
-                    //    //tokenResponse.RefreshTokenExpiried = DateTime.Now.AddHours(4);
-
-                    //    //responseBody = CreateTokenResponseBody(access_token, id_token, 3600, refresh_token);
-                    //}
-                    #endregion
                 }
             }
-            else if (!currentRequestHandler.RequestSession.IsOfflineAccess)
+            else if (!requestHandler.RequestSession.IsOfflineAccess)
             {
                 // latest access token can be used
                 if (latestAccessToken != null && latestAccessToken.TokenResponse.TokenExpiried > DateTime.Now)
@@ -192,7 +173,7 @@ namespace IssuerOfClaims.Services.Token
             var responseBody = await ResponseUtilities.CreateTokenResponseStringAsync(accessToken.Token, idToken, accessToken.TokenExpiried, refreshToken == null ? "" : refreshToken.Token);
 #pragma warning restore CS8602 // Dereference of a possibly null reference.
 
-            await _requestHandlerServices.ACF_II_BackgroundStuffAsync(currentRequestHandler, refreshToken, accessToken);
+            await _requestHandlerServices.ACF_II_BackgroundStuffAsync(requestHandler, refreshToken, accessToken);
 
             return responseBody;
         }
@@ -333,7 +314,7 @@ namespace IssuerOfClaims.Services.Token
 
     public interface IResponseManager
     {
-        Task<string> ACF_II_CreateResponseAsync(Guid userId, Guid idOfClient, string clientId, Guid currentRequestHandlerId);
+        Task<string> ACF_II_CreateResponseAsync(Guid idOfClient, string clientId, Guid requestHandlerId);
         Task<string> ACF_I_CreateResponseAsync(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode);
         Task<string> IGF_GetResponseAsync(UserIdentity user, AuthCodeParameters parameters, Client client);
         Task<string> HybridFlowResponseAsync(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode);

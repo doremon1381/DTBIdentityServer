@@ -78,11 +78,6 @@ namespace IssuerOfClaims.Database
                 .HasForeignKey(c => c.ClientId);
 
             modelBuilder.Entity<IdentityRequestHandler>()
-                .HasOne(c => c.RequestSession)
-                .WithOne(l => l.IdentityRequestHandler)
-                .HasForeignKey<IdentityRequestSession>(l => l.IdentityRequestHandlerId);
-
-            modelBuilder.Entity<IdentityRequestHandler>()
                 .HasMany(c => c.TokensPerRequestHandlers)
                 .WithOne(t => t.IdentityRequestHandler)
                 .HasForeignKey(c => c.IdentityRequestHandlerId);

@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using IssuerOfClaims.Models.DbModel;
 using System.Net;
+using ServerUltilities.Extensions;
 
 namespace IssuerOfClaims.Services
 {
@@ -42,7 +43,9 @@ namespace IssuerOfClaims.Services
 
         public bool HasUser(string userName)
         {
-            var user = this.Current.Users.FirstOrDefault(u => u.UserName == userName);
+            var user = this.Current.Users
+                .AsNoTracking()
+                .FirstOrDefault(u => u.UserName == userName);
 
             if (user == null)
                 return false;
@@ -51,7 +54,9 @@ namespace IssuerOfClaims.Services
 
         public bool EmailIsUsedForUser(string email)
         {
-            var user = this.Current.Users.FirstOrDefault(u => u.Email == email);
+            var user = this.Current.Users
+                .AsNoTracking()
+                .FirstOrDefault(u => u.Email == email);
 
             if (user == null)
                 return false;
@@ -60,7 +65,9 @@ namespace IssuerOfClaims.Services
 
         public async Task<UserIdentity> GetOrCreateUserByEmailAsync(GoogleJsonWebSignature.Payload payload)
         {
-            var user = this.Current.Users.FirstOrDefault(u => u.Email == payload.Email);
+            var user = this.Current.Users
+                .AsNoTracking()
+                .FirstOrDefault(u => u.Email == payload.Email);
 
             if (user == null)
                 user = await CreateUser(payload);
@@ -82,11 +89,19 @@ namespace IssuerOfClaims.Services
 
             return newUser;
         }
+
+        public async Task<UserIdentity> GetUserAsync(string userName)
+        {
+            return await Current.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.UserName == userName) ?? throw new InvalidDataException(ExceptionMessage.USER_NULL);
+        }
     }
 
     public interface IApplicationUserManager
     {
         UserManager<UserIdentity> Current { get; }
+        Task<UserIdentity> GetUserAsync(string userName);
         Task<UserIdentity> CreateUserAsync(RegisterParameters parameters);
         bool EmailIsUsedForUser(string email);
         Task<UserIdentity> GetOrCreateUserByEmailAsync(GoogleJsonWebSignature.Payload payload);

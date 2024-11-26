@@ -42,7 +42,8 @@ namespace IssuerOfClaims.Services.Database
                     .Include(t => t.TokenResponse)
                     .Include(t => t.IdentityRequestHandler).ThenInclude(h => h.User)
                     .Where(t => t.TokenResponse.TokenType.Equals(TokenTypes.AccessToken))
-                    .AsSplitQuery()
+                    //.AsSplitQuery()
+                    .AsNoTracking()
                     .First();
             });
 
@@ -56,18 +57,12 @@ namespace IssuerOfClaims.Services.Database
         /// </summary>
         /// <param name="userId"></param>
         /// <param name="clientId"></param>
-        /// <param name="needAccessToken"></param>
+        /// <param name="isAccessToken"></param>
         /// <param name="issuedByLocal"></param>
         /// <returns></returns>
-        public async Task<TokenForRequestHandler>? FindLastAsync(Guid userId, Guid clientId, bool needAccessToken = true, bool issuedByLocal = true)
+        public async Task<TokenForRequestHandler>? FindLastAsync(Guid userId, Guid clientId, bool isAccessToken = true, bool issuedByLocal = true)
         {
-            //var filter = needAccessToken switch
-            //{
-            //    true => new Func<TokenForRequestHandler, bool>((t) => t.TokenResponse.TokenType.Equals(TokenTypes.AccessToken) && t.TokenResponse.ExternalSource == string.Empty),
-            //    false => new Func<TokenForRequestHandler, bool>((t) => t.TokenResponse.TokenType.Equals(TokenTypes.RefreshToken) && t.TokenResponse.ExternalSource == string.Empty)
-            //};
-                    
-            var filter = needAccessToken switch
+            var tokenType = isAccessToken switch
             {
                 true => TokenTypes.AccessToken,
                 false => TokenTypes.RefreshToken
@@ -81,10 +76,11 @@ namespace IssuerOfClaims.Services.Database
                         .Include(t => t.IdentityRequestHandler).ThenInclude(h => h.RequestSession)
                         .Where(t => t.IdentityRequestHandler.UserId == userId 
                                 && t.IdentityRequestHandler.ClientId == clientId
-                                && t.TokenResponse.TokenType.Equals(filter)
+                                && t.TokenResponse.TokenType.Equals(tokenType)
                                 && t.TokenResponse.ExternalSource == string.Empty)
                         .OrderBy(t => t.Id)
-                        .AsSplitQuery()
+                        //.AsSplitQuery()
+                        .AsNoTracking()
                         .LastOrDefault();
             });
 
@@ -100,6 +96,6 @@ namespace IssuerOfClaims.Services.Database
         TokenForRequestHandler GetDraftObject();
         Task<TokenForRequestHandler> FindByAccessTokenASync(string accessToken);
         TokenForRequestHandler CreatNew();
-        Task<TokenForRequestHandler>? FindLastAsync(Guid userId, Guid clientId, bool needAccessToken = true, bool issuedByLocal = true);
+        Task<TokenForRequestHandler>? FindLastAsync(Guid userId, Guid clientId, bool isAccessToken = true, bool issuedByLocal = true);
     }
 }

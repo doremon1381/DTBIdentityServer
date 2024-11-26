@@ -21,8 +21,6 @@ namespace IssuerOfClaims.Services.Database
             {
                 obj = _tokenRequestHandlers
                     .Include(l => l.User)
-                    //.Include(t => t.Client)
-                    //.Include(l => l.TokensPerRequestHandlers).ThenInclude(t => t.TokenResponse)
                     .Include(l => l.RequestSession)
                     .Where(l => l.RequestSession != null && l.RequestSession.AuthorizationCode != null && l.RequestSession.AuthorizationCode.Equals(authorizationCode))
                     .AsSplitQuery()
@@ -49,8 +47,6 @@ namespace IssuerOfClaims.Services.Database
                 .Include(t => t.TokensPerRequestHandlers).ThenInclude(t => t.TokenResponse)
                 .Where(t => t.Id.Equals(currentRequestHandlerId))
                 .AsSplitQuery()
-                // TODO:
-                //.Cacheable()
                 .AsNoTracking()
                 .First();
             });
@@ -64,12 +60,6 @@ namespace IssuerOfClaims.Services.Database
         {
             return new IdentityRequestHandler();
         }
-
-        //public TokenRequestHandler FindByRefreshToken(string refreshToken)
-        //{
-        //    throw new NotImplementedException();
-        //}
-
 
         // TODO:
         // Create new session's object whenever a request involve with identity services is called

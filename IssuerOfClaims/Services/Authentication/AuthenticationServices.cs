@@ -197,7 +197,7 @@ namespace IssuerOfClaims.Services.Authentication
             var verificationResult = _userManager.Current.PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
 
             if (verificationResult == PasswordVerificationResult.Failed)
-                throw new CustomException(ExceptionMessage.WRONG_PASSWORD);
+                throw new CustomException(ExceptionMessage.WRONG_USERNAME_OR_PASSWORD);
         }
 
         private AuthenticationTicket IssueAuthenticationTicket(ClaimsPrincipal claimPrincipal)

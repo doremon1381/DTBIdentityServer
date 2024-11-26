@@ -35,7 +35,7 @@
         public const string EMAIL_IS_EXPIRED = "email is expired!";
         public const string NOT_IMPLEMENTED = "Not implemented!";
         public const string WRONG_IMPLEMENTED = "Not implemented!";
-        public const string WRONG_PASSWORD = "Wrong password!";
+        public const string WRONG_USERNAME_OR_PASSWORD = "Wrong username or password!";
         public const string CONFIRM_EMAIL_SEEM_WRONG = "something inside this process is wrong!";
         public const string CONFIRM_EMAIL_EXPIRED = "error with email's expired time!";
         public const string MISSING_GOOGLE_CLIENT_DETAILS = "Details of google's client is mismatch!";
@@ -50,6 +50,7 @@
         public const string AUTHORIZATION_BASIC_NOT_SUPPORT_FOR_AUTHORIZE_ENDPOINT = "Authorization scheme is not support in this endpoint!";
         public const string NONCE_MUST_HAVE_VALUE_WITH_IMPLICIT_GRANT_FLOW = "In implicit grant flow, nonce must have value inside request query!";
         public const string AUTHENTICATION_SCHEME_NOT_SUPPORT = "Authentication scheme is not supported!";
+        public const string AUTHENTICATION_INFORMATION_MISSING_OR_MISMATCH = "Authentication information is missing or mismatch!";
 
         public const string CODECHALLENGE_CODECHALLENGEMETHOD_NOT_HAVE_VALUE_SIMUTANEOUSLY = "Code challenge does not have value simutaneosly with code challenge method or vice versa!";
         public const string CODE_CHALLENGE_METHOD_NOT_SUPPORT = "Code challenge method does not supported!";

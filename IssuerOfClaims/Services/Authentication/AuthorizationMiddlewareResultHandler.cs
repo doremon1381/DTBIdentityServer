@@ -19,6 +19,12 @@ namespace IssuerOfClaims.Services.Authentication
                 await context.Response.CompleteAsync();
                 return;
             }
+            else if (context.Response.StatusCode == (int)HttpStatusCode.Unauthorized)
+            {
+                await context.Response.WriteAsync(ExceptionMessage.AUTHENTICATION_INFORMATION_MISSING_OR_MISMATCH);
+                await context.Response.CompleteAsync();
+                return;
+            }
             else
                 await next(context);
         }

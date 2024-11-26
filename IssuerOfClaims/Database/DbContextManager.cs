@@ -99,7 +99,7 @@ namespace IssuerOfClaims.Database
         public DbContextManager CreateDbContext(string[] args)
         {
             var optionsBuilder = new DbContextOptionsBuilder<DbContextManager>();
-            optionsBuilder.UseSqlServer("Server=DESKTOP-2TRDKFE\\;Database=PrintingManagermentIdentity;trusted_connection=true;TrustServerCertificate=True");
+            optionsBuilder.UseSqlServer("Server=DESKTOP-2TRDKFE\\;Database=DTBIdentityManager;trusted_connection=true;TrustServerCertificate=True");
 
             // TODO: logger as parameter is null for now
             return new DbContextManager(optionsBuilder.Options, null);

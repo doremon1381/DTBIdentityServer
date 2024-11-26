@@ -101,9 +101,9 @@ namespace IssuerOfClaims
             //    });
             //});
 
+            builder.MigrateDatabase();
+
             var app = builder.Build();
-            // TODO: use for initiate clients in database
-            //AuthorizationResources.CreateClient(builder.Configuration);
             SetupPipline(app);
             // I intentionally separate app.run with setupPipline
             // , it's not official protocol as far as I know

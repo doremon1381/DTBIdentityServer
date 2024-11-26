@@ -7,21 +7,19 @@ using IssuerOfClaims.Database;
 
 namespace IssuerOfClaims
 {
-    public static class AuthorizationResources
+    internal static class AuthorizationResources
     {
         /// <summary>
         /// only use at server's initialization
         /// </summary>
         /// <param name="configuration"></param>
         /// <returns></returns>
-        internal static bool CreateClient(IConfigurationManager configuration)
+        internal static bool CreateClient(DbContextManager dbContext)
         {
-            //DbContextManager dbContext = CreateDbContext(configuration);
+            var clientSet = dbContext.GetDbSet<Client>();
+            var clients = clientSet.Count();
 
-            var clientDb = new ClientDbServices();
-            var clients = clientDb.GetAll();
-
-            if (clients.Count == 0)
+            if (clients == 0)
             {
                 var printingManagermentServer = new Client();
                 printingManagermentServer.ClientId = "ManagermentServer";
@@ -31,7 +29,6 @@ namespace IssuerOfClaims
                 printingManagermentServer.PostLogoutRedirectUris = ("http://localhost:5173/");
                 printingManagermentServer.FrontChannelLogoutUri = "http://localhost:5173/signout-oidc";
                 printingManagermentServer.AllowedScopes = $"{IdentityServerConstants.StandardScopes.OpenId} {IdentityServerConstants.StandardScopes.Profile} {IdentityServerConstants.StandardScopes.Email} {Constants.CustomScope.Role} {IdentityServerConstants.StandardScopes.OfflineAccess}";
-                //"api1", "api2.read_only"
 
                 var printingManagermentDbServer = new Client();
                 printingManagermentDbServer.ClientId = "ManagermentDbServer";
@@ -51,24 +48,11 @@ namespace IssuerOfClaims
 
                 var newClients = new List<Client>() { printingManagermentServer, printingManagermentDbServer, printingManagermentWeb };
 
-                clientDb.AddMany(newClients);
-
-                clients = newClients;
+                clientSet.AddRange(newClients);
+                dbContext.SaveChanges();
             }
 
-            //var roles = dbContext.Roles.ToList();
-
             return true;
-        }
-
-        private static DbContextManager CreateDbContext(IConfigurationManager configuration)
-        {
-            var contextOptions = new DbContextOptionsBuilder<DbContextManager>()
-                 .UseSqlServer(configuration.GetConnectionString(DbUtilities.DatabasePath))
-                 .Options;
-
-            var dbContext = new DbContextManager(contextOptions, null);
-            return dbContext;
         }
     }
 }

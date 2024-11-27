@@ -10,11 +10,11 @@ using IssuerOfClaims.Extensions;
 
 namespace IssuerOfClaims.Services.Token
 {
-    public class TokenServices : ITokenServices
+    public class TokenService : ITokenService
     {
-        private readonly ITokenResponseDbServices _tokenResponseDbServices;
+        private readonly ITokenResponseDbService _tokenResponseDbServices;
 
-        public TokenServices(ITokenResponseDbServices tokenResponseDbServices, ITokenForRequestHandlerDbServices tokenForRequestHandlerDbServices)
+        public TokenService(ITokenResponseDbService tokenResponseDbServices, ITokenForRequestHandlerDbService tokenForRequestHandlerDbServices)
         {
             _tokenResponseDbServices = tokenResponseDbServices;
         }
@@ -195,7 +195,7 @@ namespace IssuerOfClaims.Services.Token
         #endregion
     }
 
-    public interface ITokenServices
+    public interface ITokenService
     {
         TokenResponse CreateToken(string tokenType, DateTime? expiredTime = null, DateTime? issueAt = null);
         Task<string> GenerateIdTokenAsync(UserIdentity user, string scope, string nonce, string clientId, string authTime = "");

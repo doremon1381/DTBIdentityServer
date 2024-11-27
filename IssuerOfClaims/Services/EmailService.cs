@@ -13,13 +13,13 @@ using ServerUltilities.Extensions;
 
 namespace IssuerOfClaims.Services
 {
-    public class EmailServices : IEmailServices
+    public class EmailService : IEmailService
     {
-        private readonly IConfirmEmailDbServices _emailDbServices;
+        private readonly IConfirmEmailDbService _emailDbServices;
         private readonly IApplicationUserManager _applicationUserManager;
         private readonly MailSettings _mailSettings;
 
-        public EmailServices(IConfirmEmailDbServices emailDbServices, IApplicationUserManager userManager, MailSettings mailSettings)
+        public EmailService(IConfirmEmailDbService emailDbServices, IApplicationUserManager userManager, MailSettings mailSettings)
         {
             _emailDbServices = emailDbServices;
             _mailSettings = mailSettings;
@@ -150,7 +150,7 @@ namespace IssuerOfClaims.Services
         }
     }
 
-    public interface IEmailServices
+    public interface IEmailService
     {
         Task SendForgotPasswordCodeToEmailAsync(UserIdentity user, Guid clientId);
         Task SendVerifyingEmailAsync(UserIdentity user, string callbackEndpoint, Guid clientId, string requestScheme, string requestHost);

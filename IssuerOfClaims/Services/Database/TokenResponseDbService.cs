@@ -7,9 +7,9 @@ using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class TokenResponseDbServices : DbTableServicesBase<TokenResponse>, ITokenResponseDbServices
+    public class TokenResponseDbService : DbTableServicesBase<TokenResponse>, ITokenResponseDbService
     {
-        public TokenResponseDbServices() 
+        public TokenResponseDbService() 
         {
         }
 
@@ -70,13 +70,13 @@ namespace IssuerOfClaims.Services.Database
                     .First() ?? new TokenResponse();
             });
 
-            ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(TokenResponseDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
+            ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(TokenResponseDbService)}: {ExceptionMessage.OBJECT_IS_NULL}");
 
             return obj;
         }
     }
 
-    public interface ITokenResponseDbServices : IDbContextBase<TokenResponse>
+    public interface ITokenResponseDbService : IDbContextBase<TokenResponse>
     {
         TokenResponse CreateAccessToken();
         TokenResponse CreateIdToken();

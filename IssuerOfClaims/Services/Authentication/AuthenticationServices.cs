@@ -28,11 +28,11 @@ namespace IssuerOfClaims.Services.Authentication
     /// </summary>
     public class AuthenticationServices : AuthenticationHandler<JwtBearerOptions>
     {
-        private readonly ITokenForRequestHandlerDbServices _tokenResponsePerHandlerDbServices;
+        private readonly ITokenForRequestHandlerDbService _tokenResponsePerHandlerDbServices;
         private readonly IApplicationUserManager _userManager;
 
         public AuthenticationServices(IOptionsMonitor<JwtBearerOptions> options, ILoggerFactory logger, UrlEncoder encoder,
-            ITokenForRequestHandlerDbServices tokenResponsePerHandlerDbServices, IApplicationUserManager userManager)
+            ITokenForRequestHandlerDbService tokenResponsePerHandlerDbServices, IApplicationUserManager userManager)
             : base(options, logger, encoder)
         {
             _tokenResponsePerHandlerDbServices = tokenResponsePerHandlerDbServices;

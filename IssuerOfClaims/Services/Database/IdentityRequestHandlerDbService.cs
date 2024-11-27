@@ -6,11 +6,11 @@ using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class IdentityRequestHandlerDbServices : DbTableServicesBase<IdentityRequestHandler>, IIdentityRequestHandlerDbServices
+    public class IdentityRequestHandlerDbService : DbTableServicesBase<IdentityRequestHandler>, IIdentityRequestHandlerDbService
     {
         //private readonly ILogger _logger;
 
-        public IdentityRequestHandlerDbServices(ILoggerFactory logger)
+        public IdentityRequestHandlerDbService(ILoggerFactory logger)
         {
         }
 
@@ -28,7 +28,7 @@ namespace IssuerOfClaims.Services.Database
                     .First();
             });
 
-            ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(IdentityRequestHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
+            ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(IdentityRequestHandlerDbService)}: {ExceptionMessage.OBJECT_IS_NULL}");
             //_logger.LogInformation($"current thread id is {Thread.CurrentThread.ManagedThreadId}");
 
             return obj;
@@ -51,7 +51,7 @@ namespace IssuerOfClaims.Services.Database
                 .First();
             });
 
-            ValidateEntity(obj, HttpStatusCode.NotFound, $"{nameof(IdentityRequestHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
+            ValidateEntity(obj, HttpStatusCode.NotFound, $"{nameof(IdentityRequestHandlerDbService)}: {ExceptionMessage.OBJECT_IS_NULL}");
 
             return obj;
         }
@@ -72,7 +72,7 @@ namespace IssuerOfClaims.Services.Database
         //       : instead of search from db, save 100 session in used, and get it from memory (from authorization code, or id_token) is easier than query 100 object from 100.000 object table...
     }
 
-    public interface IIdentityRequestHandlerDbServices : IDbContextBase<IdentityRequestHandler>
+    public interface IIdentityRequestHandlerDbService : IDbContextBase<IdentityRequestHandler>
     {
         Task<IdentityRequestHandler> FindByAuthCodeAsync(string authorizationCode);
         Task<IdentityRequestHandler> FindByIdAsync(Guid currentRequestHandlerId);

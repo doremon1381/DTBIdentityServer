@@ -43,17 +43,17 @@ namespace IssuerOfClaims
             builder.Services.AddSingleton<MailSettings>(builder.Configuration.GetSection(IdentityServerConfiguration.MAILSETTINGS).Get<MailSettings>());
             builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, AuthorizationMiddlewareResultHandler>();
             // TODO: will change later
-            builder.Services.AddTransient<IClientDbServices, ClientDbServices>();
+            builder.Services.AddTransient<IClientDbService, ClientDbService>();
             //builder.Services.AddTransient<IRoleDbServices, RoleDbServices>();
-            builder.Services.AddTransient<IConfirmEmailDbServices, ConfirmEmailDbServices>();
-            builder.Services.AddTransient<ITokenResponseDbServices, TokenResponseDbServices>();
-            builder.Services.AddTransient<IIdentityRequestSessionDbServices, IdentityRequestSessionDbServices>();
-            builder.Services.AddTransient<ITokenForRequestHandlerDbServices, TokenForRequestHandlerDbServices>();
-            builder.Services.AddTransient<IIdentityRequestHandlerDbServices, IdentityRequestHandlerDbServices>();
-            builder.Services.AddTransient<IEmailServices, EmailServices>();
-            builder.Services.AddTransient<ITokenServices, TokenServices>();
-            builder.Services.AddTransient<IIdentityRequestHandlerServices, RequestHanderServices>();
-            builder.Services.AddTransient<IResponseManager, ResponseManager>();
+            builder.Services.AddTransient<IConfirmEmailDbService, ConfirmEmailDbService>();
+            builder.Services.AddTransient<ITokenResponseDbService, TokenResponseDbService>();
+            builder.Services.AddTransient<IIdentityRequestSessionDbService, IdentityRequestSessionDbService>();
+            builder.Services.AddTransient<ITokenForRequestHandlerDbService, TokenForRequestHandlerDbService>();
+            builder.Services.AddTransient<IIdentityRequestHandlerDbService, IdentityRequestHandlerDbService>();
+            builder.Services.AddTransient<IEmailService, EmailService>();
+            builder.Services.AddTransient<ITokenService, TokenService>();
+            builder.Services.AddTransient<IIdentityRequestHandlerService, RequestHanderService>();
+            builder.Services.AddTransient<IResponseManagerService, ResponseManagerService>();
 
             // TODO: will add later
             builder.Services.AddIdentityCore<UserIdentity>()

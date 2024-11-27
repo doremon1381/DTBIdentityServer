@@ -20,15 +20,15 @@ namespace IssuerOfClaims.Controllers
     [ControllerName("auth")]
     public class AuthenticationController : ControllerBase
     {
-        private readonly IClientDbServices _clientDbServices;
+        private readonly IClientDbService _clientDbServices;
         private readonly IApplicationUserManager _applicationUserManager;
-        private readonly ITokenServices _tokenManager;
-        private readonly IEmailServices _emailServices;
+        private readonly ITokenService _tokenManager;
+        private readonly IEmailService _emailServices;
 
-        public AuthenticationController(IClientDbServices clientDbServices
+        public AuthenticationController(IClientDbService clientDbServices
             , IApplicationUserManager applicationUserManager
-            , ITokenServices tokenManager
-            , IEmailServices emailServices)
+            , ITokenService tokenManager
+            , IEmailService emailServices)
         {
             _clientDbServices = clientDbServices;
             _applicationUserManager = applicationUserManager;

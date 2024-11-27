@@ -6,9 +6,9 @@ using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class ClientDbServices : DbTableServicesBase<Client>, IClientDbServices
+    public class ClientDbService : DbTableServicesBase<Client>, IClientDbService
     {
-        public ClientDbServices()
+        public ClientDbService()
         {
         }
 
@@ -25,7 +25,7 @@ namespace IssuerOfClaims.Services.Database
             });
 
 
-            ValidateEntity(client, HttpStatusCode.BadRequest, $"{nameof(ClientDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
+            ValidateEntity(client, HttpStatusCode.BadRequest, $"{nameof(ClientDbService)}: {ExceptionMessage.OBJECT_IS_NULL}");
             return client;
         }
 
@@ -43,12 +43,12 @@ namespace IssuerOfClaims.Services.Database
                 .First();
             });
 
-            ValidateEntity(client, HttpStatusCode.BadRequest, $"{nameof(ClientDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
+            ValidateEntity(client, HttpStatusCode.BadRequest, $"{nameof(ClientDbService)}: {ExceptionMessage.OBJECT_IS_NULL}");
             return client;
         }
     }
 
-    public interface IClientDbServices : IDbContextBase<Client>
+    public interface IClientDbService : IDbContextBase<Client>
     {
         Task<Client> FindAsync(string clientId, string clientSecret);
         Task<Client> FindAsync(string clientId);

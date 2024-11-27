@@ -8,9 +8,9 @@ using static ServerUltilities.Identity.OidcConstants;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class TokenForRequestHandlerDbServices : DbTableServicesBase<TokenForRequestHandler>, ITokenForRequestHandlerDbServices
+    public class TokenForRequestHandlerDbService : DbTableServicesBase<TokenForRequestHandler>, ITokenForRequestHandlerDbService
     {
-        public TokenForRequestHandlerDbServices() 
+        public TokenForRequestHandlerDbService() 
         {
         }
 
@@ -47,7 +47,7 @@ namespace IssuerOfClaims.Services.Database
                     .First();
             });
 
-            ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(TokenForRequestHandlerDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
+            ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(TokenForRequestHandlerDbService)}: {ExceptionMessage.OBJECT_IS_NULL}");
 
             return obj;
         }
@@ -91,7 +91,7 @@ namespace IssuerOfClaims.Services.Database
         }
     }
 
-    public interface ITokenForRequestHandlerDbServices : IDbContextBase<TokenForRequestHandler>
+    public interface ITokenForRequestHandlerDbService : IDbContextBase<TokenForRequestHandler>
     {
         TokenForRequestHandler GetDraftObject();
         Task<TokenForRequestHandler> FindByAccessTokenASync(string accessToken);

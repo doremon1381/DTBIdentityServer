@@ -6,9 +6,9 @@ using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class ConfirmEmailDbServices : DbTableServicesBase<ConfirmEmail>, IConfirmEmailDbServices
+    public class ConfirmEmailDbService : DbTableServicesBase<ConfirmEmail>, IConfirmEmailDbService
     {
-        public ConfirmEmailDbServices() 
+        public ConfirmEmailDbService() 
         {
         }
 
@@ -30,13 +30,13 @@ namespace IssuerOfClaims.Services.Database
                 .First();
             });
 
-            ValidateEntity(obj, HttpStatusCode.NotFound, $"{nameof(ConfirmEmailDbServices)}: {ExceptionMessage.OBJECT_IS_NULL}");
+            ValidateEntity(obj, HttpStatusCode.NotFound, $"{nameof(ConfirmEmailDbService)}: {ExceptionMessage.OBJECT_IS_NULL}");
 
             return obj;
         }
     }
 
-    public interface IConfirmEmailDbServices : IDbContextBase<ConfirmEmail>
+    public interface IConfirmEmailDbService : IDbContextBase<ConfirmEmail>
     {
         //ConfirmEmail Get(int id);
         ConfirmEmail GetDraft();

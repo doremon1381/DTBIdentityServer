@@ -39,16 +39,16 @@ namespace IssuerOfClaims.Controllers
         private readonly ILogger<IdentityRequestController> _logger;
 
         private readonly IApplicationUserManager _applicationUserManager;
-        private readonly IResponseManager _responseManager;
-        private readonly IIdentityRequestHandlerServices _requestHandlerServices;
-        private readonly IClientDbServices _clientDbServices;
+        private readonly IResponseManagerService _responseManager;
+        private readonly IIdentityRequestHandlerService _requestHandlerServices;
+        private readonly IClientDbService _clientDbServices;
         private readonly GoogleClientConfiguration _googleClientConfiguration;
 
         public IdentityRequestController(ILogger<IdentityRequestController> logger, IConfigurationManager configuration
             , IApplicationUserManager userManager
-            , IResponseManager responseManager
-            , IIdentityRequestHandlerServices requestHandlerServices
-            , IClientDbServices clientDbServices, GoogleClientConfiguration googleClientConfiguration)
+            , IResponseManagerService responseManager
+            , IIdentityRequestHandlerService requestHandlerServices
+            , IClientDbService clientDbServices, GoogleClientConfiguration googleClientConfiguration)
         {
             _logger = logger;
 

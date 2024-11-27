@@ -16,12 +16,12 @@ namespace IssuerOfClaims.Services.Token
     /// <summary>
     /// Issue id token, refresh token and access token
     /// </summary>
-    public class ResponseManager : IResponseManager
+    public class ResponseManagerService : IResponseManagerService
     {
-        private readonly IIdentityRequestHandlerServices _requestHandlerServices;
+        private readonly IIdentityRequestHandlerService _requestHandlerServices;
         private readonly GoogleClientConfiguration _googleClientConfiguration;
 
-        public ResponseManager(IIdentityRequestHandlerServices requestHandlerServices, GoogleClientConfiguration googleClientSettings)
+        public ResponseManagerService(IIdentityRequestHandlerService requestHandlerServices, GoogleClientConfiguration googleClientSettings)
         {
             _requestHandlerServices = requestHandlerServices;
 
@@ -312,7 +312,7 @@ namespace IssuerOfClaims.Services.Token
         #endregion
     }
 
-    public interface IResponseManager
+    public interface IResponseManagerService
     {
         Task<string> ACF_II_CreateResponseAsync(Guid idOfClient, string clientId, Guid requestHandlerId);
         Task<string> ACF_I_CreateResponseAsync(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode);

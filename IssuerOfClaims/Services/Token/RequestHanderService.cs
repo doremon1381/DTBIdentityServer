@@ -9,16 +9,16 @@ using ServerUltilities.Identity;
 
 namespace IssuerOfClaims.Services.Token
 {
-    public class RequestHanderServices : IIdentityRequestHandlerServices
+    public class RequestHanderService : IIdentityRequestHandlerService
     {
-        private readonly IIdentityRequestSessionDbServices _requestSessionDbServices;
-        private readonly IIdentityRequestHandlerDbServices _requestHandlerDbServices;
-        private readonly ITokenForRequestHandlerDbServices _tokensForIdentityRequestDbServices;
-        private readonly ITokenServices _tokenServices;
+        private readonly IIdentityRequestSessionDbService _requestSessionDbServices;
+        private readonly IIdentityRequestHandlerDbService _requestHandlerDbServices;
+        private readonly ITokenForRequestHandlerDbService _tokensForIdentityRequestDbServices;
+        private readonly ITokenService _tokenServices;
 
-        public RequestHanderServices(IIdentityRequestSessionDbServices sessionDbServices, IIdentityRequestHandlerDbServices requestHandlerDbServices
-            , ITokenForRequestHandlerDbServices tokensForIdentityRequestDbServices
-            , ITokenServices tokenServices) 
+        public RequestHanderService(IIdentityRequestSessionDbService sessionDbServices, IIdentityRequestHandlerDbService requestHandlerDbServices
+            , ITokenForRequestHandlerDbService tokensForIdentityRequestDbServices
+            , ITokenService tokenServices) 
         {
             _requestSessionDbServices = sessionDbServices;
             _requestHandlerDbServices = requestHandlerDbServices;
@@ -304,7 +304,7 @@ namespace IssuerOfClaims.Services.Token
         #endregion
     }
 
-    public interface IIdentityRequestHandlerServices
+    public interface IIdentityRequestHandlerService
     {
         Task<IdentityRequestHandler> FindByAuthCodeAsync(string authCode);
         Task<TokenForRequestHandler> FindLastTokensPerIdentityRequestAsync(Guid userId, Guid idOfClient, bool isAccessToken);

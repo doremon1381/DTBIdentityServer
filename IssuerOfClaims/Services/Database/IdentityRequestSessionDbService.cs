@@ -4,9 +4,9 @@ using System.Net;
 
 namespace IssuerOfClaims.Services.Database
 {
-    public class IdentityRequestSessionDbServices : DbTableServicesBase<IdentityRequestSession>, IIdentityRequestSessionDbServices
+    public class IdentityRequestSessionDbService : DbTableServicesBase<IdentityRequestSession>, IIdentityRequestSessionDbService
     {
-        public IdentityRequestSessionDbServices() 
+        public IdentityRequestSessionDbService() 
         {
         }
 
@@ -59,7 +59,7 @@ namespace IssuerOfClaims.Services.Database
         //}
     }
 
-    public interface IIdentityRequestSessionDbServices : IDbContextBase<IdentityRequestSession>
+    public interface IIdentityRequestSessionDbService : IDbContextBase<IdentityRequestSession>
     {
         IdentityRequestSession FindByAccessToken(string accessToken);
         IdentityRequestSession CreateTokenRequestSession(Guid requestHandlerId);

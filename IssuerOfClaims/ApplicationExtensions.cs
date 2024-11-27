@@ -14,8 +14,7 @@ namespace IssuerOfClaims
             // 5.9.2 Having your application migrate your database on startup
             // Creates a scoped service provider. After the using
             // block is left, all the services will be unavailable. This
-            // is the recommended way to obtain services outside
-            // an HTTP request.
+            // is the recommended way to obtain services outside an HTTP request.
             using (var scope = serviceProvider.CreateAsyncScope())
             {
                 using (var context = serviceProvider.GetService<DbContextManager>())

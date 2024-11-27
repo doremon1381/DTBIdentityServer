@@ -46,18 +46,6 @@ namespace IssuerOfClaims
             builder.Services.AddSingleton<WebSigninSettings>(webSigninSettings);
             builder.Services.AddSingleton<MailSettings>(builder.Configuration.GetSection(IdentityServerConfiguration.MAILSETTINGS).Get<MailSettings>());
             builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, AuthorizationMiddlewareResultHandler>();
-            //// TODO: will change later
-            //builder.Services.AddTransient<IClientDbService, ClientDbService>();
-            ////builder.Services.AddTransient<IRoleDbServices, RoleDbServices>();
-            //builder.Services.AddTransient<IConfirmEmailDbService, ConfirmEmailDbService>();
-            //builder.Services.AddTransient<ITokenResponseDbService, TokenResponseDbService>();
-            //builder.Services.AddTransient<IIdentityRequestSessionDbService, IdentityRequestSessionDbService>();
-            //builder.Services.AddTransient<ITokenForRequestHandlerDbService, TokenForRequestHandlerDbService>();
-            //builder.Services.AddTransient<IIdentityRequestHandlerDbService, IdentityRequestHandlerDbService>();
-            //builder.Services.AddTransient<IEmailService, EmailService>();
-            //builder.Services.AddTransient<ITokenService, TokenService>();
-            //builder.Services.AddTransient<IIdentityRequestHandlerService, RequestHanderService>();
-            //builder.Services.AddTransient<IResponseManagerService, ResponseManagerService>();
 
             builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
             {

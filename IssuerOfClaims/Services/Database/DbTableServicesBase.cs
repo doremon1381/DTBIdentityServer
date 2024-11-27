@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using IssuerOfClaims.Models.DbModel;
 using ServerUltilities;
 using System.Net;
+using System.Collections.Generic;
 
 namespace IssuerOfClaims.Services.Database
 {
@@ -15,6 +16,11 @@ namespace IssuerOfClaims.Services.Database
             _ServiceProvider = serviceProvider;
         }
 
+        /// <summary>
+        /// TODO: keep it for remining, will remove it after learning about EF.CompileQuery, how to dynamically create ef core query, and call store procedure of database from ef core
+        /// </summary>
+        /// <param name="query"></param>
+        /// <returns></returns>
         internal static Func<DbContextManager, IEnumerable<TEntity>> CompileDynamicQuery(Func<DbSet<TEntity>, IQueryable<TEntity>> query)
         {
             return EF.CompileQuery((DbContextManager dbcontext) => query(dbcontext.GetDbSet<TEntity>()));
@@ -27,17 +33,7 @@ namespace IssuerOfClaims.Services.Database
         internal void UsingDbSetWithSaveChanges(Action<DbSet<TEntity>> callback)
         {
             var serviceFactory = _ServiceProvider.GetRequiredService<IServiceScopeFactory>();
-
-            using (var sericeScope = serviceFactory.CreateScope())
-            {
-                using (var dbContext = sericeScope.ServiceProvider.GetService<DbContextManager>())
-                {
-                    var dbSet = dbContext.GetDbSet<TEntity>();
-                    callback(dbSet);
-
-                    dbContext.SaveChanges();
-                }
-            }
+            GetDbContext(callback, serviceFactory, saveChangeIsAdded: true);
         }
 
         internal async Task UsingDbSetAsync(Action<DbSet<TEntity>> callback)
@@ -45,15 +41,23 @@ namespace IssuerOfClaims.Services.Database
             var serviceFactory = _ServiceProvider.GetRequiredService<IServiceScopeFactory>();
             await TaskUtilities.RunAttachedToParentTask(() =>
             {
-                using (var sericeScope = serviceFactory.CreateScope())
-                {
-                    using (var dbContext = sericeScope.ServiceProvider.GetService<DbContextManager>())
-                    {
-                        var dbSet = dbContext.GetDbSet<TEntity>();
-                        callback(dbSet);
-                    }
-                }
+                GetDbContext(callback, serviceFactory);
             });
+        }
+
+        private static void GetDbContext(Action<DbSet<TEntity>> callback, IServiceScopeFactory serviceFactory, bool saveChangeIsAdded = false)
+        {
+            using (var sericeScope = serviceFactory.CreateScope())
+            {
+                using (var dbContext = sericeScope.ServiceProvider.GetService<DbContextManager>())
+                {
+                    var dbSet = dbContext.GetDbSet<TEntity>();
+                    callback(dbSet);
+
+                    if (saveChangeIsAdded)
+                        dbContext.SaveChanges();
+                }
+            }
         }
 
         // TODO: will add dynamic building include query, 
@@ -66,22 +70,6 @@ namespace IssuerOfClaims.Services.Database
         //        callback(dbSet);
         //    }
         //}
-
-        internal async Task UsingDbContextAsync(Action<DbContextManager> callback)
-        {
-            var serviceFactory = _ServiceProvider.GetRequiredService<IServiceScopeFactory>();
-            await TaskUtilities.RunAttachedToParentTask(() =>
-            {
-                using (var sericeScope = serviceFactory.CreateScope())
-                {
-                    using (var dbContext = sericeScope.ServiceProvider.GetService<DbContextManager>())
-                    {
-                        var dbSet = dbContext.GetDbSet<TEntity>();
-                        callback(dbContext);
-                    }
-                }
-            });
-        }
 
         public List<TEntity> GetAll()
         {
@@ -97,55 +85,30 @@ namespace IssuerOfClaims.Services.Database
 
         public bool Create(TEntity model)
         {
-            try
+            UsingDbSetWithSaveChanges((dbSet) =>
             {
-                UsingDbSetWithSaveChanges((dbSet) =>
-                {
-                    dbSet.Add(model);
-                });
-            }
-            catch (Exception)
-            {
-                //return false;
-                throw;
-            }
+                dbSet.Add(model);
+            });
 
             return true;
         }
 
         public bool Update(TEntity model)
         {
-            try
+            UsingDbSetWithSaveChanges(dbModels =>
             {
-                UsingDbSetWithSaveChanges(dbModels =>
-                {
-                    dbModels.Update(model);
-                });
-
-            }
-            catch (Exception)
-            {
-                //return false;
-                throw;
-            }
+                dbModels.Update(model);
+            });
 
             return true;
         }
 
         public bool Delete(TEntity model)
         {
-            try
+            UsingDbSetWithSaveChanges((dbSet) =>
             {
-                UsingDbSetWithSaveChanges((dbSet) =>
-                {
-                    dbSet.Remove(model);
-                });
-            }
-            catch (Exception)
-            {
-                //return false;
-                throw;
-            }
+                dbSet.Remove(model);
+            });
 
             return true;
         }
@@ -165,19 +128,11 @@ namespace IssuerOfClaims.Services.Database
         public bool AddMany(List<TEntity> models)
         {
             bool hasError = false;
-            try
+
+            UsingDbSetWithSaveChanges((dbSet) =>
             {
-                UsingDbSetWithSaveChanges((dbSet) =>
-                {
-                    dbSet.AddRange(models);
-                });
-            }
-            catch (Exception ex)
-            {
-                // TODO:
-                hasError = true;
-                throw;
-            }
+                dbSet.AddRange(models);
+            });
 
             return !hasError;
         }

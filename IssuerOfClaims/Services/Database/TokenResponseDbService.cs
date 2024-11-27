@@ -60,14 +60,14 @@ namespace IssuerOfClaims.Services.Database
 
         public async Task<TokenResponse> FindAsync(string token, string tokenType)
         {
-            TokenResponse obj = null;
+            TokenResponse? obj = null;
 
             await UsingDbSetAsync((_TokenResponses) => 
             {
                 obj = _TokenResponses.Include(t => t.TokensPerIdentityRequests)
                     .Where(t => t.TokenType.Equals(tokenType) && t.Token.Equals(token))
                     .AsNoTracking()
-                    .First() ?? new TokenResponse();
+                    .First() ?? null;
             });
 
             ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(TokenResponseDbService)}: {ExceptionMessage.OBJECT_IS_NULL}");

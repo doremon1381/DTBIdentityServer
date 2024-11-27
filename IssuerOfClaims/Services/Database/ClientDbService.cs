@@ -8,8 +8,9 @@ namespace IssuerOfClaims.Services.Database
 {
     public class ClientDbService : DbTableServicesBase<Client>, IClientDbService
     {
-        public ClientDbService()
+        public ClientDbService(IServiceProvider serviceProvider) : base(serviceProvider)
         {
+
         }
 
         public async Task<Client> FindAsync(string id, string clientSecret)
@@ -23,7 +24,6 @@ namespace IssuerOfClaims.Services.Database
                     .Where(c => c.ClientId.Equals(id) && c.ClientSecrets.Contains(clientSecret))
                     .First();
             });
-
 
             ValidateEntity(client, HttpStatusCode.BadRequest, $"{nameof(ClientDbService)}: {ExceptionMessage.OBJECT_IS_NULL}");
             return client;

@@ -9,7 +9,7 @@ namespace IssuerOfClaims.Services.Database
 {
     public class TokenResponseDbService : DbTableServicesBase<TokenResponse>, ITokenResponseDbService
     {
-        public TokenResponseDbService() 
+        public TokenResponseDbService(IServiceProvider serviceProvider) : base(serviceProvider) 
         {
         }
 

@@ -8,7 +8,7 @@ namespace IssuerOfClaims.Services.Database
 {
     public class ConfirmEmailDbService : DbTableServicesBase<ConfirmEmail>, IConfirmEmailDbService
     {
-        public ConfirmEmailDbService() 
+        public ConfirmEmailDbService(IServiceProvider serviceProvider) : base(serviceProvider)
         {
         }
 

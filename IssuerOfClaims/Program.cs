@@ -14,6 +14,9 @@ using Microsoft.EntityFrameworkCore;
 using Serilog;
 using IssuerOfClaims.Models.DbModel;
 using ServerUltilities.Identity;
+using Autofac;
+using System.Reflection;
+using Autofac.Extensions.DependencyInjection;
 
 namespace IssuerOfClaims
 {
@@ -22,6 +25,7 @@ namespace IssuerOfClaims
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+            builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory());
 
             builder.Services.AddControllers();
             builder.Services
@@ -42,18 +46,26 @@ namespace IssuerOfClaims
             builder.Services.AddSingleton<WebSigninSettings>(webSigninSettings);
             builder.Services.AddSingleton<MailSettings>(builder.Configuration.GetSection(IdentityServerConfiguration.MAILSETTINGS).Get<MailSettings>());
             builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, AuthorizationMiddlewareResultHandler>();
-            // TODO: will change later
-            builder.Services.AddTransient<IClientDbService, ClientDbService>();
-            //builder.Services.AddTransient<IRoleDbServices, RoleDbServices>();
-            builder.Services.AddTransient<IConfirmEmailDbService, ConfirmEmailDbService>();
-            builder.Services.AddTransient<ITokenResponseDbService, TokenResponseDbService>();
-            builder.Services.AddTransient<IIdentityRequestSessionDbService, IdentityRequestSessionDbService>();
-            builder.Services.AddTransient<ITokenForRequestHandlerDbService, TokenForRequestHandlerDbService>();
-            builder.Services.AddTransient<IIdentityRequestHandlerDbService, IdentityRequestHandlerDbService>();
-            builder.Services.AddTransient<IEmailService, EmailService>();
-            builder.Services.AddTransient<ITokenService, TokenService>();
-            builder.Services.AddTransient<IIdentityRequestHandlerService, RequestHanderService>();
-            builder.Services.AddTransient<IResponseManagerService, ResponseManagerService>();
+            //// TODO: will change later
+            //builder.Services.AddTransient<IClientDbService, ClientDbService>();
+            ////builder.Services.AddTransient<IRoleDbServices, RoleDbServices>();
+            //builder.Services.AddTransient<IConfirmEmailDbService, ConfirmEmailDbService>();
+            //builder.Services.AddTransient<ITokenResponseDbService, TokenResponseDbService>();
+            //builder.Services.AddTransient<IIdentityRequestSessionDbService, IdentityRequestSessionDbService>();
+            //builder.Services.AddTransient<ITokenForRequestHandlerDbService, TokenForRequestHandlerDbService>();
+            //builder.Services.AddTransient<IIdentityRequestHandlerDbService, IdentityRequestHandlerDbService>();
+            //builder.Services.AddTransient<IEmailService, EmailService>();
+            //builder.Services.AddTransient<ITokenService, TokenService>();
+            //builder.Services.AddTransient<IIdentityRequestHandlerService, RequestHanderService>();
+            //builder.Services.AddTransient<IResponseManagerService, ResponseManagerService>();
+
+            builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
+            {
+                containerBuilder.RegisterAssemblyTypes(_Assembly)
+                    .Where(t => t.Name.EndsWith("Service"))
+                    .AsImplementedInterfaces()
+                    .InstancePerDependency();
+            });
 
             // TODO: will add later
             builder.Services.AddIdentityCore<UserIdentity>()
@@ -72,11 +84,8 @@ namespace IssuerOfClaims
             builder.Services.AddAuthentication(options =>
             {
                 options.DefaultScheme = OidcConstants.AuthenticationSchemes.AuthorizationHeaderBearer;
-            })
-            .AddScheme<JwtBearerOptions, AuthenticationServices>(OidcConstants.AuthenticationSchemes.AuthorizationHeaderBearer,
-                options =>
-                {
-                });
+            }).AddScheme<JwtBearerOptions, AuthenticationServices>(OidcConstants.AuthenticationSchemes.AuthorizationHeaderBearer, options => { });
+
             builder.Services.AddMvc(mvcOptions =>
             {
                 mvcOptions.Conventions.Add(new ControllerNameAttributeConvention());
@@ -100,7 +109,6 @@ namespace IssuerOfClaims
             //        listenOptions.UseHttps(certPath, certPassword);
             //    });
             //});
-
             builder.MigrateDatabase();
 
             var app = builder.Build();
@@ -109,6 +117,8 @@ namespace IssuerOfClaims
             // , it's not official protocol as far as I know
             app.Run();
         }
+
+        private static Assembly _Assembly => typeof(Program).GetTypeInfo().Assembly;
 
         static void SetupPipline(WebApplication app)
         {

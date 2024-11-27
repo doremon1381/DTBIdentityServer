@@ -41,6 +41,7 @@ namespace IssuerOfClaims.Controllers
                 favicon.Save(ms, ImageFormat.Bmp);
 
                 await HttpContext.Response.Body.WriteAsync(ms.ToArray(), 0, (int)ms.Length);
+                await HttpContext.Response.CompleteAsync();
             }
         }
 

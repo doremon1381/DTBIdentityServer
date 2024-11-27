@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using IssuerOfClaims.Models.DbModel;
 using ServerUltilities.Extensions;
 using System.Net;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace IssuerOfClaims.Services.Database
 {
@@ -10,7 +11,7 @@ namespace IssuerOfClaims.Services.Database
     {
         //private readonly ILogger _logger;
 
-        public IdentityRequestHandlerDbService(ILoggerFactory logger)
+        public IdentityRequestHandlerDbService(IServiceProvider serviceProvider) : base(serviceProvider)
         {
         }
 

@@ -6,7 +6,7 @@ namespace IssuerOfClaims.Services.Database
 {
     public class IdentityRequestSessionDbService : DbTableServicesBase<IdentityRequestSession>, IIdentityRequestSessionDbService
     {
-        public IdentityRequestSessionDbService() 
+        public IdentityRequestSessionDbService(IServiceProvider serviceProvider) : base(serviceProvider) 
         {
         }
 

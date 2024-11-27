@@ -10,7 +10,7 @@ namespace IssuerOfClaims.Services.Database
 {
     public class TokenForRequestHandlerDbService : DbTableServicesBase<TokenForRequestHandler>, ITokenForRequestHandlerDbService
     {
-        public TokenForRequestHandlerDbService() 
+        public TokenForRequestHandlerDbService(IServiceProvider serviceProvider) : base(serviceProvider) 
         {
         }
 

@@ -8,24 +8,11 @@ namespace IssuerOfClaims.Services.Database
 {
     public abstract class DbTableServicesBase<TEntity> : IDbContextBase<TEntity> where TEntity : class, IDbTable
     {
-        private static string? _ConnectionString;
+        protected IServiceProvider _ServiceProvider;
 
-        static DbTableServicesBase()
+        public DbTableServicesBase(IServiceProvider serviceProvider)
         {
-            var builder = new ConfigurationBuilder()
-                .SetBasePath(Environment.CurrentDirectory)
-                .AddJsonFile($"appsettings.json").Build();
-            _ConnectionString = builder.GetConnectionString(DbUtilities.DatabasePath);
-        }
-
-        private static DbContextManager CreateDbContext()
-        {
-            var contextOptions = new DbContextOptionsBuilder<DbContextManager>()
-                 .UseSqlServer(_ConnectionString)
-                 .Options;
-
-            var dbContext = new DbContextManager(contextOptions, null);
-            return dbContext;
+            _ServiceProvider = serviceProvider;
         }
 
         internal static Func<DbContextManager, IEnumerable<TEntity>> CompileDynamicQuery(Func<DbSet<TEntity>, IQueryable<TEntity>> query)
@@ -37,36 +24,36 @@ namespace IssuerOfClaims.Services.Database
         /// TODO: for now, Savechanges() is automatically used after callback, will check it late
         /// </summary>
         /// <param name="callback"></param>
-        internal static void UsingDbSetWithSaveChanges(Action<DbSet<TEntity>> callback)
+        internal void UsingDbSetWithSaveChanges(Action<DbSet<TEntity>> callback)
         {
-            using (var dbContext = CreateDbContext())
-            {
-                var dbSet = dbContext.GetDbSet<TEntity>();
-                callback(dbSet);
+            var serviceFactory = _ServiceProvider.GetRequiredService<IServiceScopeFactory>();
 
-                dbContext.SaveChanges();
-            }
-        }
-
-        internal static async Task UsingDbSetAsync(Action<DbSet<TEntity>> callback)
-        {
-            await TaskUtilities.RunAttachedToParentTask(() =>
+            using (var sericeScope = serviceFactory.CreateScope())
             {
-                using (var dbContext = CreateDbContext())
+                using (var dbContext = sericeScope.ServiceProvider.GetService<DbContextManager>())
                 {
                     var dbSet = dbContext.GetDbSet<TEntity>();
                     callback(dbSet);
+
+                    dbContext.SaveChanges();
+                }
+            }
+        }
+
+        internal async Task UsingDbSetAsync(Action<DbSet<TEntity>> callback)
+        {
+            var serviceFactory = _ServiceProvider.GetRequiredService<IServiceScopeFactory>();
+            await TaskUtilities.RunAttachedToParentTask(() =>
+            {
+                using (var sericeScope = serviceFactory.CreateScope())
+                {
+                    using (var dbContext = sericeScope.ServiceProvider.GetService<DbContextManager>())
+                    {
+                        var dbSet = dbContext.GetDbSet<TEntity>();
+                        callback(dbSet);
+                    }
                 }
             });
-            // TODO: will think about it later
-            //await task.ContinueWith(t =>
-            //{
-            //    if (t.IsFaulted)
-            //    {
-            //        throw new CustomException("Something is wrong while using dbset!");
-            //    }
-            //}, TaskContinuationOptions.OnlyOnFaulted);
-
         }
 
         // TODO: will add dynamic building include query, 
@@ -80,13 +67,18 @@ namespace IssuerOfClaims.Services.Database
         //    }
         //}
 
-        internal static async Task UsingDbContextAsync(Action<DbContextManager> callback)
+        internal async Task UsingDbContextAsync(Action<DbContextManager> callback)
         {
+            var serviceFactory = _ServiceProvider.GetRequiredService<IServiceScopeFactory>();
             await TaskUtilities.RunAttachedToParentTask(() =>
             {
-                using (var dbContext = CreateDbContext())
+                using (var sericeScope = serviceFactory.CreateScope())
                 {
-                    callback(dbContext);
+                    using (var dbContext = sericeScope.ServiceProvider.GetService<DbContextManager>())
+                    {
+                        var dbSet = dbContext.GetDbSet<TEntity>();
+                        callback(dbContext);
+                    }
                 }
             });
         }

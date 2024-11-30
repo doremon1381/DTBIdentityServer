@@ -47,7 +47,7 @@
         public const string EMPTY_NONCE = "Nonce must have value while in hybrid flow process!";
         public const string PROMPT_CONSENT_VALUE_NOT_VALID = "Value of prompt's consent is not valid!";
         public const string EMAIL_CONFIRM_CODE_NOT_MATCH = "Confirm code is not match!";
-        public const string AUTHORIZATION_BASIC_NOT_SUPPORT_FOR_AUTHORIZE_ENDPOINT = "Authorization scheme is not support in this endpoint!";
+        public const string AUTHORIZATION_BASIC_NOT_SUPPORT_IN_AUTHORIZE_ENDPOINT = "Authorization BASIC scheme is not supported in authorize endpoint!";
         public const string NONCE_MUST_HAVE_VALUE_WITH_IMPLICIT_GRANT_FLOW = "In implicit grant flow, nonce must have value inside request query!";
         public const string AUTHENTICATION_SCHEME_NOT_SUPPORT = "Authentication scheme is not supported!";
         public const string AUTHENTICATION_INFORMATION_MISSING_OR_MISMATCH = "Authentication information is missing or mismatch!";

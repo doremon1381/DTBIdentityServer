@@ -55,7 +55,7 @@ namespace IssuerOfClaims.Services.Authentication
                 if (RequestToAuthorizeEndpointWithAuthorizationHeader(authorizationHeader, Context.Request.Path.Value))
                 {
                     Context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                    return AuthenticateResult.Fail(ExceptionMessage.AUTHORIZATION_BASIC_NOT_SUPPORT_FOR_AUTHORIZE_ENDPOINT);
+                    return AuthenticateResult.Fail(ExceptionMessage.AUTHORIZATION_BASIC_NOT_SUPPORT_IN_AUTHORIZE_ENDPOINT);
                 }
 
                 // TODO: need to change from get user by auth code to verify authcode and get user from username or password

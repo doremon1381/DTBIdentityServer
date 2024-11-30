@@ -15,7 +15,7 @@ namespace IssuerOfClaims.Services.Authentication
             if (context.Request.Path.Equals(ProtocolRoutePaths.Authorize)
                 && context.Response.StatusCode == (int)HttpStatusCode.BadRequest)
             {
-                await context.Response.WriteAsync(ExceptionMessage.AUTHORIZATION_BASIC_NOT_SUPPORT_FOR_AUTHORIZE_ENDPOINT);
+                await context.Response.WriteAsync(ExceptionMessage.AUTHORIZATION_BASIC_NOT_SUPPORT_IN_AUTHORIZE_ENDPOINT);
                 await context.Response.CompleteAsync();
                 return;
             }

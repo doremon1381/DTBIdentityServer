@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using IssuerOfClaims.Models.DbModel;
 using ServerUltilities;
 using System.Net;
-using System.Collections.Generic;
 
 namespace IssuerOfClaims.Services.Database
 {

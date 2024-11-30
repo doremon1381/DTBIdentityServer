@@ -23,15 +23,18 @@ namespace IssuerOfClaims
                     {
                         var databaseIsExist = (context.Database.GetService<IDatabaseCreator>() as RelationalDatabaseCreator).Exists();
 
+                        // call ef core to apply migration at application startup
                         if (!databaseIsExist)
                         {
-                            context.Database.EnsureCreated();
+                            // create new database using migration
+                            context.Database.Migrate();
                             // TODO: use for initiate clients in database
                             AuthorizationResources.CreateClient(context);
                         }
+                        else
+                            // update for latest changing
+                            context.Database.Migrate();
 
-                        // call ef core to apply migration at application startup
-                        context.Database.Migrate();
                     }
                     catch (Exception ex)
                     {

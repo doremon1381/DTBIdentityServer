@@ -323,6 +323,14 @@ namespace IssuerOfClaims.Extensions
             // 'claimsPrincipal' contains the validated claims
         }
         #endregion
+
+        internal static T GetLazyService<T>(this IServiceProvider serviceProvider, ref T service)
+        {
+            service = service ?? serviceProvider.GetService<T>()
+                ?? throw new CustomException("Cannot resolve service from asp.net core container!");
+
+            return service;
+        }
     }
 
     public enum DefaultResponseMessage

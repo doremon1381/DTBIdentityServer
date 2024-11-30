@@ -8,7 +8,6 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
 using IssuerOfClaims.Services.Database;
 using IssuerOfClaims.Extensions;
 using IssuerOfClaims.Services.Token;
@@ -37,28 +36,83 @@ namespace IssuerOfClaims.Controllers
     public class IdentityRequestController : ControllerBase
     {
         private readonly ILogger<IdentityRequestController> _logger;
+        private readonly IServiceProvider _serviceProvider;
 
-        private readonly IApplicationUserManager _applicationUserManager;
-        private readonly IResponseManagerService _responseManager;
-        private readonly IIdentityRequestHandlerService _requestHandlerServices;
-        private readonly IClientDbService _clientDbServices;
-        private readonly GoogleClientConfiguration _googleClientConfiguration;
+        #region services
+        private IApplicationUserManager _applicationUserManager;
+        protected internal IApplicationUserManager ApplicationUserManager
+        {
+            get
+            {
+                return _serviceProvider.GetLazyService(ref _applicationUserManager);
+            }
+            set
+            {
+                _applicationUserManager = value;
+            }
+        }
+        private IResponseManagerService _responseManager;
 
-        public IdentityRequestController(ILogger<IdentityRequestController> logger, IConfigurationManager configuration
-            , IApplicationUserManager userManager
-            , IResponseManagerService responseManager
-            , IIdentityRequestHandlerService requestHandlerServices
-            , IClientDbService clientDbServices, GoogleClientConfiguration googleClientConfiguration)
+        protected internal IResponseManagerService ResponseManager
+        {
+            get
+            {
+                return _serviceProvider.GetLazyService(ref _responseManager);
+            }
+            private set
+            {
+                _responseManager = value;
+            }
+        }
+        private IIdentityRequestHandlerService _requestHandlerServices;
+        protected internal IIdentityRequestHandlerService RequestHandlerServices
+        {
+            get
+            {
+                return _serviceProvider.GetLazyService(ref _requestHandlerServices);
+            }
+            private set
+            {
+                _requestHandlerServices = value;
+            }
+        }
+
+        private IClientDbService _clientDbServices;
+        protected internal IClientDbService ClientDbServices
+        {
+            get
+            {
+                return _serviceProvider.GetLazyService(ref _clientDbServices);
+            }
+            private set
+            {
+                _clientDbServices = value;
+            }
+        }
+
+
+        private GoogleClientConfiguration _googleClientConfiguration;
+        protected internal GoogleClientConfiguration GoogleClientConfiguration
+        {
+            get
+            {                
+                return _serviceProvider.GetLazyService(ref _googleClientConfiguration);
+            }
+            private set
+            {
+                _googleClientConfiguration = value;
+            }
+        }
+        #endregion
+
+        public IdentityRequestController(ILogger<IdentityRequestController> logger
+            , IServiceProvider serviceProvider
+            , IIdentityRequestHandlerService requestHandlerServices)
         {
             _logger = logger;
+            _serviceProvider = serviceProvider;
 
-            _applicationUserManager = userManager;
-            _clientDbServices = clientDbServices;
-
-            _responseManager = responseManager;
             _requestHandlerServices = requestHandlerServices;
-
-            _googleClientConfiguration = googleClientConfiguration;
         }
 
         #region catch authorize request
@@ -623,19 +677,19 @@ namespace IssuerOfClaims.Controllers
             var parameters = new SignInGoogleParametersFactory(requestQuery)
                 .ExtractParametersFromQuery();
 
-            var client = await _clientDbServices.FindAsync(parameters.ClientId.Value, parameters.ClientSecret.Value);
-            var result = await Google_SendTokenRequestAsync(parameters, _googleClientConfiguration);
+            var client = await ClientDbServices.FindAsync(parameters.ClientId.Value, parameters.ClientSecret.Value);
+            var result = await Google_SendTokenRequestAsync(parameters, GoogleClientConfiguration);
 
             // verify Google id token
             GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(result.IdToken);
 
             // TODO: using this function following google example, will check again
-            await userinfoCallAsync(result.AccessToken, _googleClientConfiguration.UserInfoUri);
+            await userinfoCallAsync(result.AccessToken, GoogleClientConfiguration.UserInfoUri);
 
             // create new user or map google user info to current user
-            var user = await _applicationUserManager.GetOrCreateUserByEmailAsync(payload);
+            var user = await ApplicationUserManager.GetOrCreateUserByEmailAsync(payload);
 
-            var response = await _responseManager.AuthGoogle_CreateResponseAsync(parameters, client, result, payload, user);
+            var response = await ResponseManager.AuthGoogle_CreateResponseAsync(parameters, client, result, payload, user);
 
             // TODO: will need to create new user if current user with this email is not have
             //     : after that, create login session object and save to db

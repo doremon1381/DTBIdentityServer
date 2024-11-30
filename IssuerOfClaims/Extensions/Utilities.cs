@@ -324,7 +324,7 @@ namespace IssuerOfClaims.Extensions
         }
         #endregion
 
-        internal static T GetLazyService<T>(this IServiceProvider serviceProvider, ref T service)
+        internal static T GetServiceLazily<T>(this IServiceProvider serviceProvider, ref T service)
         {
             service = service ?? serviceProvider.GetService<T>()
                 ?? throw new CustomException("Cannot resolve service from asp.net core container!");

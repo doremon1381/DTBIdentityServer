@@ -44,7 +44,7 @@ namespace IssuerOfClaims.Controllers
         {
             get
             {
-                return _serviceProvider.GetLazyService(ref _applicationUserManager);
+                return _serviceProvider.GetServiceLazily(ref _applicationUserManager);
             }
             set
             {
@@ -57,7 +57,7 @@ namespace IssuerOfClaims.Controllers
         {
             get
             {
-                return _serviceProvider.GetLazyService(ref _responseManager);
+                return _serviceProvider.GetServiceLazily(ref _responseManager);
             }
             private set
             {
@@ -69,7 +69,7 @@ namespace IssuerOfClaims.Controllers
         {
             get
             {
-                return _serviceProvider.GetLazyService(ref _requestHandlerServices);
+                return _serviceProvider.GetServiceLazily(ref _requestHandlerServices);
             }
             private set
             {
@@ -82,7 +82,7 @@ namespace IssuerOfClaims.Controllers
         {
             get
             {
-                return _serviceProvider.GetLazyService(ref _clientDbServices);
+                return _serviceProvider.GetServiceLazily(ref _clientDbServices);
             }
             private set
             {
@@ -96,7 +96,7 @@ namespace IssuerOfClaims.Controllers
         {
             get
             {                
-                return _serviceProvider.GetLazyService(ref _googleClientConfiguration);
+                return _serviceProvider.GetServiceLazily(ref _googleClientConfiguration);
             }
             private set
             {

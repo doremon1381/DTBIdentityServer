@@ -155,7 +155,7 @@ namespace IssuerOfClaims.Controllers
         /// <param name="discovery"></param>
         private void AddSupportedResponseTypes(Dictionary<string, object> discovery)
         {
-            discovery.Add(Discovery.ResponseTypesSupported, new[] { ResponseTypes.Code, ResponseTypes.IdToken });
+            discovery.Add(Discovery.ResponseTypesSupported, new[] { ResponseTypes.Code, ResponseTypes.IdToken, ResponseTypes.CodeIdToken, ResponseTypes.CodeToken, ResponseTypes.CodeIdTokenToken });
         }
 
         private static KeyValuePair<string, string> MapEndpointAndRoutePath(string endpoint, string routePath)

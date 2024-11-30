@@ -41,8 +41,8 @@ namespace ServerUltilities.Identity
         {
             GrantType.AuthorizationCode,
             GrantType.Implicit,
+            GrantType.Hybrid,
             // TODO: comment for now
-            //GrantType.Hybrid,
             //GrantType.ClientCredentials,
             //GrantType.DeviceFlow
 

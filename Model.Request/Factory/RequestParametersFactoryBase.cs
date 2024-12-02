@@ -13,29 +13,40 @@ namespace IssuerOfClaims.Models.Request.Factory
         /// <summary>
         /// constructor by default does not have any parameter
         /// </summary>
-        protected static readonly ConstructorInfo Constructor = typeof(T).GetConstructor(new Type[] { });
+        protected static readonly ConstructorInfo Constructor = typeof(T).GetConstructor(new Type[] { }) 
+            ?? throw new CustomException($"{nameof(RequestParametersFactoryBase<T>)}: An error occurs during generic type's constructor creation!");
         protected List<PropertyInfo> PropertiesOfType { get; set; } = new List<PropertyInfo>(typeof(T).GetProperties().Where(p => p.PropertyType.Equals(typeof(Parameter))));
 
-        public abstract IRequestParameters ExtractParametersFromQuery(IHeaderDictionary headers = null);
-        protected abstract void InitiateProperties(IRequestParameters requestParameters);
+        /// <summary>
+        /// TODO: need to be implemented!
+        /// </summary>
+        /// <param name="headers"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
+        public virtual IRequestParameters ExtractParametersFromQuery(IHeaderDictionary headers = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// TODO: need to be implemented!
+        /// </summary>
+        /// <param name="requestParameters"></param>
+        /// <exception cref="NotImplementedException"></exception>
+        protected virtual void InitiateProperties(IRequestParameters requestParameters)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     public abstract class RequestParametersFactory<T> : RequestParametersFactoryBase<T> where T : class, IRequestParameters
     {
         protected RequestParameterValues QueryParameters { get; set; }
 
-        public RequestParametersFactory(string queryString)
+        public RequestParametersFactory(string? queryString)
         {
-            ValidateRequestQuery(queryString);
             QueryParameters = new RequestParameterValues(queryString);
         }
-
-        protected static void ValidateRequestQuery(string? requestQuery)
-        {
-            if (string.IsNullOrEmpty(requestQuery))
-                throw new CustomException(ExceptionMessage.QUERYSTRING_NOT_NULL_OR_EMPTY, HttpStatusCode.BadRequest);
-        }
-
 
         public override IRequestParameters ExtractParametersFromQuery(IHeaderDictionary headers = null)
         {

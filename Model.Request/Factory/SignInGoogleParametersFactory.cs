@@ -5,7 +5,7 @@ namespace IssuerOfClaims.Models.Request.Factory
 {
     public class SignInGoogleParametersFactory : RequestParametersFactory<SignInGoogleParameters>
     {
-        public SignInGoogleParametersFactory(string queryString) : base(queryString)
+        public SignInGoogleParametersFactory(string? queryString) : base(queryString)
         {
         }
 

@@ -5,7 +5,7 @@ namespace IssuerOfClaims.Models.Request.Factory
 {
     public class ChangePasswordParametersFactory : RequestParametersFactory<ChangePasswordParameters>
     {
-        public ChangePasswordParametersFactory(string queryString) : base(queryString)
+        public ChangePasswordParametersFactory(string? queryString) : base(queryString)
         {
         }
 

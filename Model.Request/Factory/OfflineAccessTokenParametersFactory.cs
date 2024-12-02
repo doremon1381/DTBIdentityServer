@@ -5,7 +5,7 @@ namespace IssuerOfClaims.Models.Request.Factory
 {
     public class OfflineAccessTokenParametersFactory : RequestParametersFactory<OfflineAccessTokenParameters>
     {
-        public OfflineAccessTokenParametersFactory(string queryString) : base(queryString)
+        public OfflineAccessTokenParametersFactory(string? queryString) : base(queryString)
         {
         }
 

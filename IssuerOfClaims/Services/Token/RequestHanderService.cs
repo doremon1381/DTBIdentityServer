@@ -65,7 +65,7 @@ namespace IssuerOfClaims.Services.Token
             return _tokensForIdentityRequestDbServices.Update(tokensPerIdentityRequest);
         }
 
-        private void SuccessfulRequestHandle(IdentityRequestHandler requestHandler)
+        private void SetRequestHandleToSuccess(IdentityRequestHandler requestHandler)
         {
             requestHandler.SuccessAt = DateTime.UtcNow;
             UpdateRequestHandler(requestHandler);
@@ -116,12 +116,14 @@ namespace IssuerOfClaims.Services.Token
                 var requestHandler = AuthGoogle_ImportRequestHandlerData(codeVerifier, googleResponse.RefreshToken, client, user);
 
                 // at this step, token request session is used for storing data
-                SaveTokenFromExternalSource(googleResponse.AccessToken, googleResponse.RefreshToken, googleResponse.IdToken,
-                    payload.IssuedAtTimeSeconds.Value, payload.ExpirationTimeSeconds.Value, googleResponse.AccessTokenIssueAt,
+                SaveTokenFromExternalSource(googleResponse.AccessToken, googleResponse.RefreshToken
+                    // TODO: comment for now
+                    //, googleResponse.IdToken, payload.IssuedAtTimeSeconds.Value, payload.ExpirationTimeSeconds.Value
+                    , googleResponse.AccessTokenIssueAt,
                     googleResponse.AccessTokenIssueAt.AddSeconds(googleResponse.ExpiredIn),
                         requestHandler, ExternalSources.Google);
-                SuccessfulRequestHandle(requestHandler);
 
+                SetRequestHandleToSuccess(requestHandler);
             });
         }
 
@@ -147,8 +149,10 @@ namespace IssuerOfClaims.Services.Token
             UpdateRequestSession(session);
         }
 
-        public bool SaveTokenFromExternalSource(string accessToken, string refreshToken, string idToken,
-            long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds, DateTime accessTokenIssueAt, DateTime accessTokenExpiredIn
+        public bool SaveTokenFromExternalSource(string accessToken, string refreshToken
+            // TODO: comment for now
+            //, string idToken, long idToken_issuedAtTimeSeconds, long idToken_expirationTimeSeconds
+            , DateTime accessTokenIssueAt, DateTime accessTokenExpiredIn
             , IdentityRequestHandler requestHandler, string externalSource)
         {
             var _accessToken = SaveExternalSourceToken(accessToken, accessTokenIssueAt, accessTokenExpiredIn, externalSource, OidcConstants.TokenTypes.AccessToken);
@@ -186,7 +190,7 @@ namespace IssuerOfClaims.Services.Token
                 var requestHandler = IGF_CreateTokenRequestHandlerWithSession(user, client, client.AllowedScopes);
 
                 CreateTokenResponsePerIdentityRequest(requestHandler, accessToken);
-                SuccessfulRequestHandle(requestHandler);
+                SetRequestHandleToSuccess(requestHandler);
             });
         }
 
@@ -277,7 +281,7 @@ namespace IssuerOfClaims.Services.Token
                 // TODO: will think about how to handle idtoken, create one for user, update when information of user is changed or sth else
                 //CreateTokenResponsePerIdentityRequest(currentRequestHandler, idToken);
 
-                SuccessfulRequestHandle(requestHandler);
+                SetRequestHandleToSuccess(requestHandler);
             });
         }
         #endregion
@@ -297,7 +301,7 @@ namespace IssuerOfClaims.Services.Token
                 if (accessToken != null)
                 {
                     CreateTokenResponsePerIdentityRequest(requestHandler, accessToken);
-                    SuccessfulRequestHandle(requestHandler);
+                    SetRequestHandleToSuccess(requestHandler);
                 }
             });
         }

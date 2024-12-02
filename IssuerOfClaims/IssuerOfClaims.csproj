@@ -20,6 +20,7 @@
     <Compile Remove="Models\JwtClaimTypes.cs" />
     <Compile Remove="Models\OidcConstants.cs" />
     <Compile Remove="Services\Database\RoleDbServices.cs" />
+    <Compile Remove="Services\LazyService.cs" />
     <Compile Remove="Services\PrMIdentityServer.cs" />
     <Compile Remove="Services\PrMIdentityServerExtensions.cs" />
     <Compile Remove="Services\PrMIdentityServerServicesCollectionExtensions.cs" />

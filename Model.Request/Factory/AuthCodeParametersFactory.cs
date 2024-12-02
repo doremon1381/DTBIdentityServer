@@ -7,7 +7,7 @@ namespace IssuerOfClaims.Models.Request.Factory
 {
     public class AuthCodeParametersFactory : RequestParametersFactory<AuthCodeParameters>
     {
-        public AuthCodeParametersFactory(string queryString) : base(queryString)
+        public AuthCodeParametersFactory(string? queryString) : base(queryString)
         {
         }
 
@@ -31,10 +31,13 @@ namespace IssuerOfClaims.Models.Request.Factory
             var responseTypePropertyInfo = PropertiesOfType.First(p => p.Name == nameof(AuthorizeRequest.ResponseType));
 
             SetPropertyValue(obj, responseTypePropertyInfo);
-            var responseType = (Parameter)responseTypePropertyInfo.GetValue(obj, null);
+            var responseType = responseTypePropertyInfo.GetValue(obj, null)
+                ?? throw new CustomException($"{nameof(SetResponseTypeFirst)}: null parameters");
+
+            var parameter = (Parameter)responseType;
 
             // TODO:
-            responseTypeValue = responseType.Value ?? throw new CustomException("Somehow...");
+            responseTypeValue = parameter.Value ?? throw new CustomException("Somehow...");
 
             // Because this parameter is created manually
             PropertiesOfType.Remove(responseTypePropertyInfo);

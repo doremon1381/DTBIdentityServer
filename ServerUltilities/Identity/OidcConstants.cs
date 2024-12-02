@@ -320,6 +320,7 @@ namespace ServerUltilities.Identity
             public const string AuthorizationHeaderBearer = "Bearer";
             // TODO: add this scheme for now
             public const string AuthorizationHeaderIdToken = "id_token";
+            public const string AuthorizationHeaderRefreshToken = "refresh_token";
             // TODO: add this scheme for now
             public const string AuthorizationHeaderDPoP = "DPoP";
 

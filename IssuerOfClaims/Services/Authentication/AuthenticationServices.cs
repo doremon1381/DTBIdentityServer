@@ -60,9 +60,9 @@ namespace IssuerOfClaims.Services.Authentication
 
                 // TODO: need to change from get user by auth code to verify authcode and get user from username or password
                 //     : need to verify client identity before authentication, will be done later
-                UserIdentity user = await GetUserUsingAuthenticationSchemeAsync(Request.Headers.Authorization.ToString());
+                var identityInfo = await GetUserUsingAuthenticationSchemeAsync(Request.Headers.Authorization.ToString());
 
-                ClaimsPrincipal claimsPrincipal = await Task.Run(() => CreateClaimPrincipal(user));
+                ClaimsPrincipal claimsPrincipal = await Task.Run(() => CreateClaimPrincipal(identityInfo.UserIdentity, identityInfo.AuthenticationScheme));
                 var ticket = IssueAuthenticationTicket(claimsPrincipal);
 
                 return AuthenticateResult.Success(ticket);
@@ -79,9 +79,10 @@ namespace IssuerOfClaims.Services.Authentication
             }
         }
 
-        private static bool RequestToAuthorizeEndpointWithAuthorizationHeader(string authorizationHeader, string path)
+        private static bool RequestToAuthorizeEndpointWithAuthorizationHeader(string authorizationHeader, string? path)
         {
             if (FindSchemeForAuthentication(authorizationHeader).Equals(AuthenticationSchemes.AuthorizationHeaderBasic)
+                && !string.IsNullOrEmpty(path) 
                 && path.Equals(ProtocolRoutePaths.Authorize))
                 return true;
             return false;
@@ -92,7 +93,7 @@ namespace IssuerOfClaims.Services.Authentication
             Context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
         }
 
-        private static bool IsGoingToAnonymousControllerOrEndpoint(EndpointMetadataCollection endpointMetadata)
+        private static bool IsGoingToAnonymousControllerOrEndpoint(EndpointMetadataCollection? endpointMetadata)
         {
             if (IsAnonymouseController(endpointMetadata))
                 return true;
@@ -102,16 +103,16 @@ namespace IssuerOfClaims.Services.Authentication
             return false;
         }
 
-        private static bool IsAnonymousEndpoint(EndpointMetadataCollection endpointMetadata)
+        private static bool IsAnonymousEndpoint(EndpointMetadataCollection? endpointMetadata)
         {
             if (endpointMetadata?.GetMetadata<IAllowAnonymous>() is object)
                 return true;
             return false;
         }
 
-        private static bool IsAnonymouseController(EndpointMetadataCollection endpointMetadata)
+        private static bool IsAnonymouseController(EndpointMetadataCollection? endpointMetadata)
         {
-            var controllerAction = endpointMetadata.GetMetadata<ControllerActionDescriptor>();
+            var controllerAction = endpointMetadata?.GetMetadata<ControllerActionDescriptor>();
             if (controllerAction == null)
                 return false;
 
@@ -130,19 +131,21 @@ namespace IssuerOfClaims.Services.Authentication
         /// <param name="authenticateInfor"></param>
         /// <returns></returns>
         /// <exception cref="InvalidOperationException"></exception>
-        private async Task<UserIdentity> GetUserUsingAuthenticationSchemeAsync(string authenticateInfor)
+        private async Task<(UserIdentity UserIdentity, string AuthenticationScheme)> GetUserUsingAuthenticationSchemeAsync(string authenticateInfor)
         {
             ValidateAuthenticationInfo(authenticateInfor);
 
             return FindSchemeForAuthentication(authenticateInfor) switch
             {
                 // authentication with "Basic access" - username + password
-                AuthenticationSchemes.AuthorizationHeaderBasic => await BasicAccess_FindUserAsync(authenticateInfor),
+                AuthenticationSchemes.AuthorizationHeaderBasic => new (await BasicAccess_FindUserAsync(authenticateInfor), AuthenticationSchemes.AuthorizationHeaderBasic),
                 // authentication with Bearer" token - access token or id token, for now, I'm trying to implement
                 //     , https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
-                AuthenticationSchemes.AuthorizationHeaderBearer => await BearerToken_FindUserAsync(authenticateInfor),
-                // TODO: for now, I use id token inside pop authorization header, will update later
-                AuthenticationSchemes.AuthorizationHeaderIdToken => await IdTokenHeader_FindUserAsync(authenticateInfor),
+                AuthenticationSchemes.AuthorizationHeaderBearer => new (await BearerToken_FindUserAsync(authenticateInfor), AuthenticationSchemes.AuthorizationHeaderBearer),
+                // TODO: for now, I allow id token can be use to authenticate, will update later
+                AuthenticationSchemes.AuthorizationHeaderIdToken => new (await IdToken_FindUserAsync(authenticateInfor), AuthenticationSchemes.AuthorizationHeaderIdToken),
+                // 
+                //AuthenticationSchemes.AuthorizationHeaderRefreshToken => new (await RefreshToken_FindUserAsync(authenticateInfor), AuthenticationSchemes.AuthorizationHeaderRefreshToken),
                 _ => throw new InvalidOperationException(ExceptionMessage.UNHANDLED_AUTHENTICATION_SCHEME)
             };
         }
@@ -163,12 +166,15 @@ namespace IssuerOfClaims.Services.Authentication
             {
                 return AuthenticationSchemes.AuthorizationHeaderIdToken;
             }
+            //else if (scheme.Equals(AuthenticationSchemes.AuthorizationHeaderRefreshToken.ToUpper()))
+            //{
+            //    return AuthenticationSchemes.AuthorizationHeaderRefreshToken;
+            //}
             else
             {
                 throw new CustomException(ExceptionMessage.AUTHENTICATION_SCHEME_NOT_SUPPORT);
             }
         }
-
 
         private static bool IfAuthenticateInfoIsEmpty(string authenticateInfo)
         {
@@ -186,11 +192,8 @@ namespace IssuerOfClaims.Services.Authentication
             //if (scheme.ToUpper().Length)
         }
 
-        private void VefifyUser(UserIdentity user, string password)
+        private void VefifyUserPassword(UserIdentity user, string password)
         {
-            if (user == null)
-                throw new CustomException(ExceptionMessage.USER_NULL);
-
             if (string.IsNullOrEmpty(user.PasswordHash))
                 throw new CustomException(ExceptionMessage.PASSWORD_NOT_SET);
 
@@ -220,7 +223,7 @@ namespace IssuerOfClaims.Services.Authentication
         private async Task<UserIdentity> BearerToken_FindUserAsync(string authenticateInfo)
         {
             var accessToken = GetAuthenticationParameter(authenticateInfo);
-            var tokenResponse = await _tokenResponsePerHandlerDbServices.FindByAccessTokenASync(accessToken);
+            var tokenResponse = await _tokenResponsePerHandlerDbServices.FindByAccessTokenAsync(accessToken);
 
             return tokenResponse.IdentityRequestHandler.User;
         }
@@ -239,24 +242,36 @@ namespace IssuerOfClaims.Services.Authentication
             string password = userNamePassword.Split(":")[1];
 
             // TODO: Do authentication of userId and password against your credentials store here
-            var user = await _userManager.Current.Users
+            var user = _userManager.Current.Users
                 //.Include(user => user.IdentityUserRoles).ThenInclude(p => p.Role)
-                .FirstOrDefaultAsync(u => u.UserName == userName);
+                .FirstOrDefault(u => u.UserName == userName)
+                ?? throw new CustomException(ExceptionMessage.USER_NULL);
 
-            VefifyUser(user, password);
+            VefifyUserPassword(user, password);
 
             return user;
         }
         #endregion
 
-        #region Pop
-        private async Task<UserIdentity> IdTokenHeader_FindUserAsync(string authenticateInfo)
+        //#region refresh token
+        //private async Task<UserIdentity> RefreshToken_FindUserAsync(string authenticateInfo)
+        //{
+        //    var refreshToken = GetAuthenticationParameter(authenticateInfo);
+        //    var tokenResponse = await _tokenResponsePerHandlerDbServices.FindByRefreshTokenAsync(refreshToken);
+
+        //    return tokenResponse.IdentityRequestHandler.User;
+        //}
+        //#endregion
+
+        #region id token
+        private async Task<UserIdentity> IdToken_FindUserAsync(string authenticateInfo)
         {
             string jwt = GetAuthenticationParameter(authenticateInfo);
             // TODO: get public key, verify, get user
             var userName = VerifyJwtTokenAndGetUserName(jwt);
 
-            return await _userManager.Current.FindByNameAsync(userName);
+            return await _userManager.Current.FindByNameAsync(userName)
+                ?? throw new CustomException($"{nameof(IdToken_FindUserAsync)}: {ExceptionMessage.USER_NULL}");
         }
 
         /// <summary>
@@ -309,7 +324,7 @@ namespace IssuerOfClaims.Services.Authentication
         /// </summary>
         /// <param name="user"></param>
         /// <returns></returns>
-        private static ClaimsPrincipal CreateClaimPrincipal(UserIdentity user)
+        private static ClaimsPrincipal CreateClaimPrincipal(UserIdentity user, string authenticationScheme)
         {
             var claims = new List<Claim>
             {
@@ -329,7 +344,7 @@ namespace IssuerOfClaims.Services.Authentication
                 claims.Add(new Claim(ClaimTypes.Role, p.Role.RoleCode));
             });
 
-            var principal = new ClaimsPrincipal(new[] { new ClaimsIdentity(claims, OidcConstants.AuthenticationSchemes.AuthorizationHeaderBasic, user.UserName, ClaimTypes.Role) });
+            var principal = new ClaimsPrincipal(new[] { new ClaimsIdentity(claims, authenticationScheme, user.UserName, ClaimTypes.Role) });
 
             return principal;
         }

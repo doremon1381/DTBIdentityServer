@@ -105,7 +105,9 @@ namespace IssuerOfClaims.Controllers
         }
         #endregion
 
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
         public IdentityRequestController(ILogger<IdentityRequestController> logger
+#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
             , IServiceProvider serviceProvider
             , IIdentityRequestHandlerService requestHandlerServices)
         {
@@ -171,7 +173,7 @@ namespace IssuerOfClaims.Controllers
 
         private async Task<ActionResult> AuthenticationAsync(AuthCodeParameters parameters)
         {
-            var client = await _clientDbServices.FindAsync(parameters.ClientId.Value);
+            var client = await ClientDbServices.FindAsync(parameters.ClientId.Value);
 
             await Task.Run(() => ValidateRedirectUris(parameters.RedirectUri.Value, client));
             if (ConsentResultIsNotAllowed(parameters.ConsentGranted.Value))
@@ -255,7 +257,7 @@ namespace IssuerOfClaims.Controllers
             SpecialValidateAuthCodeParametersForHybridFlow(parameters);
 
             var user = await VerifyAndGetUserFromContextAsync();
-            var client = await _clientDbServices.FindAsync(parameters.ClientId.Value);
+            var client = await ClientDbServices.FindAsync(parameters.ClientId.Value);
 
             ACF_I_ValidateScopes(parameters.Scope.Value, client);
 
@@ -264,7 +266,7 @@ namespace IssuerOfClaims.Controllers
             // create return parameters 
             // TODO: need to create access token, id token before this step
             //     : adding id token or access token along with respone base on response types of parameters
-            string response = await _responseManager.HybridFlowResponseAsync(parameters, user, client, authorizationCode);
+            string response = await ResponseManager.HybridFlowResponseAsync(parameters, user, client, authorizationCode);
 
             await ACF_I_SendRedirectResponse(parameters, response);
 
@@ -301,14 +303,14 @@ namespace IssuerOfClaims.Controllers
             //     : get user, create authorization code, save it to login session and out
 
             var user = await VerifyAndGetUserFromContextAsync();
-            var client = await _clientDbServices.FindAsync(@params.ClientId.Value);
+            var client = await ClientDbServices.FindAsync(@params.ClientId.Value);
 
             ACF_I_ValidateScopes(@params.Scope.Value, client);
 
             string authorizationCode = IssueAuthorizationCode();
 
             // create return parameters 
-            string response = await _responseManager.ACF_I_CreateResponseAsync(@params, user, client, authorizationCode);
+            string response = await ResponseManager.ACF_I_CreateResponseAsync(@params, user, client, authorizationCode);
 
             await ACF_I_SendRedirectResponse(@params, response);
 
@@ -334,7 +336,7 @@ namespace IssuerOfClaims.Controllers
 
         private async Task<UserIdentity> VerifyAndGetUserFromContextAsync()
         {
-            var user = await _applicationUserManager.Current.GetUserAsync(HttpContext.User);
+            var user = await ApplicationUserManager.Current.GetUserAsync(HttpContext.User);
 
             return user ?? throw new CustomException(ExceptionMessage.USER_NULL);
         }
@@ -422,11 +424,11 @@ namespace IssuerOfClaims.Controllers
             // TODO: at this step, user cannot be null
             UserIdentity? user = await VerifyAndGetUserFromContextAsync();
 
-            var client = await _clientDbServices.FindAsync(parameters.ClientId.Value);
+            var client = await ClientDbServices.FindAsync(parameters.ClientId.Value);
 
             IGF_ValidateNonce(parameters.Nonce.Value);
 
-            var response = await _responseManager.IGF_GetResponseAsync(user, parameters, client);
+            var response = await ResponseManager.IGF_GetResponseAsync(user, parameters, client);
 
             await IGF_SendRedirectResponse(parameters, response);
 
@@ -480,10 +482,6 @@ namespace IssuerOfClaims.Controllers
         [AllowAnonymous]
         public async Task<ActionResult> TokenEndpointPostAsync()
         {
-            // TODO: for now, only response to authorization code request to access token
-            //     : need to implement another action
-            //     : send back access_token when have request refresh 
-
             string requestBody = await Utilities.SerializeFormAsync(HttpContext.Request.Body);
             string grantType = ToR_GetGrantType(requestBody);
 
@@ -505,11 +503,27 @@ namespace IssuerOfClaims.Controllers
             }
         }
 
+        /// <summary>
+        /// TODO: for test
+        /// </summary>
+        /// <param name="requestBody"></param>
+        /// <returns></returns>
+        /// <exception cref="CustomException"></exception>
         private static string ToR_GetGrantType(string requestBody)
         {
-            return requestBody.Remove(0, 1).Split("&")
-                .First(t => t.StartsWith(TokenRequest.GrantType))
-                .Replace($"{TokenRequest.GrantType}=", "");
+            string? grantType = null;
+            var span = requestBody.Remove(0, 1).Split("&").AsSpan();
+
+            var enumerator = span.GetEnumerator();
+            while(enumerator.MoveNext())
+            {
+                if (enumerator.Current.StartsWith(TokenRequest.GrantType))
+                    grantType = enumerator.Current.Replace($"{TokenRequest.GrantType}=", "");
+                else
+                    continue;
+            }
+
+            return grantType ?? throw new CustomException(string.Format("{0}: grant type does not have value!", nameof(ToR_GetGrantType)));
         }
 
         private async Task<ActionResult> IssueTokenForRefreshTokenAsync(string requestBody)
@@ -520,7 +534,7 @@ namespace IssuerOfClaims.Controllers
             var parameters = new OfflineAccessTokenParametersFactory(requestBody)
                 .ExtractParametersFromQuery();
 
-            var tokenResponses = await _responseManager.IssueTokenByRefreshToken(parameters.RefreshToken.Value);
+            var tokenResponses = await ResponseManager.IssueTokenByRefreshToken(parameters.RefreshToken.Value);
 
             return StatusCode((int)HttpStatusCode.OK, tokenResponses);
         }
@@ -535,7 +549,7 @@ namespace IssuerOfClaims.Controllers
 
             // TODO: for now, every request, by default in scop will have openid, so ignore this part of checking now
             //     : Verify that the Authorization Code used was issued in response to an OpenID Connect Authentication Request(so that an ID Token will be returned from the Token Endpoint).
-            var requestHandler = await _requestHandlerServices.FindByAuthCodeAsync(parameters.Code.Value);
+            var requestHandler = await RequestHandlerServices.FindByAuthCodeAsync(parameters.Code.Value);
 
             // TODO: will change to use email when allow using identity from another source
             UserIdentity user = await ACF_II_VerifyAndGetUserIdentityAsync(requestHandler.User.UserName);
@@ -545,7 +559,7 @@ namespace IssuerOfClaims.Controllers
             ACF_II_VerifyCodeChallenger(parameters.CodeVerifier.Value, requestHandler);
 
             // TODO: issue token from TokenManager
-            var response = await _responseManager.ACF_II_CreateResponseAsync(client.Id, client.ClientId, requestHandler.Id);
+            var response = await ResponseManager.ACF_II_CreateResponseAsync(client.Id, client.ClientId, requestHandler.Id);
 
             // TODO: https://openid.net/specs/openid-connect-core-1_0.html#TokenResponse
             //     : will think about it later, for now, I follow the openid specs
@@ -557,7 +571,7 @@ namespace IssuerOfClaims.Controllers
         // TODO: will test again
         private async Task<UserIdentity> ACF_II_VerifyAndGetUserIdentityAsync(string userName)
         {
-            return await _applicationUserManager.GetUserAsync(userName);
+            return await ApplicationUserManager.GetUserAsync(userName);
         }
 
         private static void ACF_II_VerifyRedirectUris(string redirectUri, string authRequestRedirectUri)
@@ -608,7 +622,7 @@ namespace IssuerOfClaims.Controllers
         // TODO: will test again
         private async Task<Client> ACF_II_VerifyAndGetClientAsync(string clientId, string clientSecret, IdentityRequestHandler tokenRequestHandler)
         {
-            Client client = await _clientDbServices.FindAsync(clientId, clientSecret);
+            Client client = await ClientDbServices.FindAsync(clientId, clientSecret);
 
             // TODO: status code may wrong
             return tokenRequestHandler.ClientId.Equals(client.Id) 
@@ -627,7 +641,7 @@ namespace IssuerOfClaims.Controllers
 
             // TODO: by using authorization before this part, so it should has an user in HttpContext
             //     : in current context of services, when I use async, this function return an error about "connection is lost"...
-            var user = await _applicationUserManager.Current.GetUserAsync(HttpContext.User);
+            var user = await ApplicationUserManager.Current.GetUserAsync(HttpContext.User);
 
             if (user == null)
                 throw new InvalidOperationException(ExceptionMessage.OBJECT_NOT_FOUND);
@@ -670,26 +684,24 @@ namespace IssuerOfClaims.Controllers
         //     : only identityserver's clients can use this endpoint, not user-agent
         public async Task<ActionResult> GoogleAuthenticating()
         {
-            string requestQuery = await Utilities.SerializeFormAsync(HttpContext.Request.Body);
+            var parameters = await Google_GetQueryParameters(HttpContext.Request.Body);
 
-            // TODO: add '?' before requestBody to get query form of string
-            // , AbtractRequestParamters instances use request query as parameter
-            var parameters = new SignInGoogleParametersFactory(requestQuery)
-                .ExtractParametersFromQuery();
-
+            // verify client's information from query, pass if a client is found
             var client = await ClientDbServices.FindAsync(parameters.ClientId.Value, parameters.ClientSecret.Value);
-            var result = await Google_SendTokenRequestAsync(parameters, GoogleClientConfiguration);
+            // get token from google
+            var googleResponse = await Google_SendTokenRequestAsync(parameters, GoogleClientConfiguration);
 
             // verify Google id token
-            GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(result.IdToken);
+            GoogleJsonWebSignature.Payload payload = await GoogleJsonWebSignature.ValidateAsync(googleResponse.IdToken);
 
-            // TODO: using this function following google example, will check again
-            await userinfoCallAsync(result.AccessToken, GoogleClientConfiguration.UserInfoUri);
+            // ensure google's access token can be used
+            await userinfoCallAsync(googleResponse.AccessToken, GoogleClientConfiguration.UserInfoUri);
 
             // create new user or map google user info to current user
             var user = await ApplicationUserManager.GetOrCreateUserByEmailAsync(payload);
 
-            var response = await ResponseManager.AuthGoogle_CreateResponseAsync(parameters, client, result, payload, user);
+            // create client's response
+            var response = await ResponseManager.AuthGoogle_CreateResponseAsync(parameters, client, googleResponse, payload, user);
 
             // TODO: will need to create new user if current user with this email is not have
             //     : after that, create login session object and save to db
@@ -697,7 +709,18 @@ namespace IssuerOfClaims.Controllers
             return Ok(response);
         }
 
-        private async Task<GoogleResponse> Google_SendTokenRequestAsync(SignInGoogleParameters parameters, GoogleClientConfiguration config)
+        private static async Task<SignInGoogleParameters> Google_GetQueryParameters(Stream body)
+        {
+            string requestQuery = await Utilities.SerializeFormAsync(body);
+
+            // TODO: add '?' before requestBody to get query form of string
+            // , AbtractRequestParamters instances use request query as parameter
+            var parameters = new SignInGoogleParametersFactory(requestQuery)
+                .ExtractParametersFromQuery();
+            return parameters;
+        }
+
+        private static async Task<GoogleResponse> Google_SendTokenRequestAsync(SignInGoogleParameters parameters, GoogleClientConfiguration config)
         {
             string tokenRequestBody = await Task.Run(() => Google_CreateTokenRequestBody(parameters, config));
 
@@ -764,7 +787,7 @@ namespace IssuerOfClaims.Controllers
         /// </summary>
         /// <param name="id_token"></param>
         /// <param name="access_token"></param>
-        private bool ValidateAtHash(string id_token, string access_token)
+        private static bool ValidateAtHash(string id_token, string access_token)
         {
             JwtSecurityToken idTokenAsClaims = DecodeIdTokenString(id_token);
 
@@ -790,14 +813,14 @@ namespace IssuerOfClaims.Controllers
             return false;
         }
 
-        private JwtSecurityToken DecodeIdTokenString(string id_token)
+        private static JwtSecurityToken DecodeIdTokenString(string id_token)
         {
             var handler = new JwtSecurityTokenHandler();
             var jwtSecurityToken = handler.ReadJwtToken(id_token);
             return jwtSecurityToken;
         }
 
-        private async Task<string> userinfoCallAsync(string access_token, string userInfoUri)
+        private static async Task<string> userinfoCallAsync(string access_token, string userInfoUri)
         {
             string userInfo = "";
 

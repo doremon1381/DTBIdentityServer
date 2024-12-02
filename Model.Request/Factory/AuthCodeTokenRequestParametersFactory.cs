@@ -5,7 +5,7 @@ namespace IssuerOfClaims.Models.Request.Factory
 {
     public class AuthCodeTokenRequestParametersFactory : RequestParametersFactory<AuthCodeTokenParameters>
     {
-        public AuthCodeTokenRequestParametersFactory(string queryString) : base(queryString)
+        public AuthCodeTokenRequestParametersFactory(string? queryString) : base(queryString)
         {
         }
 

@@ -32,7 +32,7 @@ namespace IssuerOfClaims.Services.Database
             return obj;
         }
 
-        public async Task<TokenForRequestHandler> FindByAccessTokenASync(string accessToken)
+        public async Task<TokenForRequestHandler> FindByAccessTokenAsync(string accessToken)
         {
             TokenForRequestHandler obj = null;
 
@@ -89,12 +89,33 @@ namespace IssuerOfClaims.Services.Database
 
             return obj;
         }
+
+        public async Task<TokenForRequestHandler> FindByRefreshTokenAsync(string refreshToken)
+        {
+            TokenForRequestHandler obj = null;
+
+            await UsingDbSetAsync(_tokenResponses =>
+            {
+                obj = _tokenResponses
+                    .Where(t => t.TokenResponse.TokenType.Equals(TokenTypes.RefreshToken))
+                    .AsNoTracking()
+                    .First();
+
+                _tokenResponses.Entry(obj).Reference(o => o.TokenResponse).Load();
+                _tokenResponses.Entry(obj).Reference(o => o.IdentityRequestHandler.User).Load();
+            });
+
+            ValidateEntity(obj, HttpStatusCode.BadRequest, $"{nameof(TokenForRequestHandlerDbService)}: {ExceptionMessage.OBJECT_IS_NULL}");
+
+            return obj;
+        }
     }
 
     public interface ITokenForRequestHandlerDbService : IDbContextBase<TokenForRequestHandler>
     {
         TokenForRequestHandler GetDraftObject();
-        Task<TokenForRequestHandler> FindByAccessTokenASync(string accessToken);
+        Task<TokenForRequestHandler> FindByAccessTokenAsync(string accessToken);
+        Task<TokenForRequestHandler> FindByRefreshTokenAsync(string refreshToken);
         TokenForRequestHandler CreatNew();
         Task<TokenForRequestHandler>? FindLastAsync(Guid userId, Guid clientId, bool isAccessToken = true, bool issuedByLocal = true);
     }

@@ -10,11 +10,11 @@ namespace IssuerOfClaims.Models.Request.RequestParameter
     public class RequestParameterValues
     {
         private readonly object @lock = new object();
-        private static readonly SemaphoreSlim _semaphoreSlim = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim _semaphoreSlim = new SemaphoreSlim(1, 1);
 
         private readonly Dictionary<string, string> _ParameterValuePairs = new Dictionary<string, string>();
 
-        public RequestParameterValues(string queryString)
+        public RequestParameterValues(string? queryString)
         {
             Validate(queryString);
             TaskUtilities.RunAttachedToParentTask(() => Initiate(queryString)).GetAwaiter().GetResult();

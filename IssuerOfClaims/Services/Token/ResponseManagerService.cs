@@ -98,7 +98,7 @@ namespace IssuerOfClaims.Services.Token
             var latestRefreshToken = await _requestHandlerServices.FindLastTokensPerIdentityRequestAsync(requestHandler.User.Id, idOfClient, isAccessToken: false);
             var latestAccessToken = await _requestHandlerServices.FindLastTokensPerIdentityRequestAsync(requestHandler.User.Id, idOfClient, isAccessToken: true);
 
-            TokenResponse refreshToken = null;
+            TokenResponse? refreshToken = null;
             TokenResponse accessToken = null;
 
             // TODO: at this step, need to check offline_access is inside authrization login request is true or fault
@@ -156,22 +156,23 @@ namespace IssuerOfClaims.Services.Token
                     }
                 }
             }
-            else if (!requestHandler.RequestSession.IsOfflineAccess)
+            else
             {
                 // latest access token can be used
                 if (latestAccessToken != null && latestAccessToken.TokenResponse.TokenExpiried > DateTime.Now)
                     accessToken = latestAccessToken.TokenResponse;
                 else
                 {
-                    // create new 
+                    // other, create new 
                     accessToken = _requestHandlerServices.CreateToken(OidcConstants.TokenTypes.AccessToken);
                 }
             }
 
-#pragma warning disable CS8602 // Dereference of a possibly null reference.
+            if (accessToken == null)
+                throw new CustomException($"{nameof(ACF_II_CreateResponseAsync)}:access token cannot be null!");
+
             // TODO: at this step, if accessToken is null, then something is wrong!
             var responseBody = await ResponseUtilities.CreateTokenResponseStringAsync(accessToken.Token, idToken, accessToken.TokenExpiried, refreshToken == null ? "" : refreshToken.Token);
-#pragma warning restore CS8602 // Dereference of a possibly null reference.
 
             await _requestHandlerServices.ACF_II_BackgroundStuffAsync(requestHandler, refreshToken, accessToken);
 

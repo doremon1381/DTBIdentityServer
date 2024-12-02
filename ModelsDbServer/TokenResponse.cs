@@ -19,6 +19,6 @@ namespace IssuerOfClaims.Models.DbModel
         public DateTime TokenExpiried { get; set; }
         public DateTime? IssueAt { get; set; }
 
-        public List<TokenForRequestHandler> TokensPerIdentityRequests { get; set; } = new List<TokenForRequestHandler>();
+        public List<TokenForRequestHandler> TokensPerIdentityRequests { get; set; }
     }
 }

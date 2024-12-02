@@ -30,7 +30,7 @@ namespace IssuerOfClaims.Controllers
     //[ApiVersion("1.0")]
     [ControllerName("oauth2")]
     //[EnableCors("MyPolicy")]
-    // TODO: https://openid.net/specs/openid-connect-core-1_0.html
+    // TODO: https://openid.net/specs/openid-connect-core-1_0-final.html
     //     : try to implement from this specs
     //     : for now, I dont intend to add https://datatracker.ietf.org/doc/html/rfc8414 (response for a request for "/.well-known/oauth-authorization-server"), I will think about it late
     public class IdentityRequestController : ControllerBase
@@ -125,7 +125,7 @@ namespace IssuerOfClaims.Controllers
         /// <returns></returns>
         [HttpGet("authorize")]
         [Authorize]
-        public async Task<ActionResult> AuthenticationGetAsync()
+        public async Task<ActionResult> AuthorizationGetAsync()
         {
             // 1. Get authorization request from server
             // 2. Return an http 302 message to server, give it a nonce cookie (for now, ignore this part),
@@ -139,7 +139,7 @@ namespace IssuerOfClaims.Controllers
             var parameters = new AuthCodeParametersFactory(HttpContext.Request.QueryString.Value)
                 .ExtractParametersFromQuery();
 
-            return await AuthenticationAsync(parameters);
+            return await AuthorizationAsync(parameters);
         }
 
         /// <summary>
@@ -149,14 +149,14 @@ namespace IssuerOfClaims.Controllers
         /// <returns></returns>
         [HttpPost("authorize")]
         [Authorize]
-        public async Task<ActionResult> AuthenticationPostAsync()
+        public async Task<ActionResult> AuthorizationPostAsync()
         {
             var query = await Utilities.SerializeFormAsync(HttpContext.Request.Body);
 
             var parameters = new AuthCodeParametersFactory(query)
                 .ExtractParametersFromQuery();
 
-            return await AuthenticationAsync(parameters);
+            return await AuthorizationAsync(parameters);
         }
 
         // TODO: add callback to server after login success
@@ -166,16 +166,26 @@ namespace IssuerOfClaims.Controllers
         /// <returns></returns>
         [HttpGet("authorize/callback")]
         [Authorize]
-        public async Task<ActionResult> AuthenticationCalbackAsync()
+        public async Task<ActionResult> AuthorizationCalbackAsync()
         {
             return new EmptyResult();
         }
 
-        private async Task<ActionResult> AuthenticationAsync(AuthCodeParameters parameters)
+        /// <summary>
+        /// Try to verify every step for authorizing request.
+        /// <para> Following OpenID's final document: https://openid.net/specs/openid-connect-core-1_0-final.html </para>
+        /// </summary>
+        /// <param name="parameters"></param>
+        /// <returns></returns>
+        /// <exception cref="CustomException"></exception>
+        private async Task<ActionResult> AuthorizationAsync(AuthCodeParameters parameters)
         {
+            // verify client first
             var client = await ClientDbServices.FindAsync(parameters.ClientId.Value);
 
+            // validate redirect uri
             await Task.Run(() => ValidateRedirectUris(parameters.RedirectUri.Value, client));
+
             if (ConsentResultIsNotAllowed(parameters.ConsentGranted.Value))
             {
                 await RedirectIfAccessToResourcesIsNotAllowed(HttpContext, parameters.RedirectUri.Value, parameters.State.Value);
@@ -418,12 +428,10 @@ namespace IssuerOfClaims.Controllers
         /// <returns></returns>
         private async Task<ActionResult> ToImplicitGrantProcessAsync(AuthCodeParameters parameters)
         {
-            // TODO: for this situation, Thread and http context may not need
-            var principal = HttpContext.User;
-
             // TODO: at this step, user cannot be null
             UserIdentity? user = await VerifyAndGetUserFromContextAsync();
 
+            // verify client
             var client = await ClientDbServices.FindAsync(parameters.ClientId.Value);
 
             IGF_ValidateNonce(parameters.Nonce.Value);
@@ -448,8 +456,8 @@ namespace IssuerOfClaims.Controllers
         }
 
         /// <summary>
-        /// TODO: more information https://openid.net/specs/openid-connect-core-1_0.html#ImplicitFlowSteps
-        /// <para>In this flow, nonce must have value from request</para>
+        /// In this flow, nonce must have value from request.
+        /// <para>for more information https://openid.net/specs/openid-connect-core-1_0.html#ImplicitFlowSteps</para>
         /// </summary>
         /// <param name="nonce"></param>
         private bool IGF_ValidateNonce(string nonce)

@@ -49,9 +49,9 @@ namespace IssuerOfClaims.Models.DbModel
         ///// Created along with user, only change when update user's data
         ///// </summary>
         //public IdToken? IdToken { get; set; }
-        public List<ConfirmEmail>? ConfirmEmails { get; set; } = new List<ConfirmEmail>();
-        public List<IdentityUserRole> IdentityUserRoles { get; set; } = new List<IdentityUserRole>();
-        public List<IdentityRequestHandler> IdentityRequestHandlers { get; set; } = new List<IdentityRequestHandler>();
+        public List<ConfirmEmail>? ConfirmEmails { get; set; }
+        public List<IdentityUserRole> IdentityUserRoles { get; set; }
+        public List<IdentityRequestHandler> IdentityRequestHandlers { get; set; }
 
         public UserIdentity()
         {

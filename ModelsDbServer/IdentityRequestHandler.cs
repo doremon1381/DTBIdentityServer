@@ -34,6 +34,6 @@ namespace IssuerOfClaims.Models.DbModel
         /// </summary>
         public DateTime? SuccessAt { get; set; } = null;
 
-        public List<TokenForRequestHandler> TokensPerRequestHandlers { get; set; } = new List<TokenForRequestHandler>();
+        public List<TokenForRequestHandler> TokensPerRequestHandlers { get; set; }
     }
 }

@@ -33,7 +33,7 @@ namespace IssuerOfClaims.Models.DbModel
         public string FrontChannelLogoutUri { get; set; }
         public string AllowedScopes { get; set; }
         public string AuthProviderX509CertUrl { get; set; }
-        public List<IdentityRequestHandler> TokenRequestHandlers { get; set; } = new List<IdentityRequestHandler>();
+        public List<IdentityRequestHandler> TokenRequestHandlers { get; set; }
 
         public Client()
         {

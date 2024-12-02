@@ -104,7 +104,7 @@ namespace IssuerOfClaims.Services.Token
         /// <param name="clientId"></param>
         /// <param name="authTime">for issue access token using offline-access with refresh token</param>
         /// <returns>key is token, value is public key</returns>
-        public async Task<string> GenerateIdTokenAsync(UserIdentity user, string scope, string nonce, string clientId, string authTime = "")
+        public async Task<string> GenerateIdTokenAsync(UserIdentity user, string scope, string? nonce, string clientId, string authTime = "")
         {
             try
             {
@@ -137,7 +137,7 @@ namespace IssuerOfClaims.Services.Token
             }
         }
 
-        private static IDictionary<string, object> CreateClaimsForIdToken(UserIdentity user, string nonce, string authTime, string scope, string clientId)
+        private static IDictionary<string, object> CreateClaimsForIdToken(UserIdentity user, string? nonce, string authTime, string scope, string clientId)
         {
             var claims = new List<Claim>();
             var scopeVariables = scope.Split(" ").Select(s => s.ToLower());
@@ -198,7 +198,7 @@ namespace IssuerOfClaims.Services.Token
     public interface ITokenService
     {
         TokenResponse CreateToken(string tokenType, DateTime? expiredTime = null, DateTime? issueAt = null);
-        Task<string> GenerateIdTokenAsync(UserIdentity user, string scope, string nonce, string clientId, string authTime = "");
+        Task<string> GenerateIdTokenAsync(UserIdentity user, string scope, string? nonce, string clientId, string authTime = "");
         Task<TokenResponse> FindRefreshTokenAsync(string refreshToken);
         RSAParameters GetPublicKeyJson();
         bool Delete(TokenResponse tokenResponse);

@@ -92,7 +92,7 @@ namespace IssuerOfClaims.Services.Token
         {
             return await _tokenServices.FindRefreshTokenAsync(incomingRefreshToken);
         }
-        public async Task<string> GenerateIdTokenAsync(UserIdentity user, string scope, string nonce, string clientId, string successAt = "")
+        public async Task<string> GenerateIdTokenAsync(UserIdentity user, string scope, string? nonce, string clientId, string successAt = "")
         {
             return await _tokenServices.GenerateIdTokenAsync(user, scope, nonce, clientId, successAt);
         }
@@ -272,12 +272,14 @@ namespace IssuerOfClaims.Services.Token
             }
         }
 
-        public async Task ACF_II_BackgroundStuffAsync(IdentityRequestHandler requestHandler, TokenResponse refreshToken, TokenResponse accessToken)
+        public async Task ACF_II_BackgroundStuffAsync(IdentityRequestHandler requestHandler, TokenResponse? refreshToken, TokenResponse accessToken)
         {
             await TaskUtilities.RunAttachedToParentTask(() => 
             {
                 CreateTokenResponsePerIdentityRequest(requestHandler, accessToken);
-                CreateTokenResponsePerIdentityRequest(requestHandler, refreshToken);
+                // for example, offline_access = false
+                if (refreshToken != null)
+                    CreateTokenResponsePerIdentityRequest(requestHandler, refreshToken);
                 // TODO: will think about how to handle idtoken, create one for user, update when information of user is changed or sth else
                 //CreateTokenResponsePerIdentityRequest(currentRequestHandler, idToken);
 
@@ -317,11 +319,11 @@ namespace IssuerOfClaims.Services.Token
         Task<IdentityRequestHandler> FindByIdAsync(Guid id);
         Task AuthGoogle_BackgroundStuffAsync(string codeVerifier, GoogleResponse googleResponse, GoogleJsonWebSignature.Payload payload, Client client, UserIdentity user);
         Task ACF_I_BackgroundStuffAsync(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode);
-        Task ACF_II_BackgroundStuffAsync(IdentityRequestHandler currentRequestHandler, TokenResponse refreshToken, TokenResponse accessToken);
+        Task ACF_II_BackgroundStuffAsync(IdentityRequestHandler currentRequestHandler, TokenResponse? refreshToken, TokenResponse accessToken);
         Task IGF_BackgroundStuffAsync(UserIdentity user, Client client, TokenResponse accessToken);
         #region token
         Task<TokenResponse> FindRefreshTokenAsync(string incomingRefreshToken);
-        Task<string> GenerateIdTokenAsync(UserIdentity user, string scope, string nonce, string clientId, string successAt = "");
+        Task<string> GenerateIdTokenAsync(UserIdentity user, string scope, string? nonce, string clientId, string successAt = "");
         TokenResponse CreateToken(string tokenType);
         TokenResponse CreateToken(string tokenType, DateTime expiredTime);
         Task Hybrid_I_BackgroundStuff(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode, TokenResponse? accessToken);

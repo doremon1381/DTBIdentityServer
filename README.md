@@ -14,6 +14,8 @@ In OAuth protocol, it means, your Google client information will be used to form
 * You must replace <em><strong>"EmailId"</strong></em>'s value and <em><strong>"UserName"</strong></em>'s value of <em><strong>"MailSettings"</strong></em> inside <em><strong>appsettings.json</strong></em> to your Google email's information.<br>
 And add <em><strong>"Password":"{your password from Google}"</strong></em> into <em><strong>"MailSettings"</strong></em>'s value (inside <em><strong>appsettings.json</strong></em>).<br>
 This application currently uses these settings for Mailkit's configuration to programmatically send email from a particular Google email (in this context, your Google email). Sending an email will occur inside a user register's process or some other processes.<br>
+* You must replace <em><strong>"DefaultConnection"</strong></em>'s value inside <em><strong>"appsetting.json"</strong></em> to your database connection string. <br>
+
 Updating for support from other email service providers will be later.<br>
 -- How to get <em><strong>"MailSettings"</strong></em>'s <em><strong>"Password"</strong></em>: https://stackoverflow.com/questions/72543208/how-to-use-mailkit-with-google-after-may-30-2022 <br>
 -- For more information: https://mailtrap.io/blog/csharp-send-email-gmail/#How-to-send-email-using-Gmail-SMTP-server-in-C<br>
@@ -37,5 +39,8 @@ Updating for support from other email service providers will be later.<br>
 - Update login, consent, and user information UI. <br>
 - Other updates in the future (adding new endpoint may need to update code logic or database). <br>
 - Apply some changes to use Redis. <br>
+
+### <strong>7. Known issues <br>
+- At consent step of authorization flow, and at the first time consent view is used, an exception will occur inside RedirectAuthenticationMiddleware. After the first authorization, the others processes seem to be fine. <br>
 
 Will update this description later!

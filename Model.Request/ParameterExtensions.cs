@@ -92,7 +92,7 @@ namespace IssuerOfClaims.Models.Request
         {
             { SignInGoogleRequest.AuthorizationCode, ParameterPriority.REQRUIRED },
             { SignInGoogleRequest.RedirectUri, ParameterPriority.REQRUIRED },
-            { SignInGoogleRequest.ClientSecret, ParameterPriority.REQRUIRED },
+            //{ SignInGoogleRequest.ClientSecret, ParameterPriority.REQRUIRED },
             { SignInGoogleRequest.ClientId, ParameterPriority.REQRUIRED },
             { SignInGoogleRequest.CodeVerifier, ParameterPriority.OPTIONAL }
         };

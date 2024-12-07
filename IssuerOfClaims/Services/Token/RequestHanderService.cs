@@ -143,7 +143,7 @@ namespace IssuerOfClaims.Services.Token
         private void GoogleAuth_CreateRequestSession(string codeVerifier, string refreshToken, IdentityRequestHandler requestHandler)
         {
             var session = CreateRequestSession(requestHandler.Id);
-            session.CodeVerifier = codeVerifier;
+            session.PKCE.CodeVerifier = codeVerifier;
             session.IsOfflineAccess = string.IsNullOrEmpty(refreshToken) ? false : true;
 
             UpdateRequestSession(session);
@@ -267,8 +267,8 @@ namespace IssuerOfClaims.Services.Token
         {
             if (codeChallenge_HasValue)
             {
-                tokenRequestSession.CodeChallenge = codeChallenge;
-                tokenRequestSession.CodeChallengeMethod = codeChallengeMethod;
+                tokenRequestSession.PKCE.CodeChallenge = codeChallenge;
+                tokenRequestSession.PKCE.CodeChallengeMethod = codeChallengeMethod;
             }
         }
 

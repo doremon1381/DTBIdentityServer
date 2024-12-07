@@ -339,7 +339,7 @@ namespace IssuerOfClaims.Controllers
         /// Use for now, but may change in the future
         /// </summary>
         /// <returns></returns>
-        private string IssueAuthorizationCode()
+        private static string IssueAuthorizationCode()
         {
             return RNGCryptoServicesUltilities.RandomStringGeneratingWithLength(32);
         }
@@ -605,18 +605,18 @@ namespace IssuerOfClaims.Controllers
         private static void ACF_II_VerifyCodeChallenger(string codeVerifier, IdentityRequestHandler requestHandler)
         {
             // TODO: by default, those two go along together, maybe in different way in future when compare with which is used now
-            if (requestHandler.RequestSession.CodeChallenge != null
-                && requestHandler.RequestSession.CodeChallengeMethod != null)
+            if (requestHandler.RequestSession.PKCE.CodeChallenge != null
+                && requestHandler.RequestSession.PKCE.CodeChallengeMethod != null)
             {
-                if (requestHandler.RequestSession.CodeChallengeMethod.Equals(CodeChallengeMethods.Plain))
+                if (requestHandler.RequestSession.PKCE.CodeChallengeMethod.Equals(CodeChallengeMethods.Plain))
                 {
-                    if (!codeVerifier.Equals(requestHandler.RequestSession.CodeChallenge))
+                    if (!codeVerifier.Equals(requestHandler.RequestSession.PKCE.CodeChallenge))
                         throw new CustomException(ExceptionMessage.CLIENT_OF_TOKEN_REQUEST_IS_DIFFERENT_WITH_AUTH_CODE_REQUEST, HttpStatusCode.BadRequest);
                 }
-                else if (requestHandler.RequestSession.CodeChallengeMethod.Equals(CodeChallengeMethods.Sha256))
+                else if (requestHandler.RequestSession.PKCE.CodeChallengeMethod.Equals(CodeChallengeMethods.Sha256))
                 {
                     var code_challenge = RNGCryptoServicesUltilities.Base64urlencodeNoPadding(codeVerifier.EncodingWithSHA265());
-                    if (!code_challenge.Equals(requestHandler.RequestSession.CodeChallenge))
+                    if (!code_challenge.Equals(requestHandler.RequestSession.PKCE.CodeChallenge))
                         throw new CustomException(ExceptionMessage.CLIENT_OF_TOKEN_REQUEST_IS_DIFFERENT_WITH_AUTH_CODE_REQUEST, HttpStatusCode.BadRequest);
                 }
                 else
@@ -695,7 +695,7 @@ namespace IssuerOfClaims.Controllers
             var parameters = await Google_GetQueryParameters(HttpContext.Request.Body);
 
             // verify client's information from query, pass if a client is found
-            var client = await ClientDbServices.FindAsync(parameters.ClientId.Value, parameters.ClientSecret.Value);
+            var client = await ClientDbServices.FindAsync(parameters.ClientId.Value);
             // get token from google
             var googleResponse = await Google_SendTokenRequestAsync(parameters, GoogleClientConfiguration);
 
@@ -730,7 +730,7 @@ namespace IssuerOfClaims.Controllers
 
         private static async Task<GoogleResponse> Google_SendTokenRequestAsync(SignInGoogleParameters parameters, GoogleClientConfiguration config)
         {
-            string tokenRequestBody = await Task.Run(() => Google_CreateTokenRequestBody(parameters, config));
+            string tokenRequestBody = Google_CreateTokenRequestBody(parameters, config);
 
             // sends the request
             HttpWebRequest tokenRequest = (HttpWebRequest)WebRequest.Create(config.TokenUri);
@@ -748,29 +748,44 @@ namespace IssuerOfClaims.Controllers
             string refresh_token = "";
             double expired_in = default;
             DateTime accessTokenIssueAt;
-
-            // gets the response
-            WebResponse tokenResponse = await tokenRequest.GetResponseAsync();
-            using (StreamReader reader = new StreamReader(tokenResponse.GetResponseStream()))
+            try
             {
-                // reads response body
-                string responseText = await reader.ReadToEndAsync();
+                // gets the response
+                WebResponse tokenResponse = await tokenRequest.GetResponseAsync();
+                using (StreamReader reader = new StreamReader(tokenResponse.GetResponseStream()))
+                {
+                    // reads response body
+                    string responseText = await reader.ReadToEndAsync();
 
-                // converts to dictionary
-                Dictionary<string, string> result = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
+                    // converts to dictionary
+                    Dictionary<string, string> result = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
 
-                access_token = result["access_token"];
-                id_token = result["id_token"];
-                result.TryGetValue("refresh_token", out refresh_token);
-                result.TryGetValue("expires_in", out string expiresIn);
+                    access_token = result["access_token"];
+                    id_token = result["id_token"];
+                    result.TryGetValue("refresh_token", out refresh_token);
+                    result.TryGetValue("expires_in", out string expiresIn);
 
-                expired_in = double.Parse($"{expiresIn}");
-                accessTokenIssueAt = DateTime.Now;
-                // TODO: validate at_hash from id_token is OPTIONAL in some flows (hybrid flow,...),
-                //     : I will check when to implement it later, now, better it has than it doesn't
-                //     : comment for now
-                //ValidateAtHash(id_token, access_token);
+                    expired_in = double.Parse($"{expiresIn}");
+                    accessTokenIssueAt = DateTime.Now;
+                    // TODO: validate at_hash from id_token is OPTIONAL in some flows (hybrid flow,...),
+                    //     : I will check when to implement it later, now, better it has than it doesn't
+                    //     : comment for now
+                    //ValidateAtHash(id_token, access_token);
+                }
             }
+            catch (WebException ex)
+            {
+                var response = ex.Response;
+                if (response != null)
+                {
+                    using (StreamReader reader = new StreamReader(response.GetResponseStream()))
+                    {
+                        var responseText = await reader.ReadToEndAsync();
+                    }
+                }
+                throw;
+            }
+            
 
             return new GoogleResponse(access_token, id_token, refresh_token, accessTokenIssueAt, expired_in);
         }

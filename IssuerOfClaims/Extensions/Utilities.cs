@@ -186,6 +186,9 @@ namespace IssuerOfClaims.Extensions
                     // Store or distribute these keys securely                
                 }
 
+                // adding to deal with the moment the key was suddenly change during one process
+                SaveObsolateKeys();
+
                 ExportJsonKey(publicKey);
                 ExportJsonKey(privateKey, isPublicKey: false);
             }
@@ -196,6 +199,17 @@ namespace IssuerOfClaims.Extensions
             }
 
             return new(privateKey, publicKey);
+        }
+
+        private static void SaveObsolateKeys()
+        {
+            // copy obsolate public key to new file
+            FileInfo publickey = new FileInfo(GetKeyFilePath(true));
+            publickey.CopyTo(GetObsolateKeyFilePath(true));
+
+            // copy obsolate private key to new file
+            FileInfo privateKey = new FileInfo(GetKeyFilePath(false));
+            privateKey.CopyTo(GetObsolateKeyFilePath(false));
         }
 
         private static bool KeyCanNotBeReused(bool isPublicKey = true)
@@ -219,6 +233,15 @@ namespace IssuerOfClaims.Extensions
             };
         }
 
+        private static string GetObsolateKeyFilePath(bool isPublicKey)
+        {
+            return isPublicKey switch
+            {
+                true => $"{Environment.CurrentDirectory}\\Services\\Token\\RsaSha256Keys\\Rsa_publicKey_obsolate.json",
+                false => $"{Environment.CurrentDirectory}\\Services\\Token\\RsaSha256Keys\\Rsa_privateKey_obsolate.json",
+            };
+        }
+
         private static void ExportJsonKey(RSAParameters key, bool isPublicKey = true)
         {
             FileInfo keyFile = new FileInfo(GetKeyFilePath(isPublicKey));
@@ -232,9 +255,9 @@ namespace IssuerOfClaims.Extensions
             }
         }
 
-        public static RSAParameters ReadJsonKey(bool isPublicKey = true)
+        public static RSAParameters ReadJsonKey(bool isPublicKey = true, bool isReadObsolateKey = false)
         {
-            FileInfo keyFile = new FileInfo(GetKeyFilePath(isPublicKey));
+            FileInfo keyFile = new FileInfo(isReadObsolateKey ? GetObsolateKeyFilePath(isPublicKey) : GetKeyFilePath(isPublicKey));
             RSAParameters result = default;
             if (keyFile.Exists)
             {
@@ -247,7 +270,7 @@ namespace IssuerOfClaims.Extensions
             }
             // TODO: will check again
             else
-                throw new CustomException("public key is missing!", HttpStatusCode.InternalServerError);
+                throw new CustomException("key is missing!", HttpStatusCode.InternalServerError);
 
             return result;
         }

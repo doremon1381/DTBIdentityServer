@@ -82,6 +82,13 @@ namespace IssuerOfClaims.Database
                 .WithOne(t => t.IdentityRequestHandler)
                 .HasForeignKey(c => c.IdentityRequestHandlerId);
 
+            modelBuilder.Entity<UserIdentity>()
+                .Property(u => u.CreateTime)
+                .HasDefaultValueSql("getutcdate()");
+
+            modelBuilder.Entity<IdentityRequestSession>()
+                .OwnsOne(s => s.PKCE);
+
             base.OnModelCreating(modelBuilder);
         }
     }

@@ -131,7 +131,7 @@ namespace IssuerOfClaims.Controllers
             {
                 status = 200,
                 message = "new user is created!",
-                id_token = id_token
+                id_token
             };
 
             if (stateHasValue)
@@ -140,8 +140,8 @@ namespace IssuerOfClaims.Controllers
                 {
                     status = 200,
                     message = "new user is created!",
-                    state = state,
-                    id_token = id_token
+                    state,
+                    id_token
                 };
             }
 

@@ -426,7 +426,6 @@ namespace ServerUltilities.Identity
             public const string RedirectUri = "redirect_uri";
             public const string CodeVerifier = "code_verifier";
             public const string ClientId = "client_id";
-            public const string ClientSecret = "client_secret";
             //public const string Nonce = "nonce";
         }
 

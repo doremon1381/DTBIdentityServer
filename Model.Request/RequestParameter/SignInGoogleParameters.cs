@@ -8,7 +8,6 @@ namespace IssuerOfClaims.Models.Request.RequestParameter
         public Parameter RedirectUri { get; private set; }
         public Parameter CodeVerifier { get; private set; }
         public Parameter ClientId { get; private set; }
-        public Parameter ClientSecret { get; private set; }
 
         public SignInGoogleParameters()
         {

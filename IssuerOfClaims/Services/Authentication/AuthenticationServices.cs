@@ -82,7 +82,7 @@ namespace IssuerOfClaims.Services.Authentication
         private static bool RequestToAuthorizeEndpointWithAuthorizationHeader(string authorizationHeader, string? path)
         {
             if (FindSchemeForAuthentication(authorizationHeader).Equals(AuthenticationSchemes.AuthorizationHeaderBasic)
-                && !string.IsNullOrEmpty(path) 
+                && !string.IsNullOrEmpty(path)
                 && path.Equals(ProtocolRoutePaths.Authorize))
                 return true;
             return false;
@@ -138,12 +138,12 @@ namespace IssuerOfClaims.Services.Authentication
             return FindSchemeForAuthentication(authenticateInfor) switch
             {
                 // authentication with "Basic access" - username + password
-                AuthenticationSchemes.AuthorizationHeaderBasic => new (await BasicAccess_FindUserAsync(authenticateInfor), AuthenticationSchemes.AuthorizationHeaderBasic),
+                AuthenticationSchemes.AuthorizationHeaderBasic => new(await BasicAccess_FindUserAsync(authenticateInfor), AuthenticationSchemes.AuthorizationHeaderBasic),
                 // authentication with Bearer" token - access token or id token, for now, I'm trying to implement
                 //     , https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
-                AuthenticationSchemes.AuthorizationHeaderBearer => new (await BearerToken_FindUserAsync(authenticateInfor), AuthenticationSchemes.AuthorizationHeaderBearer),
+                AuthenticationSchemes.AuthorizationHeaderBearer => new(await BearerToken_FindUserAsync(authenticateInfor), AuthenticationSchemes.AuthorizationHeaderBearer),
                 // TODO: for now, I allow id token can be use to authenticate, will update later
-                AuthenticationSchemes.AuthorizationHeaderIdToken => new (await IdToken_FindUserAsync(authenticateInfor), AuthenticationSchemes.AuthorizationHeaderIdToken),
+                AuthenticationSchemes.AuthorizationHeaderIdToken => new(await IdToken_FindUserAsync(authenticateInfor), AuthenticationSchemes.AuthorizationHeaderIdToken),
                 // 
                 //AuthenticationSchemes.AuthorizationHeaderRefreshToken => new (await RefreshToken_FindUserAsync(authenticateInfor), AuthenticationSchemes.AuthorizationHeaderRefreshToken),
                 _ => throw new InvalidOperationException(ExceptionMessage.UNHANDLED_AUTHENTICATION_SCHEME)
@@ -243,6 +243,7 @@ namespace IssuerOfClaims.Services.Authentication
 
             // TODO: Do authentication of userId and password against your credentials store here
             var user = _userManager.Current.Users
+                // TODO: for now
                 //.Include(user => user.IdentityUserRoles).ThenInclude(p => p.Role)
                 .FirstOrDefault(u => u.UserName == userName)
                 ?? throw new CustomException(ExceptionMessage.USER_NULL);
@@ -296,14 +297,41 @@ namespace IssuerOfClaims.Services.Authentication
 
         private static string VerifyJwtTokenAndGetUserName(string jwt)
         {
-            RSAParameters publicKey = RSAEncryptUtilities.ReadJsonKey();
+            // verify with current public key
+            var resultOfVerification = VerifyToken(jwt, true);
 
-            var securityKey = new RsaSecurityKey(publicKey);
+            // try with the obsolate public key if the current key can not be used
+            if (!resultOfVerification.IsValid)
+                resultOfVerification = VerifyToken(jwt, false);
+            // The token is not valid in either way.
+            if (!resultOfVerification.IsValid)
+                throw new CustomException("Token is invalid!", HttpStatusCode.BadRequest);
 
+            // TODO: assumming if a token is valid, then it will has name identifier
+            return resultOfVerification.ClaimPrincipal.Claims.First(c => c.Type.Equals(ClaimTypes.NameIdentifier)).Value;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="jwt"></param>
+        /// <param name="tokenHandler"></param>
+        /// <param name="verifyWithCurrentKey">to deal with a situation when the key is obsolate right after a jwt token was signed by that</param>
+        /// <returns></returns>
+        private static (ClaimsPrincipal ClaimPrincipal, bool IsValid) VerifyToken(string jwt, bool verifyWithCurrentKey)
+        {
             var tokenHandler = new JwtSecurityTokenHandler();
 
-            // verify token
-            var validateToken = new TokenValidationParameters()
+            var securityKey = GetPublicKey(isObsolate: !verifyWithCurrentKey);
+            var validateToken = CreateTokenValidationParameters(securityKey);
+            var result = VerifyTokenWithPublicKey(tokenHandler, validateToken, jwt, securityKey);
+
+            return result;
+        }
+
+        private static TokenValidationParameters CreateTokenValidationParameters(RsaSecurityKey securityKey)
+        {
+            return new TokenValidationParameters()
             {
                 ValidateIssuerSigningKey = true,
                 ValidateIssuer = false,
@@ -311,10 +339,24 @@ namespace IssuerOfClaims.Services.Authentication
                 ValidateLifetime = true,
                 IssuerSigningKey = securityKey,
             };
+        }
 
-            ClaimsPrincipal userPrincipal = tokenHandler.ValidateToken(jwt, validateToken, out _);
+        private static (ClaimsPrincipal ClaimPrincipal, bool isValid) VerifyTokenWithPublicKey(JwtSecurityTokenHandler tokenHandler, TokenValidationParameters validateToken, string jwt, RsaSecurityKey securityKey)
+        {
+            ClaimsPrincipal user = tokenHandler.ValidateToken(jwt, validateToken, out SecurityToken securityToken);
 
-            return userPrincipal.Claims.First(c => c.Type.Equals(ClaimTypes.NameIdentifier)).Value;
+            // TODO: still not sure about how to verify jwt key 
+            bool isValid = user.Claims.Count() == 0 ? false : true;
+
+            return (user, isValid);
+        }
+
+        private static RsaSecurityKey GetPublicKey(bool isObsolate = false)
+        {
+            RSAParameters publicKey = RSAEncryptUtilities.ReadJsonKey(isPublicKey: true, isObsolate);
+
+            var securityKey = new RsaSecurityKey(publicKey);
+            return securityKey;
         }
         #endregion
 
@@ -339,10 +381,11 @@ namespace IssuerOfClaims.Services.Authentication
                 new Claim(JwtClaimTypes.EmailVerified, user.EmailConfirmed.ToString()),
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
             };
-            user.IdentityUserRoles.ForEach(p =>
-            {
-                claims.Add(new Claim(ClaimTypes.Role, p.Role.RoleCode));
-            });
+            // TODO: for now
+            //user.IdentityUserRoles.ForEach(p =>
+            //{
+            //    claims.Add(new Claim(ClaimTypes.Role, p.Role.RoleCode));
+            //});
 
             var principal = new ClaimsPrincipal(new[] { new ClaimsIdentity(claims, authenticationScheme, user.UserName, ClaimTypes.Role) });
 

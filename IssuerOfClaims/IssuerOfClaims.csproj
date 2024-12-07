@@ -60,6 +60,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Database\Configuration\" />
     <Folder Include="Migrations\" />
     <Folder Include="Img\" />
     <Folder Include="Services\Token\RsaSha256Keys\" />

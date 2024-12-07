@@ -16,18 +16,7 @@ namespace IssuerOfClaims.Models.DbModel
 #endif
     public class IdentityRequestSession: DbTableBase<Guid>
     {
-        /// <summary>
-        /// From client
-        /// </summary>
-        public string? CodeChallenge { get; set; } = null;
-        /// <summary>
-        /// use for google authorization
-        /// </summary>
-        public string? CodeVerifier { get; set; } = null;
-        /// <summary>
-        /// From client
-        /// </summary>
-        public string? CodeChallengeMethod { get; set; } = null;
+        public PKCE PKCE { get; set; } = new PKCE();
         /// <summary>
         /// From client
         /// </summary>
@@ -55,7 +44,25 @@ namespace IssuerOfClaims.Models.DbModel
 
         [ForeignKey(nameof(IdentityRequestHandlerId))]
         public Guid IdentityRequestHandlerId { get; set; }
-        //public IdentityRequestHandler IdentityRequestHandler { get; set; }
+    }
+
+    /// <summary>
+    /// add request session owned type
+    /// </summary>
+    public class PKCE
+    {
+        /// <summary>
+        /// From client
+        /// </summary>
+        public string? CodeChallenge { get; set; } = null;
+        /// <summary>
+        /// use for google authorization
+        /// </summary>
+        public string? CodeVerifier { get; set; } = null;
+        /// <summary>
+        /// From client
+        /// </summary>
+        public string? CodeChallengeMethod { get; set; } = null;
     }
 
 

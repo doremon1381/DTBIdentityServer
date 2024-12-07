@@ -187,7 +187,7 @@ namespace IssuerOfClaims.Extensions
                 }
 
                 // adding to deal with the moment a key is suddenly changed during one process
-                SaveObsolateKeys();
+                SaveObsoleteKeys();
 
                 ExportJsonKey(publicKey);
                 ExportJsonKey(privateKey, isPublicKey: false);
@@ -201,15 +201,17 @@ namespace IssuerOfClaims.Extensions
             return new(privateKey, publicKey);
         }
 
-        private static void SaveObsolateKeys()
+        private static void SaveObsoleteKeys()
         {
-            // copy obsolate public key to new file
+            // copy Obsolete public key to new file
             FileInfo publickey = new FileInfo(GetKeyFilePath(true));
-            publickey.CopyTo(GetObsolateKeyFilePath(true));
+            if (publickey.Exists)
+                publickey.CopyTo(GetObsoleteKeyFilePath(true));
 
-            // copy obsolate private key to new file
+            // copy Obsolete private key to new file
             FileInfo privateKey = new FileInfo(GetKeyFilePath(false));
-            privateKey.CopyTo(GetObsolateKeyFilePath(false));
+            if (privateKey.Exists)
+                privateKey.CopyTo(GetObsoleteKeyFilePath(false));
         }
 
         private static bool KeyCanNotBeReused(bool isPublicKey = true)
@@ -233,12 +235,12 @@ namespace IssuerOfClaims.Extensions
             };
         }
 
-        private static string GetObsolateKeyFilePath(bool isPublicKey)
+        private static string GetObsoleteKeyFilePath(bool isPublicKey)
         {
             return isPublicKey switch
             {
-                true => $"{Environment.CurrentDirectory}\\Services\\Token\\RsaSha256Keys\\Rsa_publicKey_obsolate.json",
-                false => $"{Environment.CurrentDirectory}\\Services\\Token\\RsaSha256Keys\\Rsa_privateKey_obsolate.json",
+                true => $"{Environment.CurrentDirectory}\\Services\\Token\\RsaSha256Keys\\Rsa_publicKey_Obsolete.json",
+                false => $"{Environment.CurrentDirectory}\\Services\\Token\\RsaSha256Keys\\Rsa_privateKey_Obsolete.json",
             };
         }
 
@@ -255,9 +257,9 @@ namespace IssuerOfClaims.Extensions
             }
         }
 
-        public static RSAParameters ReadJsonKey(bool isPublicKey = true, bool isReadObsolateKey = false)
+        public static RSAParameters ReadJsonKey(bool isPublicKey = true, bool isReadObsoleteKey = false)
         {
-            FileInfo keyFile = new FileInfo(isReadObsolateKey ? GetObsolateKeyFilePath(isPublicKey) : GetKeyFilePath(isPublicKey));
+            FileInfo keyFile = new FileInfo(isReadObsoleteKey ? GetObsoleteKeyFilePath(isPublicKey) : GetKeyFilePath(isPublicKey));
             RSAParameters result = default;
             if (keyFile.Exists)
             {

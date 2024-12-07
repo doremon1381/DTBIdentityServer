@@ -300,7 +300,7 @@ namespace IssuerOfClaims.Services.Authentication
             // verify with current public key
             var resultOfVerification = VerifyToken(jwt, true);
 
-            // try with the obsolate public key if the current key can not be used
+            // try with the obsolete public key if the current key can not be used
             if (!resultOfVerification.IsValid)
                 resultOfVerification = VerifyToken(jwt, false);
             // The token is not valid in either way.
@@ -316,13 +316,13 @@ namespace IssuerOfClaims.Services.Authentication
         /// </summary>
         /// <param name="jwt"></param>
         /// <param name="tokenHandler"></param>
-        /// <param name="verifyWithCurrentKey">to deal with a situation when the key is obsolate right after a jwt token was signed by that</param>
+        /// <param name="verifyWithCurrentKey">to deal with a situation when the key is obsolete right after a jwt token was signed by that</param>
         /// <returns></returns>
         private static (ClaimsPrincipal ClaimPrincipal, bool IsValid) VerifyToken(string jwt, bool verifyWithCurrentKey)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
 
-            var securityKey = GetPublicKey(isObsolate: !verifyWithCurrentKey);
+            var securityKey = GetPublicKey(isObsolete: !verifyWithCurrentKey);
             var validateToken = CreateTokenValidationParameters(securityKey);
             var result = VerifyTokenWithPublicKey(tokenHandler, validateToken, jwt, securityKey);
 
@@ -351,9 +351,9 @@ namespace IssuerOfClaims.Services.Authentication
             return (user, isValid);
         }
 
-        private static RsaSecurityKey GetPublicKey(bool isObsolate = false)
+        private static RsaSecurityKey GetPublicKey(bool isObsolete = false)
         {
-            RSAParameters publicKey = RSAEncryptUtilities.ReadJsonKey(isPublicKey: true, isObsolate);
+            RSAParameters publicKey = RSAEncryptUtilities.ReadJsonKey(isPublicKey: true, isObsolete);
 
             var securityKey = new RsaSecurityKey(publicKey);
             return securityKey;

@@ -362,7 +362,7 @@ namespace IssuerOfClaims.Controllers
             return true;
         }
 
-        #region obsolate
+        #region obsolete
         private static async Task ACF_I_SendResponseAsync(AuthCodeParameters @params, string authorizationCode, string responseMessage)
         {
             // TODO: need to send another request to redirect uri, contain fragment or query

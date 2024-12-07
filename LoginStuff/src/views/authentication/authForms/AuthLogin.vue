@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { ref, defineProps, onBeforeMount } from 'vue';
-import Google from '@/assets/images/auth/social-google.svg';
 import { useAuthStore } from '@/stores/auth';
 import { Form } from 'vee-validate';
 import type { LocationQuery } from 'vue-router';
-//import { OAuth2Client } from 'google-auth-library';
+import GoogleAuthButton from './GoogleAuthButton.vue';
 
 const props = defineProps<{
   query: LocationQuery;
@@ -35,12 +34,6 @@ function validate(values, { setErrors }) {
   //.catch((error) => setErrors({ apiError: error }));
 }
 
-function RequestToGoogle() {
-  console.log('done');
-
-  //const oauth2Client = new OAuth2Client(clientId, clientSecret, redirectUri);
-}
-
 // TODO: comment for now
 // onBeforeMount(async () => {
 //   const authStore = useAuthStore();
@@ -55,9 +48,9 @@ function RequestToGoogle() {
 </script>
 
 <template>
-  <v-btn @click="RequestToGoogle" block color="primary" variant="outlined" class="text-lightText googleBtn">
-    <img :src="Google" alt="google" />
-    <span class="ml-2">Sign in with Google</span></v-btn>
+  <GoogleAuthButton :client_id="props.query.client_id" 
+    :redirect_uri="props.query.redirect_uri"
+    :nonce="props.query.nonce"/>
   <v-row>
     <v-col class="d-flex align-center">
       <v-divider class="custom-devider" />
@@ -81,7 +74,7 @@ function RequestToGoogle() {
       </div>
     </div>
     <v-btn color="secondary" :loading="isSubmitting" block class="mt-2" variant="flat" size="large" :disabled="valid"
-      type="submit">
+      type="subit">
       Sign In</v-btn>
     <div v-if="errors.apiError" class="mt-2">
       <v-alert color="error">{{ errors.apiError }}</v-alert>

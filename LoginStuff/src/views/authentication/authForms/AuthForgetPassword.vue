@@ -2,7 +2,6 @@
 import { router } from '@/router';
 import { useAxiosGet, webServerTestRequest } from '@/extensions/RequestUltilities';
 import { AxiosHeaders } from 'axios';
-import { GenerateRandomStringWithLength } from '@/extensions/RNGCryptoUltilities';
 
 let forgotPasswordUri = "";
 

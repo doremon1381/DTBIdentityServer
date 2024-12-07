@@ -25,7 +25,7 @@ function StringUTF8ToByteArray(str: string): Uint8Array {
 }
 
 function GenerateRandomStringWithLength(length: number) {
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^*';
   const charactersLength = characters.length;
   let count = 0;
   let temp = '';

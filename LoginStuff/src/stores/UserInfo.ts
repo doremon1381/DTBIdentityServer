@@ -2,18 +2,18 @@
 import { defineStore } from 'pinia';
 
 interface UserInfo{
-    userName: string,
+    //userName: string,
     accessToken: string,
     refreshToken: string,
-    expiredIn: string
+    //expiredIn: string
 }
 
 export const useUserInfoStore = defineStore('userInfo', {
   state: (): UserInfo => ({
-    userName: "",
+    //userName: "",
     accessToken: "",
     refreshToken: "",
-    expiredIn: ""
+    //expiredIn: ""
   }),
   actions: { },
 });

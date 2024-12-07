@@ -4,13 +4,12 @@ import App from './App.vue';
 import { router } from './router';
 import vuetify from './plugins/vuetify';
 import '@/scss/style.scss';
-import "@mdi/font/css/materialdesignicons.css";
+import '@mdi/font/css/materialdesignicons.css';
 import { PerfectScrollbarPlugin } from 'vue3-perfect-scrollbar';
 import VueApexCharts from 'vue3-apexcharts';
 import VueTablerIcons from 'vue-tabler-icons';
-// import GoogleSignInPlugin from 'vue3-google-signin';
 import { piniaSessionStorage } from './stores/piniaSessionStorage';
-//import { fakeBackend } from '@/utils/helpers/fake-backend';
+// import vue3GoogleLogin from 'vue3-google-login';
 
 // print
 import print from 'vue3-print-nb';
@@ -24,6 +23,9 @@ const app = createApp(App);
 const pinia = createPinia();
 pinia.use(piniaSessionStorage);
 
+// app.use(vue3GoogleLogin, {
+//   clientId: '558160357396-q5qp0ppf4r5svc0g0smshfs8cdcffkm3.apps.googleusercontent.com'
+// });
 app.use(PerfectScrollbarPlugin);
 app.use(pinia);
 app.use(router);

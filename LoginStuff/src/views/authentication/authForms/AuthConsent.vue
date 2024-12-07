@@ -13,7 +13,7 @@ const props = defineProps<{
   path: LocationQuery
 }>();
 
-const client = ref("CLIENT");
+const client = "CLIENT";
 // const temp = `By continuing, Google will share your name, email address, language preference, and profile picture with IssuerOfClaims.
 // See IssuerOfClaims’s Privacy Policy and Terms of Service.You can manage Sign in with Google in your Google Account.`;
 
@@ -61,7 +61,7 @@ function Click(allowAccess: boolean) {
     </v-card>
     <v-card variant="outlined" class="ml-2 border-transparent">
       <template v-slot:text>
-        <p> By continuing, DTB will share your name, email address, language preference,
+        <p> By continuing, this application will share your name, email address, language preference,
           and profile picture with {{ client }}.
           See {{ client }}’s Privacy Policy and Terms of Service.</p>
         <!--<p>Bạn có thể quản lý tính năng Đăng nhập bằng {{ServerName}} trong Tài khoản {{ServerName}} của mình.</p> -->

@@ -33,6 +33,7 @@ class AuthorizeRequest {
 class OauthEndpoint {
   static basicRoute = 'https://localhost:7180';
   static AuthorizeEndpoint = this.basicRoute + '/oauth2/authorize';
+  static GoogleEndpoint = this.basicRoute + '/oauth2/authorize/google';
 }
 
 export { NormalOauthFlow, AuthorizeRequest, OauthEndpoint };

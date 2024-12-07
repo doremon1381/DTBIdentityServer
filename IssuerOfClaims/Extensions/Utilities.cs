@@ -186,7 +186,7 @@ namespace IssuerOfClaims.Extensions
                     // Store or distribute these keys securely                
                 }
 
-                // adding to deal with the moment the key was suddenly change during one process
+                // adding to deal with the moment a key is suddenly changed during one process
                 SaveObsolateKeys();
 
                 ExportJsonKey(publicKey);

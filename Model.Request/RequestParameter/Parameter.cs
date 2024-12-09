@@ -16,7 +16,7 @@ namespace IssuerOfClaims.Models.Request.RequestParameter
 
         public bool HasValue => !string.IsNullOrEmpty(Value);
 
-        public Parameter(string name, OauthRequest oauthRequest)
+        public Parameter(string name, OauthRequestType oauthRequest)
         {
             Name = name;
             SetParameterPriority(oauthRequest);
@@ -39,17 +39,17 @@ namespace IssuerOfClaims.Models.Request.RequestParameter
             return true;
         }
 
-        private void SetParameterPriority(OauthRequest requestType)
+        private void SetParameterPriority(OauthRequestType requestType)
         {
             Priority = requestType switch
             {
-                OauthRequest.AuthorizationCode => ParameterExtensions.AuthCodeParametersPriority[Name],
-                OauthRequest.Register => ParameterExtensions.RegisterParamterPriority[Name],
-                OauthRequest.SignInGoogle => ParameterExtensions.SignInGoogleParamterPriority[Name],
-                OauthRequest.Token => ParameterExtensions.AuthCodeTokenParamterPriority[Name],
-                OauthRequest.OfflineAccess => ParameterExtensions.OfflineAccessTokenParamterPriority[Name],
-                OauthRequest.ChangePassword => ParameterExtensions.ChangePasswordParamterPriority[Name],
-                OauthRequest.ForgotPassword => ParameterExtensions.ForgotPasswordParamterPriority[Name],
+                OauthRequestType.AuthorizationCode => ParameterExtensions.AuthCodeParametersPriority[Name],
+                OauthRequestType.Register => ParameterExtensions.RegisterParamterPriority[Name],
+                OauthRequestType.SignInGoogle => ParameterExtensions.SignInGoogleParamterPriority[Name],
+                OauthRequestType.Token => ParameterExtensions.AuthCodeTokenParamterPriority[Name],
+                OauthRequestType.OfflineAccess => ParameterExtensions.OfflineAccessTokenParamterPriority[Name],
+                OauthRequestType.ChangePassword => ParameterExtensions.ChangePasswordParamterPriority[Name],
+                OauthRequestType.ForgotPassword => ParameterExtensions.ForgotPasswordParamterPriority[Name],
                 _ => throw new InvalidDataException($"{Name} : Parameter priority is not set!")
             };
         }

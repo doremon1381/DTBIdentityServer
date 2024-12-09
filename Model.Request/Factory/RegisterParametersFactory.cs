@@ -46,7 +46,7 @@ namespace IssuerOfClaims.Models.Request.Factory
         private void SetUserName(RegisterParameters obj, string username)
         {
             var usernameP = PropertiesOfType.First(p => p.Name.Equals(nameof(RegisterRequest.UserName)));
-            var parameter = new Parameter(RegisterRequest.UserName, OauthRequest);
+            var parameter = new Parameter(RegisterRequest.UserName, OauthRequestType);
 
             parameter.SetValue(username);
             usernameP.SetValue(obj, usernameP);
@@ -57,7 +57,7 @@ namespace IssuerOfClaims.Models.Request.Factory
         private void SetPassword(RegisterParameters obj, string password)
         {
             var passwordP = PropertiesOfType.First(p => p.Name.Equals(nameof(RegisterRequest.Password)));
-            var parameter = new Parameter(RegisterRequest.Password, OauthRequest);
+            var parameter = new Parameter(RegisterRequest.Password, OauthRequestType);
 
             parameter.SetValue(password);
             passwordP.SetValue(obj, parameter);

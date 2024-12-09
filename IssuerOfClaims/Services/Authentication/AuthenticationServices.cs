@@ -295,6 +295,12 @@ namespace IssuerOfClaims.Services.Authentication
             return authenticateInfo.Split(" ").First().Trim();
         }
 
+        /// <summary>
+        /// TODO: IDX10223: Lifetime validation failed. The token is expired. ValidTo (UTC): '12/7/2024 4:56:41 AM', Current time (UTC): '12/8/2024 7:07:29 AM'.
+        /// </summary>
+        /// <param name="jwt"></param>
+        /// <returns></returns>
+        /// <exception cref="CustomException"></exception>
         private static string VerifyJwtTokenAndGetUserName(string jwt)
         {
             // verify with current public key

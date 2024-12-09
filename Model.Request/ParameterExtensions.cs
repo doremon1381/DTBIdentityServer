@@ -97,16 +97,16 @@ namespace IssuerOfClaims.Models.Request
             { SignInGoogleRequest.CodeVerifier, ParameterPriority.OPTIONAL }
         };
 
-        internal static Dictionary<Type, OauthRequest> ParametersForRequest = new Dictionary<Type, OauthRequest>()
+        internal static Dictionary<Type, OauthRequestType> ParametersForRequest = new Dictionary<Type, OauthRequestType>()
         {
-            { typeof(AuthCodeParameters), OauthRequest.AuthorizationCode },
-            { typeof(RegisterParameters), OauthRequest.Register },
+            { typeof(AuthCodeParameters), OauthRequestType.AuthorizationCode },
+            { typeof(RegisterParameters), OauthRequestType.Register },
             // TODO: will add later
             //{ typeof(TokenParameters), RequestType.Token },
-            { typeof(SignInGoogleParameters), OauthRequest.SignInGoogle },
-            { typeof(AuthCodeTokenParameters), OauthRequest.Token },
-            { typeof(OfflineAccessTokenParameters), OauthRequest.OfflineAccess },
-            { typeof(ChangePasswordParameters), OauthRequest.ChangePassword },
+            { typeof(SignInGoogleParameters), OauthRequestType.SignInGoogle },
+            { typeof(AuthCodeTokenParameters), OauthRequestType.Token },
+            { typeof(OfflineAccessTokenParameters), OauthRequestType.OfflineAccess },
+            { typeof(ChangePasswordParameters), OauthRequestType.ChangePassword },
         };
 
         internal static Dictionary<string, ParameterPriority> AuthCodeTokenParamterPriority = new Dictionary<string, ParameterPriority>()

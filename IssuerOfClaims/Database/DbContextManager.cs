@@ -84,7 +84,7 @@ namespace IssuerOfClaims.Database
 
             modelBuilder.Entity<UserIdentity>()
                 .Property(u => u.CreateTime)
-                .HasDefaultValueSql("getutcdate()");
+                .HasDefaultValueSql("getdate()");
 
             modelBuilder.Entity<IdentityRequestSession>()
                 .OwnsOne(s => s.PKCE);

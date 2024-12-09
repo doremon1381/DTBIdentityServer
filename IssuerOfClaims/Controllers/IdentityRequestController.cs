@@ -605,25 +605,23 @@ namespace IssuerOfClaims.Controllers
         private static void ACF_II_VerifyCodeChallenger(string codeVerifier, IdentityRequestHandler requestHandler)
         {
             // TODO: by default, those two go along together, maybe in different way in future when compare with which is used now
-            if (requestHandler.RequestSession.PKCE.CodeChallenge != null
-                && requestHandler.RequestSession.PKCE.CodeChallengeMethod != null)
+            if (requestHandler.RequestSession.PKCE.CodeChallenge == null
+                || requestHandler.RequestSession.PKCE.CodeChallengeMethod == null)
+                throw new CustomException(ExceptionMessage.CODE_CHALLENGE_METHOD_NOT_SUPPORT);
+
+            switch(requestHandler.RequestSession.PKCE.CodeChallengeMethod)
             {
-                if (requestHandler.RequestSession.PKCE.CodeChallengeMethod.Equals(CodeChallengeMethods.Plain))
-                {
+                case CodeChallengeMethods.Plain:
                     if (!codeVerifier.Equals(requestHandler.RequestSession.PKCE.CodeChallenge))
                         throw new CustomException(ExceptionMessage.CLIENT_OF_TOKEN_REQUEST_IS_DIFFERENT_WITH_AUTH_CODE_REQUEST, HttpStatusCode.BadRequest);
-                }
-                else if (requestHandler.RequestSession.PKCE.CodeChallengeMethod.Equals(CodeChallengeMethods.Sha256))
-                {
-                    var code_challenge = RNGCryptoServicesUltilities.Base64urlencodeNoPadding(codeVerifier.EncodingWithSHA265());
-                    if (!code_challenge.Equals(requestHandler.RequestSession.PKCE.CodeChallenge))
+                    break;
+                case CodeChallengeMethods.Sha256:
+                    var encoded = RNGCryptoServicesUltilities.Base64urlencodeNoPadding(codeVerifier.EncodingWithSHA265());
+                    if (!encoded.Equals(requestHandler.RequestSession.PKCE.CodeChallenge))
                         throw new CustomException(ExceptionMessage.CLIENT_OF_TOKEN_REQUEST_IS_DIFFERENT_WITH_AUTH_CODE_REQUEST, HttpStatusCode.BadRequest);
-                }
-                else
-                {
-                    throw new CustomException(ExceptionMessage.CODE_CHALLENGE_METHOD_NOT_SUPPORT);
-                }
-
+                    break;
+                default:
+                    break;
             }
         }
 
@@ -776,14 +774,15 @@ namespace IssuerOfClaims.Controllers
             catch (WebException ex)
             {
                 var response = ex.Response;
+                string errorMessage ="";
                 if (response != null)
                 {
                     using (StreamReader reader = new StreamReader(response.GetResponseStream()))
                     {
-                        var responseText = await reader.ReadToEndAsync();
+                        errorMessage = await reader.ReadToEndAsync();
                     }
                 }
-                throw;
+                throw new CustomException($"from google: {errorMessage}", (response as HttpWebResponse).StatusCode);
             }
             
 

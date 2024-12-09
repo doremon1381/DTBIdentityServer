@@ -48,7 +48,7 @@ namespace IssuerOfClaims.Models.Request.Factory
             var responseMode = PropertiesOfType.First(p => p.Name == nameof(AuthorizeRequest.ResponseMode));
             string value = QueryParameters.GetValue(responseMode.Name);
 
-            var parameter = new Parameter(AuthorizeRequest.ResponseMode, OauthRequest);
+            var parameter = new Parameter(AuthorizeRequest.ResponseMode, OauthRequestType);
 
             if (ParameterExtensions.SpecificMethodForInitiatingParameter.TryGetValue(AuthorizeRequest.ResponseMode, out Func<string, string, string> execute))
             {

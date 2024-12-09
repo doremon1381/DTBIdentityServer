@@ -1,6 +1,6 @@
 ﻿namespace IssuerOfClaims.Models.Request
 {
-    public enum OauthRequest
+    public enum OauthRequestType
     {
         AuthorizationCode,
         Token,

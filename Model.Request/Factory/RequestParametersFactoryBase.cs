@@ -9,7 +9,7 @@ namespace IssuerOfClaims.Models.Request.Factory
 {
     public abstract class RequestParametersFactoryBase<T> where T : class, IRequestParameters
     {
-        protected static readonly OauthRequest OauthRequest = ParameterExtensions.ParametersForRequest[typeof(T)];
+        protected static readonly OauthRequestType OauthRequestType = ParameterExtensions.ParametersForRequest[typeof(T)];
         /// <summary>
         /// constructor by default does not have any parameter
         /// </summary>
@@ -78,7 +78,7 @@ namespace IssuerOfClaims.Models.Request.Factory
             string parameterName = GetNameOfRequestParameter(property.Name);
             string value = QueryParameters.GetValue(parameterName);
 
-            var parameter = new Parameter(parameterName, OauthRequest);
+            var parameter = new Parameter(parameterName, OauthRequestType);
 
             if (ParameterExtensions.SpecificMethodForInitiatingParameter.TryGetValue(parameterName, out Func<string, string, string> execute))
             {

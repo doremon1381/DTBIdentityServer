@@ -321,6 +321,7 @@ namespace ServerUltilities.Identity
             // TODO: add this scheme for now
             public const string AuthorizationHeaderIdToken = "id_token";
             public const string AuthorizationHeaderRefreshToken = "refresh_token";
+            public const string ClientCredentialsBasic = "Client_Basic";
             // TODO: add this scheme for now
             public const string AuthorizationHeaderDPoP = "DPoP";
 

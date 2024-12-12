@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using IssuerOfClaims.Models.DbModel;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using System.Reflection.Emit;
 
 namespace IssuerOfClaims.Database
 {
@@ -72,22 +74,28 @@ namespace IssuerOfClaims.Database
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<Client>()
-                .HasMany(c => c.TokenRequestHandlers)
-                .WithOne(l => l.Client)
-                .HasForeignKey(c => c.ClientId);
-
             modelBuilder.Entity<IdentityRequestHandler>()
                 .HasMany(c => c.TokensPerRequestHandlers)
                 .WithOne(t => t.IdentityRequestHandler)
                 .HasForeignKey(c => c.IdentityRequestHandlerId);
 
+            //modelBuilder.Entity<UserIdentity>()
+            //    .HasMany(u => u.Clients)
+            //    .WithOne(c => c.UserIdentity)
+            //    .HasForeignKey(c => c.UserIdentityId);
+
             modelBuilder.Entity<UserIdentity>()
                 .Property(u => u.CreateTime)
                 .HasDefaultValueSql("getdate()");
 
+            modelBuilder.Entity<UserIdentity>()
+                .Property(u => u.UpdateTime)
+                .HasDefaultValueSql("getdate()");
+
             modelBuilder.Entity<IdentityRequestSession>()
                 .OwnsOne(s => s.PKCE);
+
+            modelBuilder.ApplyConfiguration(new ClientConfiguration());
 
             base.OnModelCreating(modelBuilder);
         }
@@ -110,6 +118,19 @@ namespace IssuerOfClaims.Database
 
             // TODO: logger as parameter is null for now
             return new DbContextManager(optionsBuilder.Options, null);
+        }
+    }
+
+    public class ClientConfiguration : IEntityTypeConfiguration<Client>
+    {
+        public void Configure(EntityTypeBuilder<Client> entity)
+        {
+            entity.HasMany(c => c.TokenRequestHandlers)
+                .WithOne(l => l.Client)
+                .HasForeignKey(c => c.ClientId);
+
+            entity.Property(e => e.PostLogoutRedirectUris).HasDefaultValue(string.Empty);
+            entity.Property(e => e.FrontChannelLogoutUri).HasDefaultValue(string.Empty);
         }
     }
 }

@@ -21,8 +21,7 @@ namespace IssuerOfClaims.Services.Database
             {
                 client = _Clients
                     .AsNoTracking()
-                    .Where(c => c.ClientId.Equals(id) && c.ClientSecrets.Contains(clientSecret))
-                    .First();
+                    .First(c => c.ClientId.Equals(id) && c.ClientSecrets.Contains(clientSecret));
             });
 
             ValidateEntity(client, HttpStatusCode.BadRequest, $"{nameof(ClientDbService)}: {ExceptionMessage.OBJECT_IS_NULL}");
@@ -39,8 +38,7 @@ namespace IssuerOfClaims.Services.Database
                 .AsNoTracking()
                 // TODO: will debug to know how in this step, the query result size can be around 40MB...
                 //.Include(c => c.TokenRequestHandlers).ThenInclude(c => c.RequestSession)
-                .Where(c => c.ClientId.Equals(clientId))
-                .First();
+                .First(c => c.ClientId.Equals(clientId));
             });
 
             ValidateEntity(client, HttpStatusCode.BadRequest, $"{nameof(ClientDbService)}: {ExceptionMessage.OBJECT_IS_NULL}");

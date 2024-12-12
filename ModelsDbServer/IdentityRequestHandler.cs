@@ -18,8 +18,8 @@ namespace IssuerOfClaims.Models.DbModel
         public IdentityRequestSession RequestSession { get; set; }
 
         [ForeignKey(nameof(UserId))]
-        public Guid UserId { get; set; }
-        public UserIdentity User { get; set; }
+        public Guid? UserId { get; set; }
+        public UserIdentity? User { get; set; }
 
         /// <summary>
         /// TODO: intend to use this login session with client, cause 

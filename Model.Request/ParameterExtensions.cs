@@ -16,7 +16,7 @@ namespace IssuerOfClaims.Models.Request
         private static string _EmailRegex = "^[\\w!#$%&'*+\\-/=?\\^_`{|}~]+(\\.[\\w!#$%&'*+\\-/=?\\^_`{|}~]+)*@((([\\-\\w]+\\.)+[a-zA-Z]{2,4})|(([0-9]{1,3}\\.){3}[0-9]{1,3}))\\z";
         internal static Dictionary<string, Func<string, string, string>> SpecificMethodForInitiatingParameter = new Dictionary<string, Func<string, string, string>>()
         {
-            { AuthorizeRequest.Scope, (str, str1) => { return Uri.UnescapeDataString(str); } },
+            { "scope", (str, str1) => { return Uri.UnescapeDataString(str); } },
             { AuthorizeRequest.RedirectUri, (str, str1) => { return Uri.UnescapeDataString(str); } },
             { AuthorizeRequest.ResponseMode, (responseMode, responseType) =>
             {
@@ -107,6 +107,7 @@ namespace IssuerOfClaims.Models.Request
             { typeof(AuthCodeTokenParameters), OauthRequestType.Token },
             { typeof(OfflineAccessTokenParameters), OauthRequestType.OfflineAccess },
             { typeof(ChangePasswordParameters), OauthRequestType.ChangePassword },
+            { typeof(ClientCredentialsParameters), OauthRequestType.ClientCredentials },
         };
 
         internal static Dictionary<string, ParameterPriority> AuthCodeTokenParamterPriority = new Dictionary<string, ParameterPriority>()
@@ -139,6 +140,14 @@ namespace IssuerOfClaims.Models.Request
         {
             { ForgotPasswordRequest.ClientId, ParameterPriority.REQRUIRED },
             { ForgotPasswordRequest.Email, ParameterPriority.REQRUIRED }
+        };
+
+        internal static Dictionary<string, ParameterPriority> ClientCredentialsParameterPriority = new Dictionary<string, ParameterPriority>()
+        {
+            { ClientCredentialsRequest.ClientId, ParameterPriority.REQRUIRED },
+            { ClientCredentialsRequest.ClientSecret, ParameterPriority.REQRUIRED },
+            { ClientCredentialsRequest.GrantType, ParameterPriority.REQRUIRED },
+            { ClientCredentialsRequest.Scope, ParameterPriority.OPTIONAL },
         };
 
         private static string GetDefaultResponseModeByResponseType(string responseType)

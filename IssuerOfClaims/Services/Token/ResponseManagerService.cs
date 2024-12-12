@@ -10,6 +10,8 @@ using IssuerOfClaims.Models.Request.RequestParameter;
 using ServerUltilities.Extensions;
 using static ServerUltilities.Identity.OidcConstants;
 using TokenResponse = IssuerOfClaims.Models.DbModel.TokenResponse;
+using IssuerOfClaims.Models.Request;
+using Newtonsoft.Json;
 
 namespace IssuerOfClaims.Services.Token
 {
@@ -311,6 +313,25 @@ namespace IssuerOfClaims.Services.Token
             return response;
         }
         #endregion
+
+        #region client credentials
+        public async Task<string> CCF_CreateResponseAsync(ClientCredentialsParameters parameters, Client client)
+        {
+            TokenResponse accessToken = _requestHandlerServices.CreateToken(TokenTypes.AccessToken);
+
+            object response = new 
+            {
+                access_token = accessToken.Token,
+                token_type = "bearer",
+                expired_in = accessToken.TokenExpiried - DateTime.Now
+            };
+
+            await _requestHandlerServices.CCF_BackgroundStuff(parameters, accessToken, client);
+
+            return JsonConvert.SerializeObject(response);
+
+        }
+        #endregion
     }
 
     public interface IResponseManagerService
@@ -323,5 +344,6 @@ namespace IssuerOfClaims.Services.Token
         Task<string> AuthGoogle_CreateResponseAsync(SignInGoogleParameters parameters, Client client,
             GoogleResponse fromGoogle,
             GoogleJsonWebSignature.Payload payload, UserIdentity user);
+        Task<string> CCF_CreateResponseAsync(ClientCredentialsParameters parameters, Client client);
     }
 }

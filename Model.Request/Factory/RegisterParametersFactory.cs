@@ -49,7 +49,7 @@ namespace IssuerOfClaims.Models.Request.Factory
             var parameter = new Parameter(RegisterRequest.UserName, OauthRequestType);
 
             parameter.SetValue(username);
-            usernameP.SetValue(obj, usernameP);
+            usernameP.SetValue(obj, parameter);
 
             PropertiesOfType.Remove(usernameP);
         }

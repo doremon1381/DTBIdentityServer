@@ -2,6 +2,7 @@
 using IssuerOfClaims.Extensions;
 using IssuerOfClaims.Models;
 using IssuerOfClaims.Models.DbModel;
+using IssuerOfClaims.Models.Request;
 using IssuerOfClaims.Models.Request.RequestParameter;
 using IssuerOfClaims.Services.Database;
 using ServerUltilities;
@@ -18,7 +19,7 @@ namespace IssuerOfClaims.Services.Token
 
         public RequestHanderService(IIdentityRequestSessionDbService sessionDbServices, IIdentityRequestHandlerDbService requestHandlerDbServices
             , ITokenForRequestHandlerDbService tokensForIdentityRequestDbServices
-            , ITokenService tokenServices) 
+            , ITokenService tokenServices)
         {
             _requestSessionDbServices = sessionDbServices;
             _requestHandlerDbServices = requestHandlerDbServices;
@@ -274,7 +275,7 @@ namespace IssuerOfClaims.Services.Token
 
         public async Task ACF_II_BackgroundStuffAsync(IdentityRequestHandler requestHandler, TokenResponse? refreshToken, TokenResponse accessToken)
         {
-            await TaskUtilities.RunAttachedToParentTask(() => 
+            await TaskUtilities.RunAttachedToParentTask(() =>
             {
                 CreateTokenResponsePerIdentityRequest(requestHandler, accessToken);
                 // for example, offline_access = false
@@ -308,6 +309,35 @@ namespace IssuerOfClaims.Services.Token
             });
         }
         #endregion
+
+        #region client credentials
+        public async Task CCF_BackgroundStuff(ClientCredentialsParameters parameters, TokenResponse accessToken, Client client)
+        {
+            await TaskUtilities.RunAttachedToParentTask(() =>
+            {
+                var ccfProcessSession = GetDraftRequestSession();
+
+                CCF_SaveSessionData(ccfProcessSession, parameters.Scope.Value);
+                CCF_CreateRequestHandler(client, ccfProcessSession, accessToken);
+            });
+        }
+
+        private void CCF_CreateRequestHandler(Client client, IdentityRequestSession ccfProcessSession, TokenResponse accessToken)
+        {
+            var requestHandler = GetDraftRequestHandler();
+            requestHandler.ClientId = client.Id;
+            requestHandler.RequestSession = ccfProcessSession;
+
+            UpdateRequestHandler(requestHandler);
+
+            CreateTokenResponsePerIdentityRequest(requestHandler, accessToken);
+        }
+
+        private static void CCF_SaveSessionData(IdentityRequestSession ccfProcessSession, string scope)
+        {
+            ccfProcessSession.Scope = scope;
+        }
+        #endregion
     }
 
     public interface IIdentityRequestHandlerService
@@ -327,6 +357,7 @@ namespace IssuerOfClaims.Services.Token
         TokenResponse CreateToken(string tokenType);
         TokenResponse CreateToken(string tokenType, DateTime expiredTime);
         Task Hybrid_I_BackgroundStuff(AuthCodeParameters @params, UserIdentity user, Client client, string authorizationCode, TokenResponse? accessToken);
+        Task CCF_BackgroundStuff(ClientCredentialsParameters parameters, TokenResponse accessToken, Client client);
         #endregion
     }
 }

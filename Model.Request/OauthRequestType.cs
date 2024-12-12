@@ -8,6 +8,7 @@
         SignInGoogle,
         OfflineAccess,
         ChangePassword,
-        ForgotPassword
+        ForgotPassword,
+        ClientCredentials
     }
 }

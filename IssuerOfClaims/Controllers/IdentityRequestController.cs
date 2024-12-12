@@ -197,8 +197,6 @@ namespace IssuerOfClaims.Controllers
             {
                 case GrantType.Implicit:
                     return await ToImplicitGrantProcessAsync(parameters);
-                case GrantType.ClientCredentials:
-                    throw new CustomException(ExceptionMessage.NOT_IMPLEMENTED, HttpStatusCode.NotImplemented);
                 case GrantType.Hybrid:
                     return await ToHybridFlowProcessAsync(parameters);
                 case GrantType.AuthorizationCode:
@@ -480,6 +478,38 @@ namespace IssuerOfClaims.Controllers
         }
         #endregion
 
+        #region client credentials
+        /// <summary>
+        /// TODO: intent to use SSL in this request
+        /// </summary>
+        /// <param name="requestBody"></param>
+        /// <returns></returns>
+        private async Task<ActionResult> ToClientCredentialsFlowProcessAsync(string requestBody)
+        {
+            var parameters = new ClientCredentialsParametersFactory(requestBody)
+                .ExtractParametersFromQuery();
+
+            CCF_GrantTypeCheck(parameters.GrantType.Value);
+            var client = await CCF_ClientIdentityCheck(parameters.ClientId.Value, parameters.ClientSecret.Value);
+
+            var response = await ResponseManager.CCF_CreateResponseAsync(parameters, client);
+
+            return StatusCode((int)HttpStatusCode.OK, response);
+        }
+
+        private async Task<Client> CCF_ClientIdentityCheck(string clientId, string clientSecret)
+        {
+            return await ClientDbServices.FindAsync(clientId, clientSecret);
+        }
+
+        private static bool CCF_GrantTypeCheck(string grantType)
+        {
+            if (!grantType.Equals(GrantTypes.ClientCredentials))
+                throw new CustomException("grant type of client credential flow is not accepted!");
+            return true;
+        }
+        #endregion
+
         #region Issue token
         // TODO: try to implement from
         //     : https://www.oauth.com/oauth2-servers/making-authenticated-requests/refreshing-an-access-token/
@@ -506,6 +536,8 @@ namespace IssuerOfClaims.Controllers
                     }
                 case OidcConstants.GrantTypes.AuthorizationCode:
                     return await IssueTokenForAuthorizationCodeAsync(requestBody);
+                case GrantType.ClientCredentials:
+                    return await ToClientCredentialsFlowProcessAsync(requestBody);
                 default:
                     return StatusCode((int)HttpStatusCode.NotImplemented, ExceptionMessage.NOT_IMPLEMENTED);
             }

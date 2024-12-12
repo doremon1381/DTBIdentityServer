@@ -159,8 +159,8 @@ namespace IssuerOfClaims.Services.Token
                 claims.Add(new Claim(JwtClaimTypes.Name, user.FullName));
                 claims.Add(new Claim(JwtClaimTypes.Gender, user.Gender));
                 claims.Add(new Claim(JwtClaimTypes.UpdatedAt, user.UpdateTime.ToString()));
-                claims.Add(new Claim(JwtClaimTypes.Picture, user.Avatar));
-                claims.Add(new Claim(JwtClaimTypes.BirthDate, user.DateOfBirth.ToString()));
+                claims.Add(new Claim(JwtClaimTypes.Picture, user.Avatar ?? ""));
+                claims.Add(new Claim(JwtClaimTypes.BirthDate, user.DateOfBirth != null ? user.DateOfBirth.ToString(): ""));
             }
             if (scopeVariables.Contains(IdentityServerConstants.StandardScopes.Email))
             {

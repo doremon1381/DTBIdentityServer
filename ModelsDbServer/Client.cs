@@ -32,20 +32,10 @@ namespace IssuerOfClaims.Models.DbModel
         public string PostLogoutRedirectUris { get; set; }
         public string FrontChannelLogoutUri { get; set; }
         public string AllowedScopes { get; set; }
-        public string AuthProviderX509CertUrl { get; set; }
+        //public string AuthProviderX509CertUrl { get; set; }
         public List<IdentityRequestHandler> TokenRequestHandlers { get; set; }
 
-        public Client()
-        {
-            ClientId = "";
-            ClientSecrets = string.Empty;
-            AllowedGrantTypes = string.Empty;
-            RedirectUris = string.Empty;
-            PostLogoutRedirectUris = string.Empty;
-            FrontChannelLogoutUri = "";
-            AuthProviderX509CertUrl = "";
-            AllowedScopes = string.Empty;
-
-        }
+        public Guid UserIdentityId { get; set; }
+        //public UserIdentity UserIdentity { get; set; }
     }
 }

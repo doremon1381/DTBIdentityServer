@@ -45,6 +45,13 @@ namespace IssuerOfClaims.Models.DbModel
         /// TODO: Will learn how to use it later
         /// </summary>
         public override string? SecurityStamp { get; set; } = null;
+
+        /// <summary>
+        /// By default, a client must have an user identity as it owner. 
+        /// <para>Because it need an user to be created. I will add function to create client in the future.</para>
+        /// </summary>
+        public List<Client> Clients { get; set; }
+
         ///// <summary>
         ///// Created along with user, only change when update user's data
         ///// </summary>
@@ -52,5 +59,22 @@ namespace IssuerOfClaims.Models.DbModel
         public List<ConfirmEmail>? ConfirmEmails { get; set; }
         public List<IdentityUserRole> IdentityUserRoles { get; set; }
         public List<IdentityRequestHandler> IdentityRequestHandlers { get; set; }
+
+        // TODO: temporary
+        public UserIdentity()
+        {
+            this.AccessFailedCount = 0;
+            this.PhoneNumber = string.Empty;
+            this.PhoneNumberConfirmed = false;
+            this.Email = string.Empty;
+            this.LockoutEnabled = false;
+            this.ConcurrencyStamp = string.Empty;
+            this.LockoutEnd = null;
+            this.NormalizedUserName = string.Empty;
+            this.NormalizedEmail = string.Empty;
+            this.SecurityStamp = string.Empty;
+            this.TwoFactorEnabled = false;
+            this.Avatar = "";
+        }
     }
 }

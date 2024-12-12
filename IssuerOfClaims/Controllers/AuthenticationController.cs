@@ -105,13 +105,15 @@ namespace IssuerOfClaims.Controllers
             var user = await _applicationUserManager.CreateUserAsync(parameters);
 
             // TODO: https://openid.net/specs/openid-connect-prompt-create-1_0.html#name-authorization-request
-            var client = await _clientDbServices.FindAsync(parameters.ClientId.Value);
+            Client? client = parameters.ClientId.Value != "" 
+                ?  await _clientDbServices.FindAsync(parameters.ClientId.Value) 
+                : null;
 
             // TODO: will check again
-            string id_token = await _tokenManager.GenerateIdTokenAsync(user, string.Empty, parameters.Nonce.Value, client.ClientId);
+            string id_token = await _tokenManager.GenerateIdTokenAsync(user, string.Empty, parameters.Nonce.Value, client != null ? client.ClientId : "");
 
             if (parameters.Email.HasValue)
-                await _emailServices.SendVerifyingEmailAsync(user, "confirmEmail", client.Id, Request.Scheme, Request.Host.ToString());
+                await _emailServices.SendVerifyingEmailAsync(user, "confirmEmail", client != null ?  client.Id : null, Request.Scheme, Request.Host.ToString());
 
             object responseBody = CreateRegisterUserResponseBody(id_token, parameters.State.Value, parameters.State.HasValue);
 

@@ -144,6 +144,8 @@ namespace IssuerOfClaims.Services.Authentication
                 AuthenticationSchemes.AuthorizationHeaderBearer => new(await BearerToken_FindUserAsync(authenticateInfor), AuthenticationSchemes.AuthorizationHeaderBearer),
                 // TODO: for now, I allow id token can be use to authenticate, will update later
                 AuthenticationSchemes.AuthorizationHeaderIdToken => new(await IdToken_FindUserAsync(authenticateInfor), AuthenticationSchemes.AuthorizationHeaderIdToken),
+                // TODO
+                //AuthenticationSchemes.ClientCredentialsBasic => new(await ClientCredentials_FindUserAsync(authenticateInfor), AuthenticationSchemes.ClientCredentialsBasic),
                 // 
                 //AuthenticationSchemes.AuthorizationHeaderRefreshToken => new (await RefreshToken_FindUserAsync(authenticateInfor), AuthenticationSchemes.AuthorizationHeaderRefreshToken),
                 _ => throw new InvalidOperationException(ExceptionMessage.UNHANDLED_AUTHENTICATION_SCHEME)
@@ -166,6 +168,10 @@ namespace IssuerOfClaims.Services.Authentication
             {
                 return AuthenticationSchemes.AuthorizationHeaderIdToken;
             }
+            //else if (scheme.Equals(AuthenticationSchemes.ClientCredentialsBasic.ToUpper()))
+            //{
+            //    return AuthenticationSchemes.ClientCredentialsBasic;
+            //}
             //else if (scheme.Equals(AuthenticationSchemes.AuthorizationHeaderRefreshToken.ToUpper()))
             //{
             //    return AuthenticationSchemes.AuthorizationHeaderRefreshToken;
@@ -225,7 +231,18 @@ namespace IssuerOfClaims.Services.Authentication
             var accessToken = GetAuthenticationParameter(authenticateInfo);
             var tokenResponse = await _tokenResponsePerHandlerDbServices.FindByAccessTokenAsync(accessToken);
 
-            return tokenResponse.IdentityRequestHandler.User;
+            // if user == null, then it is for client credential
+            if (tokenResponse.IdentityRequestHandler.User != null)
+            {
+                return tokenResponse.IdentityRequestHandler.User;
+            }
+            else
+            {
+                //var user = await _userManager.Current.FindByIdAsync(tokenResponse.IdentityRequestHandler.Client.UserIdentityId.ToString());
+
+                // TODO
+                return null;
+            }
         }
         #endregion
 
@@ -366,6 +383,14 @@ namespace IssuerOfClaims.Services.Authentication
         }
         #endregion
 
+        #region client credentials
+        //private static Task<UserIdentity> ClientCredentials_FindUserAsync(string authenticateInfor)
+        //{
+        //    var clientInfo = authenticateInfor.Split(" ").Last().Trim().ToBase64Decode();
+
+        //}
+        #endregion
+
         /// <summary>
         /// TODO: For now, use ClaimTypes of NetCore
         /// use when user login
@@ -382,7 +407,7 @@ namespace IssuerOfClaims.Services.Authentication
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.MobilePhone, user.PhoneNumber),
                 new Claim(ClaimTypes.Gender, user.Gender),
-                new Claim(JwtClaimTypes.Picture, user.Avatar),
+                new Claim(JwtClaimTypes.Picture, user.Avatar ?? ""),
                 new Claim(JwtClaimTypes.UpdatedAt, user.UpdateTime.ToString()),
                 new Claim(JwtClaimTypes.EmailVerified, user.EmailConfirmed.ToString()),
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())

@@ -14,7 +14,7 @@ namespace IssuerOfClaims
         /// </summary>
         /// <param name="configuration"></param>
         /// <returns></returns>
-        internal static bool CreateClient(DbContextManager dbContext)
+        internal static bool CreateClient(DbContextManager dbContext, UserIdentity user)
         {
             var clientSet = dbContext.GetDbSet<Client>();
             var clients = clientSet.Count();
@@ -25,15 +25,20 @@ namespace IssuerOfClaims
                 printingManagermentServer.ClientId = "ManagermentServer";
                 printingManagermentServer.ClientSecrets = (new Secret("secretServer".Sha256()).Value);
                 printingManagermentServer.AllowedGrantTypes = (GrantType.ClientCredentials);
-                printingManagermentServer.RedirectUris = ("http://localhost:59867/" + "," + "http://127.0.0.1/login/");
+                printingManagermentServer.RedirectUris = ("http://localhost:59867/" + "," + "http://127.0.0.1/login/" + "," + "http://localhost:59867/login/");
                 printingManagermentServer.PostLogoutRedirectUris = ("http://localhost:5173/");
                 printingManagermentServer.FrontChannelLogoutUri = "http://localhost:5173/signout-oidc";
+                printingManagermentServer.UserIdentityId = user.Id;
                 printingManagermentServer.AllowedScopes = $"{IdentityServerConstants.StandardScopes.OpenId} {IdentityServerConstants.StandardScopes.Profile} {IdentityServerConstants.StandardScopes.Email} {Constants.CustomScope.Role} {IdentityServerConstants.StandardScopes.OfflineAccess}";
 
                 var printingManagermentDbServer = new Client();
                 printingManagermentDbServer.ClientId = "ManagermentDbServer";
                 printingManagermentDbServer.ClientSecrets = (new Secret("secretServerDb".Sha256()).Value);
                 printingManagermentDbServer.AllowedGrantTypes = (GrantType.ClientCredentials);
+                printingManagermentDbServer.FrontChannelLogoutUri = "";
+                printingManagermentDbServer.PostLogoutRedirectUris = "";
+                printingManagermentDbServer.RedirectUris = "";
+                printingManagermentDbServer.UserIdentityId = user.Id;
                 printingManagermentDbServer.AllowedScopes = ($"{IdentityServerConstants.StandardScopes.OfflineAccess}");
 
                 var printingManagermentWeb = new Client();
@@ -41,14 +46,16 @@ namespace IssuerOfClaims
                 printingManagermentWeb.ClientSecrets = (new Secret("secretWeb".Sha256()).Value);
                 printingManagermentWeb.AllowedGrantTypes = (GrantType.AuthorizationCode);
                 //printingManagermentWeb.RedirectUris = ("http://localhost:7209/callback");
-                printingManagermentWeb.RedirectUris = ("http://localhost:59867/" + "," + "http://127.0.0.1/login/");
+                printingManagermentWeb.RedirectUris = ("http://localhost:59867/" + "," + "http://127.0.0.1/login/" + "," + "http://localhost:59867/login/");
                 printingManagermentWeb.PostLogoutRedirectUris = ("http://localhost:5173/");
                 printingManagermentWeb.FrontChannelLogoutUri = "http://localhost:5173/signout-oidc";
+                printingManagermentWeb.UserIdentityId = user.Id;
                 printingManagermentWeb.AllowedScopes = $"{IdentityServerConstants.StandardScopes.OpenId} {IdentityServerConstants.StandardScopes.Profile} {IdentityServerConstants.StandardScopes.Email} {Constants.CustomScope.Role} {IdentityServerConstants.StandardScopes.OfflineAccess}";
 
                 var newClients = new List<Client>() { printingManagermentServer, printingManagermentDbServer, printingManagermentWeb };
 
                 clientSet.AddRange(newClients);
+
                 dbContext.SaveChanges();
             }
 

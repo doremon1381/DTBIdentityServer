@@ -15,10 +15,11 @@ namespace IssuerOfClaims.Models.Request
         private static readonly Type _signInGoogleRequestType = typeof(SignInGoogleRequest);
         private static readonly Type _changePasswordRequestType = typeof(ChangePasswordRequest);
         private static readonly Type _forgotPasswordRequestType = typeof(ForgotPasswordRequest);
+        private static readonly Type _clientCredentialsRequestType = typeof(ClientCredentialsRequest);
         private static readonly Type _tokenRequestType = typeof(TokenRequest);
         //private static readonly Type _hybridRequestType = typeof(HybridRequest);
 
-        public static FieldInfo[] ParameterNames(Type type)
+        public static FieldInfo[] GetFiledsOfType(Type type)
         {
             return type.Name switch
             {
@@ -39,6 +40,8 @@ namespace IssuerOfClaims.Models.Request
                 nameof(ChangePasswordParameters) => _changePasswordRequestType.GetFields(
                     BindingFlags.Public | BindingFlags.Static),
                 nameof(ForgotPasswordParameters) => _forgotPasswordRequestType.GetFields(
+                    BindingFlags.Public | BindingFlags.Static),
+                nameof(ClientCredentialsParameters) => _clientCredentialsRequestType.GetFields(
                     BindingFlags.Public | BindingFlags.Static),
                 //nameof(HybridParameters) => _hybridRequestType.GetFields(
                 //    BindingFlags.Public & BindingFlags.Static),

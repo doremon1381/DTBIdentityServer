@@ -38,7 +38,7 @@ namespace IssuerOfClaims.Services
             await SendMailAsync(user.UserName, user.Email, emailBody);
         }
 
-        public async Task SendVerifyingEmailAsync(UserIdentity user, string callbackEndpoint, Guid clientId, string requestScheme, string requestHost)
+        public async Task SendVerifyingEmailAsync(UserIdentity user, string callbackEndpoint, Guid? clientId, string requestScheme, string requestHost)
         {
             var code = await _applicationUserManager.Current.GenerateEmailConfirmationTokenAsync(user);
             code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
@@ -113,7 +113,7 @@ namespace IssuerOfClaims.Services
             }
         }
 
-        private void CreateConfirmEmail(Guid userId, string code, Guid clientId, string purpose, int expiredTimeInMinutes)
+        private void CreateConfirmEmail(Guid userId, string code, Guid? clientId, string purpose, int expiredTimeInMinutes)
         {
             try
             {
@@ -139,7 +139,7 @@ namespace IssuerOfClaims.Services
             }
         }
 
-        private async Task CreateConfirmEmailAsync(Guid userId, Guid clientId, string code, string purpose, int expiredTimeInMinutes)
+        private async Task CreateConfirmEmailAsync(Guid userId, Guid? clientId, string code, string purpose, int expiredTimeInMinutes)
         {
             await Task.Run(() => CreateConfirmEmail(userId, code, clientId, purpose, expiredTimeInMinutes));
         }
@@ -153,7 +153,7 @@ namespace IssuerOfClaims.Services
     public interface IEmailService
     {
         Task SendForgotPasswordCodeToEmailAsync(UserIdentity user, Guid clientId);
-        Task SendVerifyingEmailAsync(UserIdentity user, string callbackEndpoint, Guid clientId, string requestScheme, string requestHost);
+        Task SendVerifyingEmailAsync(UserIdentity user, string callbackEndpoint, Guid? clientId, string requestScheme, string requestHost);
         Task<ConfirmEmail> GetChangePasswordEmailByCodeAsync(string code);
         bool UpdateConfirmEmail(ConfirmEmail emailForChangingPassword);
     }

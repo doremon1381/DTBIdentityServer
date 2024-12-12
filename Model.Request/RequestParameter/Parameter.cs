@@ -50,6 +50,7 @@ namespace IssuerOfClaims.Models.Request.RequestParameter
                 OauthRequestType.OfflineAccess => ParameterExtensions.OfflineAccessTokenParamterPriority[Name],
                 OauthRequestType.ChangePassword => ParameterExtensions.ChangePasswordParamterPriority[Name],
                 OauthRequestType.ForgotPassword => ParameterExtensions.ForgotPasswordParamterPriority[Name],
+                OauthRequestType.ClientCredentials => ParameterExtensions.ClientCredentialsParameterPriority[Name],
                 _ => throw new InvalidDataException($"{Name} : Parameter priority is not set!")
             };
         }

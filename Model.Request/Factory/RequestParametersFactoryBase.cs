@@ -91,10 +91,11 @@ namespace IssuerOfClaims.Models.Request.Factory
 
         protected static string GetNameOfRequestParameter(string propertyName)
         {
-            var normalizedName = RequestParameterExtension.ParameterNames(typeof(T)).FirstOrDefault(p => p.Name.ToUpper().Equals(propertyName.ToUpper()));
+            var field = RequestParameterExtension.GetFiledsOfType(typeof(T))
+                .FirstOrDefault(p => p.Name.ToUpper().Equals(propertyName.ToUpper()));
             
             // TODO:
-            var name = (string)normalizedName.GetValue(null) ?? throw new CustomException("");
+            var name = (string)field.GetValue(null) ?? throw new CustomException("");
 
             return name;
         }
